@@ -41,14 +41,19 @@ def _blocked(text):
 
 
 class TestIPv4InIPv6IsJudgedByItsDestination(unittest.TestCase):
+    # These tests assert only the GUARD's verdict. They used to begin by asserting
+    # the stdlib's own misclassification first ("the wrapper still lies"), but that
+    # is version-dependent: Python 3.9 calls ::ffff:<public> private and 6to4-of-
+    # private not private, and newer CPython corrected both. On a corrected Python
+    # the precondition failed and the test stopped before ever checking the guard —
+    # on 3.12, the interpreter the app ships, the guard was going unchecked. The
+    # guard unwraps the embedded IPv4 itself, so it must be right on both.
+
     def test_public_ipv4_mapped_addresses_are_allowed(self):
         # The false BLOCK. 104.18.43.76 is a real public address themeforest.net
-        # resolves to; wrapped, Python calls it private AND reserved.
-        wrapped = ipaddress.ip_address("::ffff:104.18.43.76")
-        self.assertTrue(wrapped.is_private)  # the wrapper still lies...
-        self.assertTrue(wrapped.is_reserved)
-        self.assertFalse(_blocked("::ffff:104.18.43.76"))  # ...we no longer believe it
-        self.assertFalse(_blocked("104.18.43.76"))  # and both forms now agree
+        # resolves to; Python 3.9 calls the mapped form private AND reserved.
+        self.assertFalse(_blocked("::ffff:104.18.43.76"))
+        self.assertFalse(_blocked("104.18.43.76"))  # and both forms agree
 
     def test_private_ipv4_mapped_addresses_are_still_blocked(self):
         for addr in ("::ffff:127.0.0.1", "::ffff:10.0.0.5", "::ffff:169.254.169.254"):
@@ -63,12 +68,15 @@ class TestIPv4InIPv6IsJudgedByItsDestination(unittest.TestCase):
         self.assertTrue(_blocked("64:ff9b::169.254.169.254"))
 
     def test_6to4_wrapping_a_private_address_is_blocked(self):
-        # The false ALLOW this closes: 2002:0a00:0001:: embeds 10.0.0.1 and
-        # Python reports it neither private nor reserved.
-        hole = ipaddress.ip_address("2002:0a00:0001::1")
-        self.assertFalse(hole.is_private)
-        self.assertFalse(hole.is_reserved)
-        self.assertTrue(_blocked("2002:0a00:0001::1"))
+        # The false ALLOW this closes: 2002:0a00:0001:: embeds 10.0.0.1, and
+        # Python 3.9 reports it neither private nor reserved.
+        for addr in (
+            "2002:0a00:0001::1",  # 10.0.0.1
+            "2002:7f00:0001::1",  # 127.0.0.1
+            "2002:a9fe:a9fe::1",  # 169.254.169.254, the cloud metadata address
+        ):
+            with self.subTest(addr=addr):
+                self.assertTrue(_blocked(addr))
         # A 6to4 address wrapping a PUBLIC v4 is still fine.
         self.assertFalse(_blocked("2002:6812:2b4c::1"))
 

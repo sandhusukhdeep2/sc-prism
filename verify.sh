@@ -37,8 +37,21 @@ else
 fi
 
 if [ -d engine/tests ]; then
-  echo "== engine (python) =="
-  python3 -m unittest discover -s engine/tests 2>&1 | tail -3 || fail=1
+  # Test on the interpreter the app SHIPS — the pinned .pytool runtime — not
+  # whatever python3 happens to be on PATH. They were different (Xcode's 3.9
+  # here, 3.12 in the bundle), and two SSRF tests passed on one and failed on the
+  # other, so this gate was vouching for a Python the app never runs.
+  PY=python3
+  [ -x .pytool/python/bin/python3 ] && PY=.pytool/python/bin/python3
+  echo "== engine (python $("$PY" -c 'import platform; print(platform.python_version())')) =="
+  if "$PY" -m unittest discover -s engine/tests >/tmp/scprism-python.log 2>&1; then
+    tail -3 /tmp/scprism-python.log
+  else
+    echo "python tests FAILED:"
+    grep -E "^(FAIL|ERROR):" /tmp/scprism-python.log
+    tail -40 /tmp/scprism-python.log
+    fail=1
+  fi
 fi
 
 # Go Bifrost gateway (tranche E-Bifrost). Only when the repo-local Go toolchain

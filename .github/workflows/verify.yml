@@ -14,9 +14,9 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -37,9 +37,12 @@ jobs:
         run: |
           set -o pipefail
           ./verify.sh | tee verify.log
-          # verify.sh skips — and still passes — when a toolchain is missing.
-          # In CI every toolchain is installed, so a skip means something broke.
-          if grep -q "skipped" verify.log; then
+          # verify.sh skips a step — and still passes — when its toolchain is
+          # missing, printing "== <step> == skipped". In CI every toolchain is
+          # installed, so that means something broke. Match only that marker:
+          # a passing Python run prints "OK (skipped=N)" for tests that skip
+          # themselves, which is not a skipped STEP.
+          if grep -qE "^== .* == skipped" verify.log; then
             echo "::error::a verify step was skipped in CI"
             exit 1
           fi
