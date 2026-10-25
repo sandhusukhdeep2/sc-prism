@@ -1,0 +1,80 @@
+/* Automations (was Loop mission-control) — 2026-08-09 honesty pass.
+   The simulator's chrome (command bar, plan column, verdict stream, state pill,
+   counters) is deleted with the simulator. What remains: the page shell, live
+   rows, and the standing-loop row idioms (.stand__*, also used by the Agents
+   page's manager toggles). Job/heartbeat rows reuse Agents.css's .mgrs__* rows
+   rather than inventing a second visual language. */
+
+.auto { display: flex; flex-direction: column; gap: 14px; padding: 18px 24px 28px; overflow-y: auto; }
+.auto__head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.auto__title { font-size: 21px; font-weight: 300; color: var(--ink); margin: 0; }
+.auto__title b { font-weight: 600; }
+.auto__hint { font-size: 10.5px; color: var(--muted-2); }
+.auto__spacer { flex: 1; }
+.auto__link { font-size: 11px; color: var(--ink-3); text-decoration: none; }
+.auto__link:hover { text-decoration: underline; }
+
+.auto__card {
+  border-radius: var(--v2-r-inner);
+  background: var(--card-solid);
+  box-shadow: var(--v2-shadow);
+  padding: 15px 18px;
+}
+.auto__cardhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.auto__kicker { font-size: 14px; font-weight: 600; color: var(--ink); }
+.auto__group { margin-top: 10px; }
+.auto__grouphead { display: flex; align-items: baseline; gap: 10px; padding-top: 6px; }
+.auto__groupname { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.auto__meta { font-size: 10px; color: var(--muted-2); }
+
+.auto__row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--hair-2); }
+.auto__rowtitle { font-size: 12.5px; color: var(--ink); }
+.auto__kind { font-size: 9.5px; color: var(--muted-2); border: 1px solid var(--hair); border-radius: var(--v2-r-chip); padding: 1px 6px; }
+.auto__pulse {
+  width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px;
+  background: var(--gold-deep); box-shadow: 0 0 8px var(--gold-deep);
+  animation: auto-pulse 1.4s ease-in-out infinite;
+}
+@keyframes auto-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.auto__empty {
+  border-radius: var(--v2-r-inner); background: var(--card-solid); box-shadow: var(--v2-shadow);
+  padding: 20px 22px;
+}
+.auto__emptytitle { font-size: 14px; font-weight: 600; color: var(--ink); }
+.auto__emptysub { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.6; max-width: 62ch; }
+.auto__emptysub a { color: var(--ink-3); }
+
+/* ── standing loops (row idioms shared with the Agents page) ─── */
+.stand__hint { font-size: 10.5px; color: var(--muted-2); }
+.stand__form { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+.stand__task {
+  flex: 1 1 300px; height: 38px; border-radius: var(--v2-r-chip);
+  background: var(--field-fill); border: 1px solid rgba(0,0,0,0.07); padding: 0 12px;
+  font-size: 12.5px; color: var(--ink);
+}
+.stand__every { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.stand__mins {
+  width: 58px; height: 38px; border-radius: var(--v2-r-chip); text-align: center;
+  background: var(--field-fill); border: 1px solid rgba(0,0,0,0.07); font-size: 12.5px; color: var(--ink);
+}
+.stand__add {
+  height: 38px; padding: 0 16px; border: 0; border-radius: var(--v2-r-chip);
+  background: var(--dark); color: #83a2db; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.stand__add:disabled { opacity: 0.5; cursor: default; }
+.stand__list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.stand__row { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: var(--v2-r-chip); background: #fff; box-shadow: var(--v2-shadow-soft); }
+.stand__row--off { opacity: 0.6; }
+.stand__toggle { width: 36px; height: 21px; border-radius: var(--v2-r-pill); background: var(--track); position: relative; flex: 0 0 36px; cursor: pointer; }
+.stand__toggle--on { background: var(--gold-grad); }
+.stand__knob { position: absolute; left: 3px; top: 3px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: var(--v2-shadow-soft); }
+.stand__toggle--on .stand__knob { left: auto; right: 3px; }
+.stand__rowtask { font-size: 12.5px; color: var(--ink); }
+.stand__spacer { flex: 1; }
+.stand__meta { font-size: 10.5px; color: var(--muted-2); }
+.stand__dot { width: 8px; height: 8px; border-radius: 50%; }
+.stand__dot--ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.stand__dot--err { background: #ce6969; box-shadow: var(--v2-shadow-soft); }
+.stand__del { border: 0; background: none; color: var(--muted-2); font-size: 13px; cursor: pointer; padding: 3px 5px; border-radius: var(--v2-r-chip); }
+.stand__del:hover { color: var(--danger-ink); background: rgba(206, 105, 105,0.08); }

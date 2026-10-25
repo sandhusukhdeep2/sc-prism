@@ -1,0 +1,120 @@
+.welcome {
+  position: relative;
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--content-grad);
+}
+
+.welcome__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: -30px;
+}
+
+/* prism mark */
+.welcome__prism {
+  position: relative;
+  width: 420px;
+  height: 240px;
+}
+.welcome__beams {
+  position: absolute;
+  inset: 0;
+}
+.welcome__orb {
+  position: absolute;
+  left: 158px;
+  top: 66px;
+  width: 104px;
+  height: 108px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #fff 0%, #dfe6ff 20%, #83a2db 48%, #b08cf2 78%, #6b5ad1 100%);
+  animation: welcomeOrbPulse 5s ease-in-out infinite;
+}
+.welcome__halo {
+  position: absolute;
+  left: 144px;
+  top: 52px;
+  width: 132px;
+  height: 136px;
+  border-radius: 50%;
+  border: 1px solid rgba(131, 162, 219, 0.3);
+  border-top-color: rgba(131, 162, 219, 0.6);
+  animation: welcomeHaloSpin 12s linear infinite;
+}
+
+.welcome__brand {
+  font-size: 52px;
+  font-weight: 300;
+  color: var(--ink);
+  letter-spacing: -0.03em;
+  margin-top: 8px;
+}
+.welcome__brand-strong {
+  font-weight: 600;
+}
+.welcome__lead {
+  font-size: 17px;
+  color: var(--ink-2);
+  margin-top: 14px;
+  max-width: 460px;
+  line-height: 1.5;
+}
+.welcome__tag {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.welcome__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 38px;
+  padding: 15px 34px;
+  border-radius: var(--v2-r-inner);
+  background: var(--gold-grad);
+  color: var(--on-gold);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: var(--v2-shadow);
+}
+.welcome__cta-arrow {
+  font-size: 17px;
+}
+.welcome__restore {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted-2);
+  cursor: pointer;
+}
+
+.welcome__ver {
+  position: absolute;
+  left: 26px;
+  bottom: 22px;
+  font-size: 11px;
+  color: var(--muted-3);
+}
+
+@keyframes welcomeOrbPulse {
+  0%, 100% { box-shadow: var(--v2-shadow); }
+  50%      { box-shadow: var(--v2-shadow); }
+}
+@keyframes welcomeHaloSpin {
+  from { transform: rotate(0); }
+  to   { transform: rotate(360deg); }
+}
+
+button.welcome__restore { border: 0; background: none; font: inherit; cursor: pointer; }
+
+/* The solo/company fork — two CTAs, solo stays primary. */
+.welcome__fork { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.welcome__cta--company { background: none; color: var(--ink); border: 1px solid var(--hair-7); box-shadow: none; }
+.welcome__cta--company:hover { background: var(--field-fill); }

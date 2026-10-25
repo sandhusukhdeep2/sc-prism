@@ -1,0 +1,415 @@
+/* SC Prism — design tokens.
+   PRIMARY theme = "Amber" (warm cream + gold light), extracted from the generated
+   design set. Dark "Prism" is a secondary theme to be added later via [data-theme]. */
+
+:root {
+  /* surfaces */
+  --shell: var(--v2-paper);
+  --content-grad: var(--v2-ground);
+  --card: var(--v2-card);
+  --card-solid: var(--v2-card);
+  --dark: var(--v2-accent);
+  --hair: var(--v2-line);
+  --hair-2: var(--v2-line);
+  --fill-soft: var(--v2-fill);
+  --fill-soft-2: var(--v2-fill);
+
+  /* semantic SOLID surfaces (flip per theme; Amber values == today's literals,
+     so Amber stays byte-identical while the dark themes get legible dark fills).
+     --input-fill = the pure-white writable/prominent surface (composer, message
+     bubbles, prominent white cards, white inputs); --field-fill = the soft cream
+     input field; --raise = a frosted raised chip/pill; --bubble-ink = the body
+     text that sits ON those solid surfaces; --chart-dark = the charcoal chart
+     series + its legend swatch (must flip light so it reads on a dark card). */
+  --input-fill: var(--v2-card);
+  --field-fill: var(--v2-fill);
+  --raise: var(--v2-board);
+  --bubble-ink: var(--v2-ink);
+  --chart-dark: var(--v2-accent);
+  --on-chart-dark: var(--v2-on-accent); /* label that sits ON a --chart-dark bar (flips with it) */
+
+  /* --code-fill = the Editor code pane's warm off-white surface. Amber keeps the
+     exact #fdfcf7 it always had (a hair warmer than pure white, so it must NOT
+     fold onto --input-fill=#fff); dark flips to a recessed code-pane dark that
+     reads distinctly from the surrounding card so the editor still looks inset. */
+  --code-fill: var(--v2-fill);
+
+  /* --raise had several distinct Amber opacities before Batch 2 wrongly folded
+     them all into one 0.6 (whiter draft card, etc). Each surface keeps its own
+     Amber literal here; ALL dark variants share one faint uniform white (same
+     value Batch 2 already uses for --raise in dark) since the dark themes only
+     need "a frosted raised chip," not the original relative strengths. */
+  --raise-35: var(--v2-board);
+  --raise-50: var(--v2-board);
+  --raise-55: var(--v2-board);
+
+  /* Hairline borders Batch 2 also wrongly folded onto --hair (0.06). Each
+     Amber literal is restored here; dark values keep the same alpha but flip
+     the channel from black to white (0,0,0,a) -> (255,255,255,a) so the
+     relative border-weight ordering (0.06 < 0.07 < 0.1 < 0.14) still reads on
+     the dark themes, same as it does in Amber. */
+  --hair-7: var(--v2-line);
+  --hair-10: var(--v2-line);
+  --hair-strong: var(--v2-line);
+
+  /* execution-graph connector stroke (Console) — was a raw rgba(0,0,0,.18)
+     literal, invisible on the dark themes; same flip approach as the hairlines
+     above. */
+  --edge: var(--v2-line);
+
+  /* charcoal sparkline area fill under the --chart-dark cost line (Stats +
+     Memory). Batch 2 mistakenly mapped this to --fill-soft-2 (pure black,
+     lighter alpha) instead of preserving the original charcoal hue. */
+  --area-soft: var(--v2-fill);
+
+  /* ink */
+  --ink: var(--v2-ink);
+  --ink-2: var(--v2-ink-2);
+  --ink-3: var(--v2-muted);
+  --muted: var(--v2-muted);
+  --muted-2: var(--v2-muted);
+  --muted-3: var(--v2-muted);
+
+  /* on-dark */
+  --on-dark: var(--v2-on-accent);
+  --on-dark-2: var(--v2-on-accent);
+  --on-dark-muted: var(--v2-muted);
+  --on-dark-label: var(--v2-muted);
+
+  /* accent — gold */
+  --gold: var(--v2-accent);
+  --gold-deep: var(--v2-accent);
+  --gold-soft: var(--v2-fill);
+  --gold-grad: var(--v2-accent);
+  --on-gold: var(--v2-on-accent);
+
+  /* status — the bright "dot" colours. Defined once here and INHERITED by the
+     dark themes (they already read on any background), which is why an --ok /
+     --warn / --danger dot has never needed a per-theme override. */
+  --ok: var(--v2-blue);
+  --ok-2: var(--v2-blue);
+  --warn: var(--v2-coral);
+  --danger: var(--v2-coral);
+
+  /* status INK — the darker TEXT/icon status colours that sit ON a light surface
+     in Amber (PASS/on-disk green, warn amber, fail/blocked red, eval gold). These
+     MUST flip per theme: in Amber each value == today's literal (so Amber is
+     byte-identical), while the dark themes get a brighter hue that clears 4.5:1
+     on the dark cards — so a truthful colour is never dark-on-dark. --warn-ink
+     already existed (only in :root) and now gains its dark override. The two -2
+     variants carry the *second*, slightly-different Amber shade that a handful of
+     surfaces used (#b5791a warn, #b23b34 red) so those stay byte-identical rather
+     than being silently unified onto the primary shade. */
+  --ok-ink: var(--v2-blue-ink);
+  --ok-ink-2: var(--v2-blue-ink);
+  --warn-ink: var(--v2-coral-ink);
+  --warn-ink-2: var(--v2-coral-ink);
+  --danger-ink: var(--v2-coral-ink);
+  --danger-ink-2: var(--v2-coral-ink);
+  --eval-ink: var(--v2-blue-ink);
+
+  /* destructive-gate reds that sit deeper than --danger-ink. --danger-deep is the
+     darker brick (#a33530) the ApprovalGate title/hardstop/reject + agblock note +
+     Loop reject used; --danger-warm is the terracotta (#c0574a) the delete/new-
+     session confirm text used (its sibling border/hover rgba share this hue). Both
+     kept BYTE-IDENTICAL in Amber (they must not fold onto --danger-ink=#c04540) and
+     flip to a legible bright red on the dark gate/rail cards. */
+  --danger-deep: var(--v2-coral-ink);
+  --danger-warm: var(--v2-coral-ink);
+
+  /* badge INK — the secondary per-tint gold/amber BADGE TEXT that sits on a
+     gold-tinted pill (interviewing/planned status, build loop tag, gate-queue
+     count, governance note, console warn, skills vault provenance). Each was a
+     dark-on-gold literal that stayed dark-on-dark on the dark themes. Five
+     distinct Amber shades drifted across the surfaces, so each keeps its OWN
+     token to stay byte-identical; all five flip to one legible bright gold on
+     dark (same hue as --eval-ink dark), since the dark themes only need "a
+     readable gold badge," not the original relative depths. */
+  --badge-ink: var(--v2-blue-ink);   /* interviewing/build/current gold badge text (6 uses) */
+  --badge-ink-2: var(--v2-blue-ink); /* gate-queue count + governance note (warmer brown) */
+  --badge-ink-3: var(--v2-blue-ink); /* console warn badge */
+  --badge-ink-4: var(--v2-blue-ink); /* skills vault provenance chip */
+  --badge-ink-5: var(--v2-blue-ink); /* planned status (the deepest shade) */
+
+  /* ── UX Round-3 Batch A ──────────────────────────────────────────────────
+     The last raw dark-invisible surfaces get flip tokens; Amber stays byte-
+     identical (each Amber value == the exact literal it replaced at 2cb0f96).
+     --gold-card-surface/-ring = the Stats "Cost over time" flagship card. It
+       hardcoded a cream gradient with NO dark override, so its --ink label
+       (near-white on dark) sat on a near-white fill → illegible on Prism/
+       Obsidian. Amber keeps the exact gradient + ring; dark flips to a warm
+       gold-tinted DARK fill that keeps the gold feel while clearing 4.5:1 for
+       --ink (its lighter stop #2a2410 gives ~13:1 vs --ink).
+     --tier-l1-ink/-l2-ink = Memory L1/L2 tier labels + Skills L1/L2 provenance
+       chips — dark blue/purple text that stayed ~2:1 dark-on-dark while the
+       tokenized L3 stayed bright; flip to a legible bright blue/purple.
+     --fail-ink = the 'failed' team-verdict TEXT (#e0524d) that read ~4:1 on the
+       dark verdict tint; flips to the same bright red the danger inks use.
+     --orb-ring = the spectral-purple focus ring the Companion/OrbView modals
+       share — a mid purple that reads on every theme, so it is theme-constant
+       (defined once here, inherited by the dark themes). */
+  --gold-card-surface: var(--v2-card);
+  --gold-card-ring: var(--v2-shadow);
+  --tier-l1-ink: var(--v2-blue-ink);
+  --tier-l2-ink: var(--v2-blue-ink);
+  --fail-ink: var(--v2-coral-ink);
+  --orb-ring: var(--v2-blue);
+
+  /* neutral CHROME — controls drawn as a faint BLACK wash on the cream shell,
+     which is invisible on the dark themes (an OFF toggle becomes a floating knob,
+     an idle dot reads as no-status, dashed add/new boxes and meter grooves
+     vanish, the scrollbar thumb disappears). Each flips black->white at the same
+     alpha so Amber is unchanged while the control reappears on dark. --dot-idle
+     uses a stronger dark alpha because a DOT needs more presence than a hairline. */
+  --track: var(--v2-track);
+  --dot-idle: var(--v2-idle);
+  --scrollbar: var(--v2-track);
+  --dash: var(--v2-line);
+  --meter-track: var(--v2-track);
+
+  /* the spectral prism orb (AI presence) */
+  --orb: var(--v2-blue);
+  --orb-glow: none;
+
+  /* type scale — a small set of the recurring body/label sizes so drifting
+     component font-sizes can snap to a shared step (theme-constant: font sizes
+     don't flip per theme, so these live only in :root). P11 adds the set + a few
+     safe exact-px snaps; half-pixel sizes are left as-is (snapping them would
+     change the rendered size, not just indirect it). */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+
+  /* radii */
+  --r-card: var(--v2-r-card);
+  --r-verdict: var(--v2-r-card);
+  --r-btn: var(--v2-r-inner);
+  --r-pill: var(--v2-r-pill);
+  --r-chip: var(--v2-r-inner);
+
+  /* elevation */
+  --shadow-card: var(--v2-shadow);
+  --shadow-dark: var(--v2-shadow);
+  --shadow-float: var(--v2-shadow);
+  /* Lift for a small ACTIVE segmented pill (e.g. the composer route control).
+     Amber keeps its warm downward micro-shadow byte-identical; the dark themes
+     get a faint light ring + drop so the raised pill still reads on a dark
+     track (a warm dark shadow would vanish there). */
+  --pill-shadow: var(--v2-shadow-soft);
+
+  /* type */
+  --font-body: 'Outfit Variable', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
+
+  /* ══ VISUAL SYSTEM v2 (spec 2026-08-18) ══════════════════════════════════
+     Sukhdeep's reference palette, and the vocabulary the rebuilt Work page is
+     drawn from. It lives ALONGSIDE the Amber/Prism/Obsidian tokens above —
+     the pages not yet converted keep using those and go on working — and it
+     flips on the same three [data-theme] blocks, so a v2 surface is legible
+     on every theme from the day it lands.
+
+     Light: pale grey→lavender ground, white cards, near-black ink.
+     BLACK IS THE ACCENT (--v2-accent): the active nav pill, the primary
+     button, and the ONE most important card on a screen — an approval that is
+     waiting on the user. Never decoration.
+     BLUE and CORAL are STATES: blue = working / passed, coral = needs
+     attention / failed. GREEN (--v2-local) is the private on-device model.
+
+     Each state hue carries TWO tokens, on purpose:
+       --v2-<hue>       the FILL (pill, monogram, progress line). Text on a
+                        fill is --v2-on-fill (near-black): white on #83a2db is
+                        2.57:1, so the reference's white-on-tint tags would
+                        have failed AA outright.
+       --v2-<hue>-ink   the TEXT/icon variant. It FLIPS per theme and clears
+                        4.5:1 on that theme's card in both directions
+                        (theme-tokens.test.ts proves it, and fails the build
+                        if a contrast ever drops). */
+  --v2-ink: #10141a;
+  --v2-ink-2: #3d434d;
+  --v2-muted: #5f6570;
+  --v2-paper: #e9e9ee;
+  --v2-paper-2: #dfe3ef;
+  --v2-ground: linear-gradient(155deg, #e9e9ee 0%, #dfe3ef 100%);
+  --v2-card: #ffffff;
+  /* the translucent "board" the pipeline columns sit on — a wash of the card
+     over the ground, so the columns read as one group without a second edge */
+  --v2-board: rgba(255, 255, 255, 0.42);
+  /* The RECESSED ground the crew board sits in — a shade darker than the
+     page, so white cards lift out of it without needing a border. */
+  --v2-inset: rgba(16, 20, 26, 0.045);
+  --v2-line: rgba(16, 20, 26, 0.09);
+  --v2-fill: rgba(16, 20, 26, 0.04);
+  --v2-track: rgba(16, 20, 26, 0.1);
+  --v2-blue: #83a2db;
+  --v2-coral: #ce6969;
+  --v2-local: #6e9a83;
+  --v2-blue-ink: #3a5896;
+  --v2-coral-ink: #9e3c3c;
+  --v2-local-ink: #3a6650;
+  /* grey = idle, or not connected. Never a state claim. */
+  --v2-idle: #c9cdd6;
+  --v2-on-fill: #10141a;
+  --v2-on-idle: #10141a;
+  --v2-accent: #10141a;
+  --v2-on-accent: #ffffff;
+
+  /* form language — generous radii, soft low shadows. Theme-constant (a radius
+     does not flip), so these live only here. */
+  --v2-r-card: 22px;
+  --v2-r-inner: 15px;
+  --v2-r-pill: 99px;
+  /* The SMALL step. The v2 scale shipped with three radii (card/inner/pill),
+     which covered the Work page but left every other page's chips, inputs,
+     code blocks and badges on hand-written 6-11px values — so the app was one
+     palette in a dozen different shapes. This is the fourth step those
+     surfaces snap to. */
+  --v2-r-chip: 10px;
+  --v2-shadow: 0 4px 16px rgba(16, 20, 26, 0.06);
+  --v2-shadow-soft: 0 2px 7px rgba(16, 20, 26, 0.05);
+  /* the live-pulse ring, in the working-blue. Two tokens (opaque -> clear) so a
+     keyframe never has to hardcode the hue with an alpha channel. */
+  --v2-glow: rgba(131, 162, 219, 0.55);
+  --v2-glow-out: rgba(131, 162, 219, 0);
+}
+
+/* ============================================================================
+   PRISM — dark indigo. A legible dark UI that keeps the warm gold accent
+   ("dark Amber" feel). Same token names, so every component restyles itself. */
+:root[data-theme='prism'] {
+  /* surfaces */
+  --shell: var(--v2-paper);
+  --content-grad: var(--v2-ground);
+
+  /* solid surfaces — dark, so dark-on-light flips to light-on-dark and the
+     composer/bubble/card text (was invisible) reads. See :root for semantics. */
+
+  /* dark values for the per-opacity raise/hair/edge/area tokens — see :root. */
+
+  /* status ink — dark overrides (brighter status hues that clear 4.5:1 on the
+     dark cards; --ok/--warn/--danger dots inherit their bright :root values). */
+  --danger-deep: #ff7b74; /* brick red flips to a legible bright red on the dark gate card */
+  --danger-warm: #ff7b74; /* terracotta flips to the same bright red on the dark rail */
+
+  /* badge ink — all five gold badge shades flip to one legible bright gold that
+     reads on the gold-tinted pill over the dark shell (matches --eval-ink dark). */
+
+  /* UX R3A — dark flips (see :root). Warm gold-tinted card fill, bright tier
+     inks, the failed-red, and the theme-constant orb ring. */
+
+  /* neutral chrome — flip to white washes so the OFF tracks / idle dots / dashed
+     boxes / meter grooves / scrollbar reappear on the dark shell. */
+
+  /* ink */
+
+  /* on-dark (already light — keep tuned to the lifted dark card) */
+
+  /* accent — keep the gold (a "dark Amber") */
+
+  /* elevation — deepen shadows so panels separate on the dark shell */
+
+  /* ══ VISUAL SYSTEM v2 — dark ══════════════════════════════════════════════
+     Ink and paper INVERT; blue/coral/green keep their meaning and their hue as
+     FILLS, and their -ink text variants lighten so every one of them clears
+     4.5:1 on this theme's card. The accent inverts with the ground: "black is
+     the accent" becomes "the ink is the accent", i.e. the active pill is still
+     the one solid, maximum-contrast block on the screen. */
+  --v2-ink: #f2f3f6;
+  --v2-ink-2: #c7cbd4;
+  --v2-muted: #a3aab8;
+  --v2-paper: #0e1016;
+  --v2-paper-2: #161a24;
+  --v2-ground: linear-gradient(155deg, #0e1016 0%, #161a24 100%);
+  --v2-card: #1a1e28;
+  --v2-board: rgba(242, 243, 246, 0.03);
+  /* Dark themes recess by going LIGHTER — a darker well would disappear
+     into the page and the cards would have nothing to lift out of. */
+  --v2-inset: rgba(242, 243, 246, 0.05);
+  --v2-line: rgba(242, 243, 246, 0.1);
+  --v2-fill: rgba(242, 243, 246, 0.05);
+  --v2-track: rgba(242, 243, 246, 0.14);
+  --v2-blue: #83a2db;
+  --v2-coral: #ce6969;
+  --v2-local: #6e9a83;
+  --v2-blue-ink: #9db6e8;
+  --v2-coral-ink: #e88f8f;
+  --v2-local-ink: #8fbfa6;
+  --v2-idle: #4a5060;
+  --v2-on-fill: #10141a;
+  --v2-on-idle: #f2f3f6;
+  --v2-accent: #f2f3f6;
+  --v2-on-accent: #10141a;
+  --v2-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --v2-shadow-soft: 0 2px 7px rgba(0, 0, 0, 0.35);
+  --v2-glow: rgba(131, 162, 219, 0.55);
+  --v2-glow-out: rgba(131, 162, 219, 0);
+}
+
+/* ============================================================================
+   OBSIDIAN — near-black, sharp, cyan accent. */
+:root[data-theme='obsidian'] {
+  /* surfaces */
+  --shell: var(--v2-paper);
+  --content-grad: var(--v2-ground);
+
+  /* solid surfaces — near-black, flip dark-on-light to light-on-dark. */
+
+  /* dark values for the per-opacity raise/hair/edge/area tokens — see :root. */
+
+  /* status ink — dark overrides (same as Prism; status hue is theme-independent
+     so green/amber/red/gold read identically on both dark shells). */
+  --danger-deep: #ff7b74; /* brick red flips to a legible bright red on the dark gate card */
+  --danger-warm: #ff7b74; /* terracotta flips to the same bright red on the dark rail */
+
+  /* badge ink — same bright legible gold flip as Prism (badge fills are gold
+     rgba regardless of the cyan accent, so gold text still reads). */
+
+  /* UX R3A — dark flips (same as Prism; the gold card stays warm gold on both
+     dark shells, and the tier/fail inks are theme-independent status hues). */
+
+  /* neutral chrome — white washes so controls reappear on the near-black shell. */
+
+  /* ink */
+
+  /* on-dark */
+
+  /* accent — cyan */
+
+  /* elevation */
+
+  /* ══ VISUAL SYSTEM v2 — dark (near-black) ══════════════════════════════════════════════
+     Ink and paper INVERT; blue/coral/green keep their meaning and their hue as
+     FILLS, and their -ink text variants lighten so every one of them clears
+     4.5:1 on this theme's card. The accent inverts with the ground: "black is
+     the accent" becomes "the ink is the accent", i.e. the active pill is still
+     the one solid, maximum-contrast block on the screen. */
+  --v2-ink: #f2f3f6;
+  --v2-ink-2: #c7cbd4;
+  --v2-muted: #a3aab8;
+  --v2-paper: #0b0e11;
+  --v2-paper-2: #0e1216;
+  --v2-ground: linear-gradient(155deg, #0b0e11 0%, #0e1216 100%);
+  --v2-card: #151a20;
+  --v2-board: rgba(242, 243, 246, 0.03);
+  /* Dark themes recess by going LIGHTER — a darker well would disappear
+     into the page and the cards would have nothing to lift out of. */
+  --v2-inset: rgba(242, 243, 246, 0.05);
+  --v2-line: rgba(242, 243, 246, 0.1);
+  --v2-fill: rgba(242, 243, 246, 0.05);
+  --v2-track: rgba(242, 243, 246, 0.14);
+  --v2-blue: #83a2db;
+  --v2-coral: #ce6969;
+  --v2-local: #6e9a83;
+  --v2-blue-ink: #9db6e8;
+  --v2-coral-ink: #e88f8f;
+  --v2-local-ink: #8fbfa6;
+  --v2-idle: #4a5060;
+  --v2-on-fill: #10141a;
+  --v2-on-idle: #f2f3f6;
+  --v2-accent: #f2f3f6;
+  --v2-on-accent: #10141a;
+  --v2-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --v2-shadow-soft: 0 2px 7px rgba(0, 0, 0, 0.35);
+  --v2-glow: rgba(131, 162, 219, 0.55);
+  --v2-glow-out: rgba(131, 162, 219, 0);
+}

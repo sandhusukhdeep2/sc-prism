@@ -1,0 +1,46 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    # Apple Silicon: the only platform SC Prism builds for.
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Bootstrap pinned Python + Go toolchains
+        run: ./scripts/bootstrap-toolchains.sh
+
+      - name: Install
+        run: npm ci
+
+      - name: Gate
+        run: |
+          set -o pipefail
+          ./verify.sh | tee verify.log
+          # verify.sh skips — and still passes — when a toolchain is missing.
+          # In CI every toolchain is installed, so a skip means something broke.
+          if grep -q "skipped" verify.log; then
+            echo "::error::a verify step was skipped in CI"
+            exit 1
+          fi
+          test "$(tail -n 1 verify.log)" = "VERIFY: PASS"

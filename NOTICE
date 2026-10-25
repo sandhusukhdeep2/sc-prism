@@ -1,0 +1,36 @@
+SC Prism
+Copyright 2026 Sukhdeep Singh Sandhu
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+-------------------------------------------------------------------------------
+Third-party components
+-------------------------------------------------------------------------------
+
+The source in this repository depends on, and the distributed macOS application
+bundles, the following third-party software. Each remains under its own licence.
+
+Bundled in the distributed application:
+
+  CPython 3.12 — Python Software Foundation License Version 2.
+    Distributed as a relocatable build from python-build-standalone
+    (https://github.com/astral-sh/python-build-standalone), which includes
+    OpenSSL (Apache-2.0), SQLite (public domain), libffi (MIT), zlib (zlib),
+    bzip2 (bzip2), XZ Utils (0BSD), libedit (BSD-3-Clause), mpdecimal
+    (BSD-2-Clause), Expat (MIT), ncurses (MIT-style) and Tcl/Tk (Tcl licence).
+    The full Python licence ships inside the application at
+    Contents/Resources/resources/python/lib/python3.12/LICENSE.txt.
+
+  JetBrains Mono and Outfit typefaces — SIL Open Font License 1.1,
+    via the @fontsource-variable packages.
+
+Application framework and libraries (MIT and/or Apache-2.0):
+
+  Tauri (https://tauri.app), serde, serde_json, reqwest and rustls;
+  React, React DOM and React Router.
+
+Optional integrations — not bundled, used only when the user installs them:
+
+  Microsoft Conductor (MIT), DeepEval (Apache-2.0), LightRAG (MIT),
+  NumPy (BSD-3-Clause), PyTorch (BSD-3-Clause), Hugging Face Transformers
+  (Apache-2.0).

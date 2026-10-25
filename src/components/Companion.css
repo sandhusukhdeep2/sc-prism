@@ -1,0 +1,200 @@
+.companion {
+  position: fixed;
+  right: 28px;
+  bottom: 60px;
+  display: flex;
+  align-items: flex-end;
+  gap: 11px;
+  z-index: 40;
+}
+.companion__label {
+  padding: 8px 14px;
+  border-radius: var(--v2-r-inner);
+  background: var(--dark);
+  color: var(--on-dark);
+  font-size: 12px;
+  box-shadow: var(--v2-shadow);
+}
+.companion__orb {
+  position: relative;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--orb);
+  animation: dockPulse 3s ease-in-out infinite;
+  display: block;
+  flex: 0 0 48px;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+.companion__orb:focus-visible {
+  outline: 2px solid var(--orb-ring);
+  outline-offset: 3px;
+}
+
+/* notification count badge — shown whenever a project notice is pending */
+.companion__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--v2-r-pill);
+  background: var(--gold-grad);
+  color: var(--on-gold);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: var(--v2-shadow-soft);
+  animation: companionBadgePulse 1.9s ease-in-out infinite;
+}
+@keyframes companionBadgePulse {
+  0%, 100% { box-shadow: var(--v2-shadow-soft); }
+  50%      { box-shadow: var(--v2-shadow-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .companion__badge { animation: none; }
+}
+
+/* Expanded assist panel — design state 3, docked above the orb. */
+.companion__panel {
+  position: absolute;
+  right: 0;
+  bottom: 60px;
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  border-radius: var(--v2-r-inner);
+  background: var(--card-solid);
+  box-shadow: 0 0 0 1px var(--hair-2), 0 18px 44px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+}
+
+.companion__phead { display: flex; align-items: center; gap: 9px; }
+.companion__avatar {
+  width: 26px; height: 26px; flex: 0 0 26px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #fff, #bcd0ff 30%, #22d3ee 60%, #a855f7 92%);
+}
+.companion__name { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.companion__spacer { flex: 1; }
+.companion__ref { font-size: 10.5px; color: var(--muted); text-decoration: none; }
+.companion__ref:hover { text-decoration: underline; }
+.companion__x {
+  margin-left: 4px;
+  width: 22px; height: 22px; border-radius: var(--v2-r-chip);
+  border: none; background: var(--fill-soft); color: var(--muted-2);
+  font-size: 15px; line-height: 1; cursor: pointer;
+}
+.companion__x:hover { color: var(--ink); }
+.companion__x:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+
+.companion__ctx {
+  align-self: flex-start; margin-top: 10px; padding: 3px 9px; border-radius: var(--v2-r-chip);
+  background: var(--fill-soft); font-size: 10px; color: var(--on-dark-label);
+}
+
+/* ── notices list — project run outcomes surfaced in the panel ─────── */
+.companion__notices {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 12px;
+}
+.companion__noticeshead {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-2);
+}
+.companion__notice {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--v2-r-chip);
+  background: var(--fill-soft-2);
+}
+.companion__notice--attention { background: rgba(206, 105, 105, 0.1); }
+.companion__notice--request { background: rgba(131, 162, 219, 0.12); }
+.companion__notice--done { background: rgba(110, 154, 131, 0.1); }
+.companion__noticeicon { font-size: 11px; flex: 0 0 auto; }
+.companion__noticetext { flex: 1; min-width: 0; font-size: 11px; line-height: 1.4; color: var(--ink-2); }
+.companion__noticejump {
+  flex: 0 0 auto; border: 0; background: none; cursor: pointer; font: inherit;
+  font-size: 10.5px; font-weight: 700; color: var(--gold-deep); padding: 2px 4px;
+}
+.companion__noticejump:hover { text-decoration: underline; }
+
+/* ── transient toast — the newest notice, shown near the orb on any page ── */
+.companion__toast {
+  position: absolute;
+  right: 0;
+  bottom: 60px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 300px;
+  padding: 9px 14px;
+  border-radius: var(--v2-r-inner);
+  background: var(--dark);
+  color: var(--on-dark);
+  font-size: 11.5px;
+  line-height: 1.4;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--v2-shadow);
+  animation: companionToastIn 0.35s ease both;
+}
+.companion__toast--attention { box-shadow: var(--v2-shadow); }
+.companion__toast--request { box-shadow: var(--v2-shadow); }
+.companion__toast--done { box-shadow: var(--v2-shadow); }
+.companion__toasticon { flex: 0 0 auto; }
+@keyframes companionToastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .companion__toast { animation: none; }
+}
+
+.companion__transcript {
+  display: flex; flex-direction: column; gap: 7px;
+  margin-top: 10px; max-height: 210px; overflow-y: auto;
+}
+.companion__bubble { padding: 7px 11px; font-size: 11px; line-height: 1.5; }
+.companion__bubble--user {
+  align-self: flex-end; border-radius: var(--v2-r-chip) var(--v2-r-chip) 3px var(--v2-r-chip);
+  background: var(--dark); color: var(--on-dark); max-width: 82%;
+}
+.companion__bubble--ai {
+  align-self: flex-start; border-radius: 3px var(--v2-r-chip) var(--v2-r-chip) var(--v2-r-chip);
+  background: var(--fill-soft-2); color: var(--ink-2); max-width: 90%;
+}
+
+.companion__chips { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; }
+.companion__chip {
+  padding: 6px 11px; border-radius: var(--v2-r-chip); border: none;
+  background: var(--fill-soft); color: var(--on-dark-label);
+  font-size: 10.5px; font-weight: 600; cursor: pointer;
+}
+.companion__chip:first-child { background: rgba(131, 162, 219, 0.2); color: var(--badge-ink); }
+.companion__chip:hover { filter: brightness(0.97); }
+.companion__chip:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+
+.companion__ask { display: flex; gap: 6px; margin-top: 11px; }
+.companion__input {
+  flex: 1; min-width: 0;
+  padding: 8px 11px; border-radius: var(--v2-r-chip);
+  border: 1px solid var(--hair-2); background: var(--fill-soft);
+  color: var(--ink); font-size: 11.5px;
+}
+.companion__input::placeholder { color: var(--muted-3); }
+.companion__input:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 1px; }
+.companion__send {
+  flex: 0 0 32px; width: 32px; border-radius: var(--v2-r-chip);
+  border: none; background: var(--gold-grad); color: var(--on-gold);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.companion__send:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+
+.companion__foot {
+  border-top: 1px solid var(--hair); margin-top: 12px; padding-top: 9px;
+  font-size: 10px; color: var(--muted-2); text-align: center;
+}
+
+/* The send arrow points UP: the chevron glyph is drawn pointing right, so it
+   is turned rather than a second asset being drawn for one button. */
+.companion__sendicon { transform: rotate(-90deg); }

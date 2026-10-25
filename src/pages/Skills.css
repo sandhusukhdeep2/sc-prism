@@ -1,0 +1,278 @@
+.skills { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+/* page toolbar */
+.skills__search {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: var(--v2-r-pill);
+  background: var(--v2-fill); font-size: 12.5px; color: var(--v2-muted);
+}
+.skills__search:focus-within { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.skills__searchinput {
+  border: none; background: transparent; outline: none; font: inherit; font-size: 12px;
+  color: var(--ink); width: 150px;
+}
+.skills__searchinput::placeholder { color: var(--muted); }
+.skills__new {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border: none; border-radius: var(--v2-r-pill);
+  background: var(--v2-accent); color: var(--v2-on-accent);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease-out;
+}
+.skills__new:hover { opacity: 0.88; }
+.skills__new:active { transform: scale(0.96); }
+.skills__new:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.skills__empty {
+  grid-column: 1 / -1; padding: 40px 0; text-align: center; font-size: 13px; color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.skills__main { flex: 1; min-height: 0; display: flex; gap: 18px; padding-top: 16px; }
+
+/* cards column */
+.skills__cards {
+  flex: 1; min-width: 0; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px; align-content: start; padding-right: 4px;
+}
+
+.skill-card {
+  position: relative; border-radius: var(--r-verdict); background: var(--card-solid);
+  box-shadow: var(--shadow-card); padding: 18px 20px; cursor: pointer;
+}
+.skill-card__del {
+  position: absolute; top: 10px; right: 10px; z-index: 2; width: 22px; height: 22px;
+  border: none; border-radius: var(--v2-r-chip); background: rgba(0, 0, 0, 0.05); color: var(--muted);
+  cursor: pointer; font-size: 15px; line-height: 1; opacity: 0; transition: opacity 0.12s ease;
+}
+.skill-card:hover .skill-card__del { opacity: 1; }
+.skill-card__del:hover { background: rgba(206, 105, 105, 0.12); color: var(--danger-ink); }
+/* Two-step delete confirm, in place of the ✕ (durable removal, no undo). */
+.skill-card__confirm {
+  position: absolute; top: 8px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px;
+  padding: 3px 7px; border-radius: var(--v2-r-chip); background: var(--card-solid); box-shadow: var(--shadow-card);
+}
+.skill-card__confirmq { font-size: 11px; color: var(--muted); }
+.skill-card__confirmyes, .skill-card__confirmno {
+  border: 0; background: transparent; font: inherit; font-size: 11px; font-weight: 600;
+  cursor: pointer; padding: 2px 5px; border-radius: var(--v2-r-chip);
+}
+.skill-card__confirmyes { color: var(--danger-ink); }
+.skill-card__confirmyes:hover { background: rgba(206, 105, 105, 0.12); }
+.skill-card__confirmno { color: var(--muted); }
+.skill-card__confirmno:hover { background: rgba(0, 0, 0, 0.05); }
+.skill-card--sel {
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--gold-deep), 0 16px 40px rgba(131, 162, 219, 0.15);
+}
+.skill-card__new {
+  position: absolute; top: -9px; right: 16px; padding: 2px 10px; border-radius: var(--v2-r-chip);
+  background: var(--gold-grad); font-size: 9.5px; font-weight: 700; color: var(--on-gold);
+  letter-spacing: 0.06em;
+}
+.skill-card__head { display: flex; align-items: center; gap: 10px; }
+.skill-card__icon {
+  width: 30px; height: 30px; flex: 0 0 30px; border-radius: var(--v2-r-chip);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.skill-card__name { font-size: 14px; font-weight: 600; color: var(--ink); font-family: var(--font-mono); }
+.skill-card__sub { font-size: 11px; color: var(--muted); }
+.skill-card__stats { font-size: 10.5px; color: var(--muted-2); font-family: var(--font-mono); margin-top: 4px; }
+.skill-card__when { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+.skill-card__when b { color: var(--ink-3); }
+.skill-card__prov { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+
+.prov { padding: 3px 9px; border-radius: var(--v2-r-chip); font-size: 9.5px; font-weight: 700; font-family: var(--font-mono); }
+.prov--captured { background: rgba(110, 154, 131, 0.12); color: var(--ok-ink); }
+.prov--hand { background: rgba(0, 0, 0, 0.07); color: var(--ink-3); }
+.prov--imported { background: rgba(131, 162, 219, 0.16); color: var(--tier-l2-ink); }
+.portable {
+  padding: 3px 9px; border-radius: var(--v2-r-chip); background: rgba(0, 0, 0, 0.05);
+  font-size: 9.5px; color: var(--on-dark-label); font-family: var(--font-mono);
+}
+.chip-warn {
+  padding: 3px 9px; border-radius: var(--v2-r-chip); background: rgba(131, 162, 219, 0.18);
+  color: var(--warn-ink); font-size: 9.5px; font-weight: 700; font-family: var(--font-mono);
+}
+/* per-role skill chips (P3-3) — "global" reads muted/dashed to signal "no
+   restriction", a scoped role reads in the same accent as the portable pill. */
+.role-chip {
+  padding: 3px 9px; border-radius: var(--v2-r-chip); background: rgba(131, 162, 219, 0.14);
+  color: var(--tier-l1-ink); font-size: 9.5px; font-weight: 700; font-family: var(--font-mono);
+}
+.role-chip--global {
+  background: rgba(0, 0, 0, 0.05); color: var(--muted-2); font-weight: 600;
+}
+
+.skill-card__foot {
+  display: flex; align-items: center; gap: 8px; margin-top: 11px;
+  font-size: 10.5px; color: var(--muted-2); font-family: var(--font-mono);
+}
+.skill-card__agent { padding: 2px 8px; border-radius: var(--v2-r-chip); background: rgba(0, 0, 0, 0.05); color: var(--on-dark-label); }
+
+/* detail drawer */
+.sk-drawer {
+  width: 430px; flex: 0 0 430px; border-radius: var(--r-card); background: var(--dark);
+  color: var(--on-dark); box-shadow: var(--v2-shadow);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sk-drawer__head {
+  display: flex; align-items: center; gap: 10px; padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.sk-drawer__kicker { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+/* Dark-card variant of the card's amber `.chip-warn` — `--warn-ink` is a dark
+   ink meant for light backgrounds and reads as near-invisible on the
+   drawer's dark surface, so this uses the bright `--warn` token instead
+   (the same one AppShell's dark-UI status dots glow with). */
+.sk-drawer__warnchip {
+  padding: 3px 9px; border-radius: var(--v2-r-chip); background: rgba(131, 162, 219, 0.2);
+  color: var(--warn); font-size: 9.5px; font-weight: 700; font-family: var(--font-mono);
+}
+.sk-drawer__spacer { flex: 1; }
+.sk-drawer__edit {
+  padding: 6px 14px; border-radius: var(--v2-r-chip); background: var(--gold-grad);
+  font-size: 11px; font-weight: 700; color: var(--on-gold); cursor: pointer;
+}
+.sk-drawer__del {
+  padding: 6px 14px; border-radius: var(--v2-r-chip); border: none; font-family: inherit;
+  background: rgba(255, 255, 255, 0.08); font-size: 11px; font-weight: 600;
+  color: #ce6969; cursor: pointer;
+}
+.sk-drawer__del:hover { background: rgba(206, 105, 105, 0.22); }
+/* Two-step delete confirm in the drawer head (names the skill honestly). */
+.sk-drawer__confirm { display: inline-flex; align-items: center; gap: 8px; }
+.sk-drawer__confirmq { font-size: 11px; color: #ce6969; }
+.sk-drawer__confirmyes, .sk-drawer__confirmno {
+  padding: 6px 12px; border-radius: var(--v2-r-chip); border: none; font-family: inherit; font-size: 11px;
+  font-weight: 600; cursor: pointer;
+}
+.sk-drawer__confirmyes { background: rgba(206, 105, 105, 0.22); color: #ce6969; }
+.sk-drawer__confirmyes:hover { background: rgba(206, 105, 105, 0.34); }
+.sk-drawer__confirmno { background: rgba(255, 255, 255, 0.08); color: var(--ink-3); }
+.sk-drawer__confirmno:hover { background: rgba(255, 255, 255, 0.14); }
+.sk-drawer__body {
+  flex: 1; overflow-y: auto; padding: 18px 22px;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.8;
+}
+.sk-drawer__foot {
+  padding: 14px 22px; border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 10.5px; color: var(--muted); font-family: var(--font-mono);
+}
+
+.sk-drawer__body .ln--mt { margin-top: 10px; }
+.sk-drawer__body .ln--mt6 { margin-top: 6px; }
+.c-mut { color: var(--muted); }
+.c-key { color: var(--on-dark); }
+.c-val { color: var(--on-dark-2); }
+.c-teal { color: #37e0d8; }
+.c-green { color: var(--ok-2); }
+.c-gold { color: var(--gold); }
+
+/* recent-runs list */
+.sk-drawer__recent { margin-top: 10px; }
+.sk-drawer__recent-title {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  font-weight: 600; margin-bottom: 6px;
+}
+.sk-drawer__recent-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.sk-drawer__recent-task { color: var(--on-dark-2); }
+.sk-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
+.sk-dot--ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.sk-dot--err { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+/* ATTENTION — checks passed, reviewer dissented. --warn is a bright status hue
+   defined once at :root and inherited by BOTH dark themes, so it reads on this
+   dark drawer in Amber, Prism and Obsidian alike (same basis as --ok/--danger
+   above, which have never needed a per-theme override). */
+.sk-dot--attention { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.sk-drawer__recent-note { color: var(--warn); }
+
+/* AI improve flow */
+.sk-drawer__improve { margin-top: 16px; }
+.sk-drawer__improve-btn {
+  padding: 8px 16px; border-radius: var(--v2-r-chip); background: var(--gold-grad);
+  font-size: 11.5px; font-weight: 700; color: var(--on-gold); cursor: pointer;
+  border: none; font-family: inherit;
+}
+.sk-drawer__improve-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.sk-drawer__improve-error { margin-top: 8px; font-size: 11px; color: #ce6969; }
+.sk-drawer__draftbox {
+  border-radius: var(--v2-r-inner); background: rgba(255, 255, 255, 0.05); padding: 12px 14px;
+}
+.sk-drawer__draftlabel {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold);
+  font-weight: 600; margin-bottom: 8px;
+}
+.sk-drawer__draft {
+  white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto;
+  font-family: var(--font-mono); font-size: 11px; line-height: 1.7; color: var(--on-dark-2);
+  margin: 0 0 10px;
+}
+.sk-drawer__draftactions { display: flex; gap: 8px; }
+.sk-drawer__apply {
+  padding: 7px 14px; border-radius: var(--v2-r-chip); border: none; font-family: inherit;
+  background: var(--gold-grad); font-size: 11px; font-weight: 700; color: var(--on-gold);
+  cursor: pointer;
+}
+.sk-drawer__discard {
+  padding: 7px 14px; border-radius: var(--v2-r-chip); border: none; font-family: inherit;
+  background: rgba(255, 255, 255, 0.08); font-size: 11px; font-weight: 600;
+  color: var(--on-dark-2); cursor: pointer;
+}
+.sk-drawer__discard:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* inline new-skill form */
+.skill-form { display: flex; flex-direction: column; gap: 9px; cursor: default; }
+.skill-form__input {
+  padding: 8px 11px; border-radius: var(--v2-r-chip); font: inherit; font-size: 12px; color: var(--ink);
+  background: #fff; border: 1px solid rgba(0, 0, 0, 0.14);
+  appearance: none; -webkit-appearance: none;
+}
+.skill-form__input:focus { outline: none; border-color: var(--gold-deep); }
+.skill-form__actions { display: flex; gap: 8px; margin-top: 2px; }
+.skill-form__btn {
+  padding: 8px 14px; border-radius: var(--v2-r-chip); font-size: 11px; font-weight: 600; cursor: pointer;
+  border: none; font-family: inherit;
+}
+.skill-form__btn--dark { background: var(--dark); color: #fff; }
+.skill-form__btn--soft { background: rgba(0, 0, 0, 0.05); color: var(--ink-3); }
+.skill-form__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.prov--vault { background: rgba(131, 162, 219, 0.18); color: var(--badge-ink-4); }
+
+/* NARROW WINDOWS: the skill library stacks to one column (crushed-rows
+   sweep, 2026-08-29). */
+@media (max-width: 820px) {
+  .skills__cards { grid-template-columns: 1fr; }
+}
+
+/* Skills proposed from repeated work. The evidence is quoted because a
+   proposal without it is a guess wearing a suggestion's clothes. */
+.skills__proposals { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 4px; }
+.skills__proposal { border: 1px solid var(--hair-7); border-radius: var(--v2-r-card); padding: 12px 14px; background: var(--field-fill); }
+.skills__proprow { display: flex; align-items: center; gap: 8px; }
+.skills__propkicker { font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-3); }
+.skills__proptimes { font-size: 11px; color: var(--ink-3); }
+.skills__propname { font-size: 13.5px; font-weight: 600; margin: 8px 0 4px; color: var(--ink); }
+.skills__propex { margin: 0; padding-left: 18px; font-size: 11.5px; color: var(--ink-3); line-height: 1.55; }
+.skills__propbtn { background: none; border: 1px solid var(--hair-7); border-radius: 999px; padding: 4px 12px; font-size: 11.5px; color: var(--ink); cursor: pointer; }
+.skills__propbtn:hover { background: var(--card-solid); border-color: var(--ink-3); }
+.skills__propbtn--quiet { color: var(--ink-3); }
+
+/* Tools the crew built. Shown even when empty, so someone looking for the
+   feature finds it rather than concluding it is missing. */
+.skills__tools { margin: 18px 0 6px; padding-top: 14px; border-top: 1px solid var(--hair-7); }
+.skills__toolshead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.skills__toolscount { font-size: 11px; color: var(--ink-3); }
+.skills__toolsempty { font-size: 12px; color: var(--ink-3); line-height: 1.6; max-width: 68ch; }
+.skills__tool { border: 1px solid var(--hair-7); border-left-width: 3px; border-radius: var(--v2-r-chip); padding: 10px 12px; margin-bottom: 8px; background: var(--field-fill); }
+.skills__tool--needs-scope { border-left-color: var(--warn, #9a6700); }
+.skills__tool--needs-proof { border-left-color: var(--ink-3); }
+.skills__tool--active { border-left-color: var(--ok, #1a7f37); }
+.skills__tool--quarantined { border-left-color: var(--fail, #a93f3b); }
+.skills__toolrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.skills__toolname { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.skills__toolpin { font-size: 9.5px; letter-spacing: 0.08em; color: var(--ink-3); border: 1px solid var(--hair-7); border-radius: 999px; padding: 1px 7px; }
+.skills__toolstate { font-size: 11.5px; color: var(--ink-2, var(--ink-3)); }
+.skills__tooldesc { font-size: 12.5px; color: var(--ink); margin-top: 6px; }
+.skills__tooldetail { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; line-height: 1.5; }
+.skills__toolbtn { margin-top: 8px; }

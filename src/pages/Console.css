@@ -1,0 +1,78 @@
+.console { display: flex; flex-direction: column; height: 100%; min-height: 400px; }
+
+/* header */
+.console__sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+
+/* grid — four measured cards (burn, hooks, drift, eval). The fifth card was the
+   static "execution graph"; it was deleted in the 2026-08-09 honesty pass. */
+.console__grid {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: 1.15fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 14px; padding-bottom: 4px;
+}
+
+/* generic card */
+.console__card {
+  border-radius: var(--r-card); background: var(--card-solid); box-shadow: var(--shadow-card);
+  padding: 20px; display: flex; flex-direction: column;
+}
+.console__cardhead { display: flex; align-items: center; }
+.console__kicker { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
+.console__kicker--warn { color: var(--warn-ink); }
+.console__badge { padding: 3px 10px; border-radius: var(--r-chip); font-size: 10px; font-weight: 700; }
+.console__badge--ok { background: rgba(110, 154, 131, 0.12); color: var(--ok-ink); }
+.console__badge--warn { background: rgba(131, 162, 219, 0.16); color: var(--badge-ink-3); }
+.console__badge--muted { background: var(--hair); color: var(--muted); }
+.console__spark { margin-top: 16px; }
+
+/* token burn bars */
+.console__bars { flex: 1; display: flex; align-items: flex-end; gap: 8px; margin-top: 14px; padding-bottom: 4px; }
+.console__barcol { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.console__bar { border-radius: var(--v2-r-chip); }
+.console__bar--dark { background: var(--chart-dark); }
+.console__bar--gold { background: var(--gold-grad); }
+.console__bar--tan { background: #d9d0b8; }
+.console__bar--blue { background: #83a2db; }
+.console__bar--purple { background: #c9b8f2; }
+.console__barlbl { font-size: 9.5px; color: var(--muted-2); text-align: center; margin-top: 5px; }
+.console__foot { font-size: 11.5px; color: var(--muted); }
+
+/* hook latency metrics */
+.console__metrics { display: flex; gap: 16px; margin-top: 12px; }
+.console__metric-val { font-size: 19px; font-weight: 600; color: var(--ink); }
+.console__metric-val--red { color: var(--danger-ink); }
+.console__metric-lbl { font-size: 9.5px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* drift alert */
+/* calm by default (matches the generic cards); the amber alert ring is applied
+   ONLY when a real drift signal is present (.is-alert). */
+.console__card--drift {
+  background: var(--card-solid);
+  box-shadow: var(--shadow-card);
+}
+.console__card--drift.is-alert {
+  background: var(--input-fill);
+  box-shadow: var(--v2-shadow);
+}
+.console__drifthead { display: flex; align-items: center; gap: 8px; }
+.console__drift-icon {
+  width: 24px; height: 24px; border-radius: var(--v2-r-chip); background: var(--fill-soft);
+  display: inline-flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px;
+}
+.console__card--drift.is-alert .console__drift-icon {
+  background: rgba(131, 162, 219, 0.15); color: var(--warn-ink);
+}
+.console__drift-title { font-size: 14.5px; font-weight: 600; color: var(--ink); margin-top: 12px; line-height: 1.45; }
+.console__drift-desc { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.55; }
+
+/* eval + export */
+.console__evalnote { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.console__export { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.console__daterange { flex: 1; padding: 9px 13px; border-radius: var(--v2-r-chip); background: var(--fill-soft-2); font-size: 11.5px; color: var(--ink-3); }
+.console__export-btn {
+  padding: 9px 16px; border-radius: var(--v2-r-chip); background: var(--gold-grad);
+  font-size: 11.5px; font-weight: 700; color: var(--on-gold); cursor: pointer; white-space: nowrap;
+}
+
+/* The engine-read note, in the header's actions slot. Quiet: it is a caveat
+   about the numbers below, not a headline. */
+.console__note { font-size: 11px; color: var(--v2-muted); }

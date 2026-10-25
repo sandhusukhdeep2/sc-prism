@@ -1,0 +1,225 @@
+/* RunLedger — visual system v2 (spec 2026-08-18). Token-only colours.
+
+   The ledger lives in Work's RIGHT RAIL. It used to be a page-width grid
+   sitting UNDER the conversation, which is what made the Work page taller than
+   the window.
+
+   HOW THE RAIL DIVIDES (2026-08-19). Stacking the two panels and letting the
+   whole rail scroll pushed "This week" — the SUMMARY — off the bottom of the
+   window behind a scroll nobody knew was there. The rail is now a two-part
+   column: the week's arcs are a fixed block that is ALWAYS on screen, and the
+   run list takes what is left and scrolls inside itself. The summary of the
+   week is the thing you should never have to hunt for. */
+
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+.ledger__panel {
+  background: var(--v2-card);
+  border-radius: var(--v2-r-card);
+  padding: 16px 18px;
+  box-shadow: var(--v2-shadow);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Recent runs gives way; the week's summary never does. */
+.ledger__panel:first-child { flex: 1 1 auto; min-height: 0; }
+.ledger__panel:last-child { flex: 0 0 auto; }
+
+.ledger__head { display: flex; align-items: center; margin-bottom: 12px; }
+.ledger__title { font-weight: 700; font-size: 15px; color: var(--v2-ink); letter-spacing: -0.01em; }
+
+/* Recent runs: one ROW per recorded run (the rail is 320px — a five-column
+   table could not have held the same facts without truncating them). */
+.ledger__rows {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+}
+.ledger__row { padding: 9px 0; min-width: 0; }
+.ledger__row + .ledger__row { border-top: 1px solid var(--v2-line); }
+.ledger__rowtop { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ledger__task {
+  flex: 1; min-width: 0; font-size: 12.5px; color: var(--v2-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ledger__rowmeta {
+  font-size: 10.5px; color: var(--v2-muted); margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ledger__tag {
+  flex: 0 0 auto;
+  display: inline-block; padding: 3px 11px; border-radius: var(--v2-r-pill);
+  font-size: 10.5px; font-weight: 600; color: var(--v2-on-fill); white-space: nowrap;
+}
+.ledger__tag--ok { background: var(--v2-blue); }
+.ledger__tag--att { background: var(--v2-coral); }
+/* REPLIED — a chat turn the judge cleared. Neither the blue achievement fill
+   (it verified no work) nor the coral needs-eyes fill (nothing is wrong): a
+   quiet outlined chip in the panel's own neutrals, so conversation reads as
+   conversation. */
+.ledger__tag--said {
+  background: var(--v2-fill);
+  color: var(--v2-muted);
+  box-shadow: inset 0 0 0 1px var(--v2-line);
+}
+
+/* The arcs — a half-ring gauge whose sweep is the measured ratio.
+   GEOMETRY (fixed 2026-08-18): the visible shape is the TOP HALF of a circle
+   whose centre is the box's BOTTOM edge, so the gradient's origin has to be
+   `at 50% 100%` — a default (centred) conic origin put the sweep's pivot in
+   the middle of the box and painted a stray wedge across the arc. And a
+   conic sweep is a whole turn while only half of it is visible, so a measured
+   fraction maps onto HALF a turn: calc(var(--sweep) / 2). --sweep is still the
+   raw measured percentage, so it stays readable/assertable as the real ratio. */
+/* THE ARC'S GEOMETRY IS FIXED-PIXEL, so it must never be flex-squeezed.
+   The conic sweep and the mask that punches the ring's hole are both written
+   in px against a 96px box; in the right rail the pair got compressed to fit,
+   the mask circle no longer lined up with the compressed box, and the result
+   was the reported "odd half-donut with a white wedge". The arcs are now sized
+   to fit the rail at their natural width and refuse to shrink (`flex: 0 0
+   auto`), so the mask always matches the box it is masking. */
+.ledger__arcs {
+  display: flex; gap: 18px; align-items: flex-start; justify-content: center;
+  padding: 4px 0 2px; flex-wrap: wrap;
+}
+.ledger__arc { text-align: center; flex: 0 0 auto; }
+.ledger__donut {
+  width: 78px; height: 39px; border-radius: 78px 78px 0 0;
+  flex: 0 0 auto;
+  margin: 0 auto 7px;
+  background: conic-gradient(
+    from 270deg at 50% 100%,
+    var(--arc) 0 calc(var(--sweep) / 2),
+    var(--v2-track) calc(var(--sweep) / 2) 50%,
+    transparent 50% 100%
+  );
+  -webkit-mask: radial-gradient(circle 39px at 50% 100%, transparent 0 58%, #000 58.5%);
+  mask: radial-gradient(circle 39px at 50% 100%, transparent 0 58%, #000 58.5%);
+}
+.ledger__donut--blue { --arc: var(--v2-blue); }
+.ledger__donut--coral { --arc: var(--v2-coral); }
+.ledger__arcn { font-size: 26px; font-weight: 700; color: var(--v2-ink); line-height: 1.1; }
+.ledger__arcl { font-size: 11px; color: var(--v2-muted); }
+
+.ledger__empty { font-size: 12px; color: var(--v2-muted); padding: 14px 2px; line-height: 1.5; }
+.ledger__note {
+  font-size: 11.5px; color: var(--v2-muted);
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--v2-line);
+}
+
+/* ── WIDE: the ledger as a ROW, the shape Sukhdeep's design note asks for ──
+   In the rail the two panels stack, and Recent runs is a list because 320px
+   could not hold a table without truncating it. Given real width they sit side
+   by side — runs taking the space, the week's summary holding its own column —
+   and the run list stops scrolling inside itself, because on a wide row there
+   is nothing to scroll past.
+
+   Driven by a CONTAINER query, not the viewport: this component is placed in
+   two different slots, and what it can afford to draw depends on the box it is
+   actually in, not on how big the window happens to be. */
+.ledger { container-type: inline-size; container-name: ledger; }
+
+@container ledger (min-width: 700px) {
+  .ledger { flex-direction: row; align-items: stretch; gap: 16px; height: auto; }
+  .ledger__panel:first-child { flex: 1 1 62%; }
+  .ledger__panel:last-child { flex: 1 1 38%; }
+  /* A row has room, so the list shows every recorded run rather than hiding
+     the older ones behind a scrollbar nobody knew was there. */
+  .ledger__rows { overflow-y: visible; flex: 0 0 auto; }
+}
+
+/* ── Recent runs as a TABLE ──────────────────────────────────────────────
+   The shape the design note asks for, and the shape the facts were always in:
+   task, outcome, checks, ran on, took. Only ONE shape is ever rendered — the
+   caller picks it with `layout`, because rendering both and hiding one with
+   CSS made a screen reader read every run twice. */
+.ledger__table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.ledger__table th {
+  text-align: left;
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--v2-muted);
+  padding: 0 12px 10px 0;
+  border-bottom: 1px solid var(--v2-line);
+  white-space: nowrap;
+}
+.ledger__table td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid var(--v2-line);
+  vertical-align: middle;
+  color: var(--v2-ink);
+}
+.ledger__table tbody tr:last-child td { border-bottom: none; }
+.ledger__table tbody tr { transition: background 140ms ease-out; }
+.ledger__table tbody tr:hover { background: var(--v2-fill); }
+
+/* Task takes the slack; the measured columns stay on one line so the eye can
+   run down them. */
+.ledger__ctask { width: 40%; min-width: 0; }
+.ledger__cdetail { color: var(--v2-ink-2); }
+.ledger__cran, .ledger__ctook { color: var(--v2-muted); white-space: nowrap; }
+
+
+/* ── COMPACT, when it is the band under the work ─────────────────────────
+   As a full-width row this sits between the conversation and the composer, so
+   every pixel it takes is a pixel the chat loses. It was laid out for a tall
+   320px rail and kept those proportions when it moved, which is why it read as
+   taking more room than it needs.
+
+   Tightened where height is spent and nowhere else: the padding, the row
+   height, and the arcs. Nothing is removed — the same five columns, the same
+   two counts, the same footer — because a compact panel that hides facts is
+   just a smaller lie. */
+.ledger--row { gap: 12px; }
+.ledger--row .card,
+.ledger--row .ledger__panel { padding: 14px 16px; }
+.ledger--row .ledger__head { margin-bottom: 8px; }
+.ledger--row .ledger__title { font-size: 13.5px; }
+
+.ledger--row .ledger__table th { padding-bottom: 7px; font-size: 11px; }
+.ledger--row .ledger__table td { padding: 8px 12px 8px 0; }
+.ledger--row .ledger__note { margin-top: 8px; font-size: 10px; }
+
+/* Half-circle arcs at two-thirds the size: still readable at a glance, and no
+   longer the tallest thing in the band. */
+.ledger--row .ledger__donut { width: 54px; height: 27px; border-radius: 54px 54px 0 0; margin-bottom: 5px; }
+.ledger--row .ledger__arcs { gap: 18px; }
+.ledger--row .ledger__arcn { font-size: 22px; }
+.ledger--row .ledger__arcl { font-size: 10.5px; }
+
+/* Blank-install ledger: one quiet line instead of empty panels. */
+.ledger--blank { font-size: 11.5px; color: var(--ink-3); padding: 10px 12px; border: 1px dashed var(--hair-7); border-radius: 10px; }
+
+/* ── The row layout is CONTENT-HEIGHT, never 100% ────────────────────────
+   Found on Sukhdeep's screen, 2026-09-03: on Work the two panels overlapped —
+   "Recent runs" showed its heading and one clipped table row, with "This week"
+   drawn on top of it.
+
+   Cause: `.ledger` carries `height: 100%` for the RAIL, where it divides a
+   fixed-height column between a scrolling list and a summary that must never
+   be pushed off screen. On Work it sits in `.ws__evidence`, a `flex: 0 1 auto`
+   box that can be squeezed. 100% of a squeezed parent left the first panel
+   shorter than its own table, and nothing clipped the overflow — so the table
+   painted over its sibling.
+
+   The row shape has no fixed height to divide, so it must not claim one.
+   Deliberately ONLY the height: the flex proportions belong to the container
+   query below, and overriding them here would win on specificity and break the
+   side-by-side layout it exists to produce. */
+.ledger--row {
+  height: auto;
+  min-height: 0;
+}

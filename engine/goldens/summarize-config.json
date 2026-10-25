@@ -1,0 +1,22 @@
+{
+  "id": "summarize-config",
+  "intent": "summarize the project configuration files",
+  "acceptance_criteria": [
+    "a readable summary of the configuration is produced",
+    "no files are mutated (read-only task)"
+  ],
+  "scope": ["."],
+  "mode": "read",
+  "token_budget": 50000,
+  "max_turns": 6,
+  "tier1_commands": ["exit 0"],
+  "envelope": {"token_budget": 50000, "max_steps": 6, "latency_ms": null},
+  "threshold": 0.7,
+  "ideal_trajectory": [
+    "read: understand what configuration means here",
+    "read: locate the configuration files",
+    "read: produce read-only findings / summary"
+  ],
+  "ideal_outcome": "A concise summary of the configuration files with no mutation; all steps read-only.",
+  "expect_pass": true
+}

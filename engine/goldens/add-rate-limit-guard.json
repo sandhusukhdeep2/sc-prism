@@ -1,0 +1,24 @@
+{
+  "id": "add-rate-limit-guard",
+  "intent": "add a rate-limit guard to the request handler",
+  "acceptance_criteria": [
+    "tier1: repository checks (tests/lint/build) pass",
+    "a rate-limit guard is added to the request handler",
+    "the change is a plausible implementation of the intent"
+  ],
+  "scope": ["src/handlers/"],
+  "mode": "write",
+  "token_budget": 100000,
+  "max_turns": 8,
+  "tier1_commands": ["exit 0"],
+  "envelope": {"token_budget": 100000, "max_steps": 8, "latency_ms": null},
+  "threshold": 0.7,
+  "ideal_trajectory": [
+    "read: understand the rate-limit requirement",
+    "read: locate the request handler",
+    "write: implement the rate-limit guard",
+    "read: self-check against acceptance criteria"
+  ],
+  "ideal_outcome": "A request handler with a working rate-limit guard; Tier-1 checks pass and the trajectory reads before it writes.",
+  "expect_pass": true
+}

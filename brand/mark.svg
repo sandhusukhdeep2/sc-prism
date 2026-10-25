@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="30" height="24" viewBox="0 0 30 24" role="img" aria-label="SC Prism">
+  <!-- One instruction enters. The prism splits it into a crew: cloud blue,
+       second cloud coral, on-device green. -->
+  <g fill="none" stroke-width="2.15" stroke-linecap="round">
+    <path d="M1.5 12H7.1" stroke="#10141a"/>
+    <path d="M18.1 10.6 27.6 6.3" stroke="#83a2db"/>
+    <path d="M18.6 12H28" stroke="#ce6969"/>
+    <path d="M18.1 13.4 27.6 17.7" stroke="#6e9a83"/>
+  </g>
+  <path d="M12.7 3.6 18.4 12 12.7 20.4 9.2 12Z" fill="none" stroke="#10141a" stroke-width="2" stroke-linejoin="round"/>
+</svg>

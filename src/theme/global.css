@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--shell);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* One unbreakable token must never widen a card past its container. Real
+     strings this size ship with the product — model ids like
+     "Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-MLX-oQ4-MTP", vault
+     paths, URLs. `break-word` only breaks when there is no other option, so
+     ordinary prose wraps exactly as before (2026-08-31 design pass). */
+  overflow-wrap: break-word;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* Visible keyboard focus — gold ring, applied only for keyboard/AT navigation.
+   textarea + select are in the list so the Workspace composer (border:0,
+   transparent bg — the single most important control) and every <select> get a
+   focus ring instead of none. No forced border-radius: the offset outline
+   follows each control's own radius so pill toggles / circular theme+radio
+   swatches / route options / the active nav pill aren't squared off on focus. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="switch"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 2px;
+}
+
+.mono { font-family: var(--font-mono); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: var(--v2-r-chip); }
+
+@keyframes dockPulse {
+  0%, 100% { box-shadow: var(--v2-shadow); }
+  50%      { box-shadow: var(--v2-shadow); }
+}
+
+/* Respect reduced-motion: still the orb/halo pulses (dockPulse, glowRing,
+   blockPulse, curPulse, shimmer, spin/halo) and all transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,142 @@
+/* RunStream — the per-agent, model-colored run timeline. Compact rows meant
+   to live inside the engine console body (.ws__consolebody already scrolls
+   and caps height), so this file only styles the rows themselves. */
+
+.run__stream {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.run__row--call {
+  color: #d6d3e2;
+}
+
+.run__row--sec {
+  color: #5f6570;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.run__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.run__agent {
+  flex: 0 0 auto;
+  color: #c9cdd6;
+  font-style: italic;
+}
+
+.run__chip {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid currentColor;
+  border-radius: var(--v2-r-chip);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.run__route {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #5f6570;
+  font-size: 10.5px;
+}
+
+.run__lock {
+  font-size: 9.5px;
+}
+
+.run__tokens,
+.run__dur {
+  flex: 0 0 auto;
+  color: #5f6570;
+  font-size: 10.5px;
+}
+
+.run__stub {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: var(--v2-r-chip);
+  background: rgba(255, 255, 255, 0.08);
+  color: #5f6570;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.run__status {
+  flex: 1 0 auto;
+  text-align: right;
+  font-size: 11px;
+}
+
+.run__status--ok { color: var(--ok); }
+.run__status--err { color: #ce6969; }
+.run__status--run { color: #5f6570; }
+
+/* MCP tool call row (M1/M2/M3) — its own readable timeline entry. */
+.run__row--tool { color: #c8cad6; }
+.run__toolglyph { flex: 0 0 auto; color: #9a97ab; }
+.run__toolid { flex: 0 0 auto; color: #d6d3e2; }
+/* WHAT the call did: the web destination + outcome (docs.anthropic.com — 200,
+   48 KB) or a search's query + hit count. Quieter than the tool id (that is the
+   identity; this is the detail) but readable, and it ellipsises rather than
+   pushing the outcome badge off the row. */
+.run__tooldetail {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9a97ab;
+  font-size: 10.5px;
+}
+
+.run__toolout {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: var(--v2-r-chip);
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+}
+/* A success needs no badge; the ✓ carries it. Governance is loud + distinct. */
+.run__toolout--ok { display: none; }
+.run__toolout--err { background: rgba(255, 138, 133, 0.16); color: #ce6969; }
+.run__toolout--blocked { background: rgba(131, 162, 219, 0.18); color: #83a2db; text-transform: uppercase; }
+.run__toolout--withheld { background: rgba(110, 154, 131, 0.16); color: #6fd08b; }
+
+/* Light "rail" contexts (data-theme not prism/obsidian) still read fine:
+   the console body itself is a fixed dark panel (see Workspace.css
+   .ws__console), so no separate light-theme override is needed here yet —
+   the orb view (later) will restyle its own light surface directly. */
+
+/* Claude-Code-depth expandable rows: IN/OUT bodies under an action. */
+.run__expand { display: flex; flex-direction: column; }
+.run__expandbtn { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 6px; }
+.run__expandbtn:hover { background: var(--field-fill); }
+.run__expandbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.run__io { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px 26px; padding: 6px 8px; border-left: 2px solid var(--hair-7); }
+.run__ioline { display: flex; gap: 8px; font-size: 11px; align-items: baseline; }
+.run__iolabel { flex: 0 0 26px; font-size: 9.5px; letter-spacing: 0.08em; color: var(--ink-3); }
+.run__iolabel--out { color: var(--accent); }
+.run__iotext { color: var(--ink); overflow-wrap: anywhere; }
+
+/* Drawer reveal — the note the row names, one click away. */
+.run__reveal { align-self: flex-start; margin-top: 2px; background: none; border: 0; padding: 0; font-size: 10.5px; color: var(--accent); cursor: pointer; }
+.run__reveal:hover { text-decoration: underline; }

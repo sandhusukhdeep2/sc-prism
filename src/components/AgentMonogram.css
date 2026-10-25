@@ -1,0 +1,10 @@
+.amono {
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-body); font-weight: 700; letter-spacing: 0;
+  color: var(--v2-on-fill);
+  user-select: none;
+}
+/* An agent that cannot run reads as idle — and its letter stays legible on the
+   grey, because "this one is off" must be readable, not merely dimmed. */
+.amono--idle { color: var(--v2-on-idle); opacity: 0.85; }

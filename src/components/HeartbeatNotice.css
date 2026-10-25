@@ -1,0 +1,42 @@
+/* HeartbeatNotice — the setup-completion consent banner (2026-08-05 §Part 3).
+   Tokens only, so both themes restyle. Deliberately quiet: it must be seen and
+   answered, not shouted — the honesty comes from it not going away by itself,
+   not from colour. */
+
+.hbnotice {
+  display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap;
+  margin: 10px 18px 0; padding: 12px 14px;
+  border: 1px solid var(--hair-10); border-radius: var(--v2-r-inner);
+  background: var(--raise); box-shadow: var(--shadow-card);
+}
+
+.hbnotice__body { flex: 1 1 320px; min-width: 0; }
+
+.hbnotice__title {
+  font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px;
+}
+
+.hbnotice__copy {
+  font-size: 12px; line-height: 1.5; color: var(--muted);
+}
+.hbnotice__copy + .hbnotice__copy { margin-top: 4px; font-size: 11px; }
+
+.hbnotice__actions {
+  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+}
+
+.hbnotice__btn {
+  border: 1px solid var(--hair-10); background: none; border-radius: var(--v2-r-chip);
+  padding: 5px 12px; font: inherit; font-size: 11.5px; color: var(--ink);
+  cursor: pointer;
+}
+.hbnotice__btn:hover { border-color: var(--hair-20); }
+.hbnotice__btn:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+.hbnotice__btn--off { color: var(--muted); }
+.hbnotice__btn--keep { border-color: var(--hair-20); font-weight: 600; }
+
+.hbnotice__link {
+  font-size: 11px; color: var(--muted); text-decoration: none;
+  border-bottom: 1px solid var(--hair-10);
+}
+.hbnotice__link:hover { color: var(--ink); }

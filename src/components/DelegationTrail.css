@@ -1,0 +1,32 @@
+/* Delegated work — one row per step, four facts per row. */
+.deleg {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-card, 12px);
+  background: var(--fill-soft);
+}
+.deleg__head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.deleg__kicker {
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-2);
+}
+.deleg__summary { font-size: 11px; color: var(--muted); }
+.deleg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.deleg__step {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  padding: 5px 0 5px 9px; border-left: 2px solid var(--hair); font-size: 12px;
+}
+.deleg__agent { font-weight: 600; color: var(--ink); }
+.deleg__ai { font-size: 11px; color: var(--accent, var(--muted)); }
+.deleg__asked { color: var(--muted); }
+.deleg__outcome { font-size: 11px; color: var(--muted-2); }
+
+/* State colours. 'working' is deliberately NOT green: nothing has been proved
+   yet. 'unreachable' and 'refused' are warnings — both are the app telling the
+   truth about something that did not happen. */
+.deleg__step--done { border-left-color: var(--ok, #3fb968); }
+.deleg__step--working { border-left-color: var(--muted-2); }
+.deleg__step--unreachable { border-left-color: var(--danger, #ce6969); }
+.deleg__step--unreachable .deleg__outcome { color: var(--danger, #ce6969); }
+.deleg__step--refused { border-left-color: var(--warn, var(--danger, #ce6969)); }
+.deleg__step--refused .deleg__outcome { color: var(--warn, var(--danger, #ce6969)); }

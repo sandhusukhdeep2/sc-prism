@@ -1,0 +1,24 @@
+{
+  "id": "tight-envelope-runaway",
+  "intent": "add a verbose logging layer across every module",
+  "acceptance_criteria": [
+    "tier1: repository checks (tests/lint/build) pass",
+    "a logging layer is added",
+    "the run stays within its operating envelope"
+  ],
+  "scope": ["src/"],
+  "mode": "write",
+  "token_budget": 100000,
+  "max_turns": 8,
+  "tier1_commands": ["exit 0"],
+  "envelope": {"token_budget": 100000, "max_steps": 1, "latency_ms": null},
+  "threshold": 0.7,
+  "ideal_trajectory": [
+    "read: understand the logging requirement",
+    "read: locate the modules",
+    "write: implement the logging layer",
+    "read: self-check"
+  ],
+  "ideal_outcome": "The answer looks fine, but the run executes more steps than its 1-step envelope allows. This is the runaway-but-successful case: the envelope breach must FAIL Tier-2 even though the score clears threshold.",
+  "expect_pass": false
+}

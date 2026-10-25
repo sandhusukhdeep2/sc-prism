@@ -1,0 +1,685 @@
+/* ===========================================================================
+   WORK — THE REGION MODEL (2026-08-18)
+
+   WHAT WENT WRONG. The v2 rebuild put `overflow-y: auto` on the CHAT COLUMN
+   and then stacked six page-shaped blocks inside it: the live task cards, the
+   crew board, the chat card (`flex: 1 0 auto` — shrink 0 — with
+   `min-height: 54vh`), the black engine console, the run ledger, and a grid
+   holding "Up next" + "Your setup". Because the chat card could not shrink,
+   that column's content was ALWAYS taller than the column, so it always
+   scrolled — and the chat card's own `.chat__body` scrolled inside it. Two
+   scrollers on one axis: pushing past the end of the conversation dragged the
+   whole column, taking the composer and the top of the conversation off
+   screen. It read, exactly as reported, as a window that scrolls forever.
+
+   THE MODEL NOW. Work is an APP SCREEN, not a document. One app-height frame,
+   four fixed-height bands (status strip · connectivity · needs · desk) and
+   three side-by-side regions that fill what is left:
+
+     ┌ .ws (height:100%, overflow:hidden) ─────────────────────────────┐
+     │ .ws__strip / banner / .ws__needs / .ws__desk   fixed, bounded   │
+     │ ┌ .ws__main (flex:1, min-height:0) ───────────────────────────┐ │
+     │ │ .ws__nav    │ .ws__chatcol            │ .ws__side           │ │
+     │ │ chats +     │   .ws__stage  (bounded, │ ledger (universal)  │ │
+     │ │ projects    │    scrolls, :empty when │ or project context  │ │
+     │ │ [scrolls]   │    nothing is running)  │ [scrolls]           │ │
+     │ │             │   .chat  (fills, hidden)│                     │ │
+     │ │             │     .chat__body SCROLLS │                     │ │
+     │ │             │     composer pinned     │                     │ │
+     │ └─────────────┴─────────────────────────┴─────────────────────┘ │
+     └─────────────────────────────────────────────────────────────────┘
+
+   Exactly ONE region scrolls on the conversation's own axis: `.chat__body`.
+   Every other scroll belongs to a region the eye reads as separate (the chat
+   list, the run stage, the rail), and none of them nest inside another.
+   `.content--fit` in AppShell.css stops the shell scrolling underneath it.
+   =========================================================================== */
+.ws { display: flex; flex-direction: column; height: 100%; min-height: 460px; gap: 10px; padding-top: 12px; overflow: hidden; }
+
+/* slim status bar — one short row: greeting + status left, KPI chips right */
+.ws__strip { display: flex; align-items: flex-start; gap: 10px; padding: 0; flex: 0 0 auto; }
+.ws__titlecol { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ws__hello {
+  margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -0.02em;
+  line-height: 1.15; color: var(--v2-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ws__subtitle {
+  font-size: 12.5px; color: var(--v2-muted); line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ws__statusline { font-size: 12px; color: var(--v2-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws__spacer { flex: 1; }
+/* ONE honest status line + a link to the page that owns the numbers. (Six
+   chips — local% / cache% / eval / tokens / cost / Tier-1 — used to live here.
+   Stats owns all six, explains them, and is one click away.) */
+.ws__kpis { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; min-width: 0; }
+.ws__kpi {
+  font-size: 11px; padding: 5px 11px; border-radius: var(--v2-r-pill);
+  background: var(--v2-card); color: var(--v2-ink-2); white-space: nowrap;
+  box-shadow: var(--v2-shadow-soft);
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.ws__statslink { font-size: 11px; color: var(--v2-ink-2); text-decoration: none; white-space: nowrap; }
+.ws__statslink:hover { color: var(--v2-ink); text-decoration: underline; }
+
+/* always-visible urgent decisions (compact, bounded). `flex: 0 0 auto` is the
+   honesty of this band: it was `0 1 auto; min-height: 0`, and under squeeze it
+   was the FIRST thing flex collapsed — to literally zero height — while the
+   strip above kept printing "1 thing needs your decision". A decision the app
+   announces must be able to paint; the 22vh cap already stops it running away,
+   so it never needed to be shrinkable at all. */
+.ws__needs { flex: 0 0 auto; max-height: 22vh; overflow-y: auto; }
+.ws__needs:empty { display: none; }
+
+/* collapsible coworker desk */
+.ws__desk { flex: 0 0 auto; }
+.ws__desktoggle {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: transparent; border: none; cursor: pointer; font: inherit; color: inherit; padding: 4px 2px;
+  flex: 0 0 auto;
+}
+.ws__desklabel { font-weight: 600; font-size: 13px; flex: 0 0 auto; }
+.ws__desksummary { font-size: 12px; color: var(--muted-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws__deskchev { font-size: 11px; color: var(--muted-2); flex: 0 0 auto; }
+/* The body is the scroll viewport, and it is the box that yields. `flex: 1 1
+   auto` + `min-height: 0` is what lets the band's squeeze reach it: without
+   the zero floor a flex child refuses to shrink past its content, the parent
+   clips instead, and a heartbeat row gets sliced through the middle with no
+   scrollbar to reach the rest of it (reported 2026-09-03). */
+.ws__deskbody {
+  flex: 1 1 auto; min-height: 0;
+  max-height: 32vh; overflow-y: auto; margin-top: 6px;
+}
+/* The desk band may shrink before the conversation does — it is ambient. But
+   it must never shrink below its own toggle: with `min-height: 0` the button
+   collapsed to zero height while its text kept painting, printing "Coworker
+   desk" on top of the chat rail below it. The band now floors at the toggle's
+   height and clips, so a squeeze shortens the BODY, never the label. */
+.ws__desk {
+  flex: 0 1 auto; min-height: 30px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* main split — fills the remaining viewport height. The floor is the chat-hero
+   decision (2026-07-19) written into the layout: without it, the un-shrinkable
+   bands below squeezed the conversation to an ~80px sliver at real window
+   sizes — the error card did not even fit. The ledger yields (it scrolls);
+   the conversation does not. */
+.ws__main { flex: 1 1 auto; min-height: 280px; display: flex; gap: 20px; padding-bottom: 12px; }
+
+/* CHAT COLUMN — region 2. It does NOT scroll (that was the bug): it is a
+   fixed-height frame holding a bounded run stage and the chat card. */
+.ws__chatcol {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; gap: 12px;
+  overflow: hidden;
+}
+/* THE STAGE — what is running right now. Bounded so a long pipeline can never
+   push the conversation out of the window, and `:empty` (both children render
+   null when nothing is running) so an idle page gives the column to the chat. */
+/* A LIVE build is the thing being watched (Sukhdeep, mid-build, 2026-08-28:
+   "did not get enough space to show me full data — the chat box and upper
+   section have more space than this one"). When the stage has content it is
+   the page's working surface: it takes the larger share and holds a real
+   floor, and the chat body — which scrolls — yields. The floor is gated on
+   viewport height so a short window can never squeeze the composer out. */
+.ws__stage { flex: 0 1 auto; min-height: 0; max-height: 58%; overflow-y: auto; padding-right: 4px; }
+.ws__stage:empty { display: none; }
+/* MOTION, honestly: the stage APPEARING is a real event (a run began) and may
+   announce itself; nothing in here pulses while idle. Reduced-motion users get
+   the same truth without the movement. */
+@media (prefers-reduced-motion: no-preference) {
+  .ws__stage:not(:empty) { animation: ws-stage-in .32s cubic-bezier(.2,.8,.25,1) both; }
+  @keyframes ws-stage-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .ws__side { animation: ws-rail-in .28s ease both; }
+  @keyframes ws-rail-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+  .ws__deskbody { animation: ws-stage-in .24s ease both; }
+}
+/* NO RESERVED EMPTY SPACE (2026-08-31 design pass, seen live mid-build): the
+   stage sizes to its CONTENT and simply stops growing at 58% — a run whose
+   stage is one strip must not hold a 260px floor of nothing above the chat.
+   The chat, which scrolls, still yields whenever the stage genuinely fills. */
+.ws__stage--live:not(:empty) { flex: 0 0 auto; }
+
+/* left sidebar: Universal chat + per-project sessions (P1-3a) */
+/* Work's own list of chats and projects. It is NOT the app's navigation — that
+   is the rail in AppShell, which is on this page too — so it is sized and
+   spaced to match the rail exactly (same width, same pill, same heading), and
+   the two read as one continuous sidebar instead of two competing ones. */
+.ws__nav { width: 186px; flex: 0 0 186px; display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 0; overflow-y: auto; }
+.ws__navlabel { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--v2-muted); margin: 20px 0 6px; padding: 0 12px; }
+.ws__navempty { font-size: 12px; opacity: 0.5; padding: 4px; }
+.ws__navitem {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  text-align: left; padding: 8px 14px; border-radius: var(--v2-r-pill);
+  background: transparent; border: 1px solid transparent; cursor: pointer;
+  font: inherit; color: var(--v2-ink-2);
+}
+.ws__navitem:hover { background: var(--v2-fill); }
+/* BLACK IS THE ACCENT — the active pill is the one solid block in the rail. */
+.ws__navitem.is-active {
+  background: var(--v2-accent); border-color: var(--v2-accent);
+  color: var(--v2-on-accent); font-weight: 600;
+}
+.ws__navname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws__navorb { width: 8px; height: 8px; border-radius: 50%; background: var(--v2-blue); flex: 0 0 auto; }
+.ws__navitem.is-active .ws__navorb { background: var(--v2-on-accent); }
+.ws__navnew {
+  margin-top: 6px; padding: 9px 14px; border-radius: var(--v2-r-pill); cursor: pointer;
+  background: transparent; border: 1px dashed var(--edge); font: inherit; color: var(--v2-ink-2); opacity: 0.85;
+}
+.ws__navnew:hover { opacity: 1; }
+.chat__begin { padding: 8px 14px; border-radius: var(--v2-r-chip); border: 1px solid var(--scrollbar); background: transparent; cursor: pointer; font: inherit; }
+.chat__beginhint { margin-top: 8px; font-size: 12px; opacity: 0.6; }
+
+/* chat card */
+.chat {
+  /* The hero: FILLS whatever the stage leaves, and shrinks with the window —
+     `flex: 1 0 auto` with `min-height: 54vh` is what made this card refuse to
+     fit, forcing its column to scroll. The message body scrolls inside it; the
+     composer stays pinned to its bottom edge. */
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  /* v2 form language: a generous white card on the pale ground, soft shadow. */
+  border-radius: var(--v2-r-card); background: var(--v2-card); box-shadow: var(--v2-shadow);
+}
+.chat__tabs { display: flex; align-items: center; gap: 14px; padding: 16px 22px; border-bottom: 1px solid var(--hair-2); }
+.chat__tab { font-size: 13.5px; color: var(--muted-2); }
+/* The details toggle is a BUTTON wearing the tab's clothes — same face, plus
+   the reset a native button needs to sit in the row without shouting. */
+.chat__tab--details { background: transparent; border: none; cursor: pointer; font: inherit; color: var(--v2-muted); }
+.chat__tab--details:hover { color: var(--v2-ink); }
+.chat__tab.is-active { color: var(--v2-ink); font-weight: 600; border-bottom: 2px solid var(--v2-accent); padding-bottom: 2px; }
+.chat__spacer { flex: 1; }
+.chat__task { font-size: 11.5px; color: var(--muted-2); }
+
+/* Active-project switcher (Slice 1a/1b) — the project bound as this
+   Workspace's active session. A native <select> ("Working on: <project>" /
+   "Coworker — no project focused") + a deep-link to the project's detail +
+   a Clear button that hands setActiveProject('') back to general coworker
+   mode. `.chat__activeproject` (no project at all exists yet) keeps the
+   original P2-4 chip look for that edge case. */
+.chat__activeproject {
+  font-size: 11px; color: var(--muted-2); background: var(--raise-50);
+  padding: 4px 10px; border-radius: var(--r-pill);
+}
+.chat__projectswitch { display: flex; align-items: center; gap: 6px; }
+.chat__projectselect {
+  font-size: 11px; color: var(--warn-ink); background: rgba(131, 162, 219, 0.12);
+  padding: 4px 22px 4px 10px; border-radius: var(--r-pill); border: none;
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M0 0l4 6 4-6z' fill='%23b9800f'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center;
+}
+.chat__projectselect:hover { background-color: rgba(131, 162, 219, 0.2); }
+.chat__projectopen {
+  font-size: 12px; color: var(--muted-2); text-decoration: none; padding: 2px 4px;
+}
+.chat__projectopen:hover { color: var(--ink); }
+.chat__projectclear {
+  font-size: 11px; color: var(--muted-3); background: none; border: none;
+  cursor: pointer; font-family: var(--font-mono); padding: 4px 2px;
+}
+.chat__projectclear:hover { color: var(--ink-3); }
+
+/* THE ONE SCROLL on the conversation's axis. `min-height: 0` (not a px floor)
+   is what lets it give way instead of pushing the composer off the bottom of a
+   short window — the floor used to make the card overflow its own column. */
+.chat__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; }
+
+.msg--user {
+  align-self: flex-end; max-width: 62%; padding: 12px 18px;
+  border-radius: var(--v2-r-card) var(--v2-r-card) var(--v2-r-chip) var(--v2-r-card); background: var(--v2-accent); color: var(--v2-on-accent);
+  font-size: 14px; line-height: 1.5;
+}
+/* Active-project switch divider (Slice 1d) — a quiet transcript marker, not
+   a real chat turn: centered, small, muted, no bubble. */
+.msg--divider { align-self: center; font-size: 10.5px; color: var(--muted-3); padding: 2px 0; }
+/* The APP speaking (Mission Control §Give a task from Work) — a launch's honest
+   ending or its busy refusal. Distinct from a divider (this carries something
+   the user must read) and deliberately NOT bubble-shaped: no model said it. */
+.msg--notice {
+  align-self: stretch; font-size: 11.5px; line-height: 1.5; color: var(--muted);
+  padding: 8px 12px; border-radius: var(--v2-r-chip); background: var(--fill-soft);
+  border-left: 2px solid var(--hair); white-space: pre-line; word-break: break-word;
+}
+.msg--ai { display: flex; gap: 12px; align-items: flex-start; }
+.msg__orb {
+  width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%;
+  background: var(--orbc, var(--v2-idle));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700; color: var(--v2-on-fill);
+  font-family: var(--font-body); letter-spacing: 0;
+}
+.msg__bubble {
+  max-width: 72%; padding: 13px 17px; border-radius: var(--v2-r-chip) var(--v2-r-card) var(--v2-r-card) var(--v2-r-card);
+  background: var(--input-fill); font-size: 14px; line-height: 1.55; color: var(--bubble-ink);
+  box-shadow: var(--v2-shadow);
+}
+
+/* Per-message model attribution (multi-model chat) — the bubble + its honest
+   chip stacked, so the chip sits under the reply aligned to its left edge.
+   Calm, small, muted; mirrors the run-stream chip discipline (RunStream.css). */
+.msg__aicol { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.msg__attrib {
+  display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding-left: 3px; font-size: 10.5px; color: var(--on-dark-label);
+}
+.msg__attriblock { font-size: 9.5px; }
+.msg__attribdot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+/* P10: the model name is the most TRUTHFUL signal on the page (which model
+   actually answered, kept-local or not) — it must be readable, not the faintest
+   text. Promote it to --ink-3; the "· reason" tail stays faint. */
+.msg__attribmodel { color: var(--ink-3); white-space: nowrap; font-weight: 600; }
+.msg__attribreason { color: var(--muted-3); }
+
+.msg--error {
+  align-self: stretch;
+}
+.errcard {
+  border-radius: var(--r-card);
+  background: rgba(206, 105, 105, 0.08);
+  border: 1px solid rgba(206, 105, 105, 0.25);
+  padding: 12px 16px;
+  font-size: 12.5px;
+}
+.errcard__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 9px;
+}
+.errcard__btn {
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(206, 105, 105, 0.35);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.errcard__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chat__earlier {
+  margin-left: 46px; align-self: flex-start; display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-radius: var(--r-chip); background: var(--fill-soft-2);
+}
+.chat__earlier .mono { font-size: 11.5px; color: var(--on-dark-label); }
+
+/* Plain-English narration strip (Mission Control): a small stack of real
+   span-derived lines, newest last. Sits in the same chip as the old single
+   status line, so it never changes the chat's rhythm. */
+.chat__earlier--narrate { align-items: flex-start; }
+.chat__narration { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chat__narrateline {
+  font-size: 11.5px;
+  color: var(--on-dark-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+/* The newest line is the one that is happening now — the rest are its trail. */
+.chat__narrateline:last-child { color: var(--on-dark); }
+
+/* attached-file chips (Slice A) — shown above the composer, cleared on send */
+.chat__attachments {
+  margin: 0 22px 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.chat__attachchip {
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 10px;
+  border-radius: var(--r-pill); background: var(--fill-soft-2); font-size: 11.5px; color: var(--ink-2);
+  max-width: 260px;
+}
+.chat__attachchip .chat__attachremove {
+  border: 0; background: transparent; color: var(--muted-2); font-size: 13px; line-height: 1;
+  cursor: pointer; padding: 0 2px;
+}
+.chat__attachchip .chat__attachremove:hover { color: var(--ink); }
+.chat__attacherror {
+  font-size: 11.5px; color: var(--warn-ink); padding: 5px 10px; border-radius: var(--r-pill);
+  background: rgba(131, 162, 219, 0.12);
+}
+
+/* Image attach: a thumbnail chip (theme-token styled, all 3 themes) + a subtle
+   honesty note when the primary can't see images. */
+.chat__imagechip {
+  display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px;
+  border-radius: var(--r-pill); background: var(--fill-soft-2); font-size: 11.5px; color: var(--ink-2);
+  max-width: 260px;
+}
+.chat__imagethumb {
+  width: 28px; height: 28px; border-radius: var(--v2-r-chip); object-fit: cover;
+  border: 1px solid var(--edge); flex: 0 0 auto;
+}
+.chat__imagename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat__imagechip .chat__attachremove {
+  border: 0; background: transparent; color: var(--muted-2); font-size: 13px; line-height: 1;
+  cursor: pointer; padding: 0 2px;
+}
+.chat__imagechip .chat__attachremove:hover { color: var(--ink); }
+.chat__imagenote {
+  font-size: 11px; color: var(--muted-2); padding: 4px 8px; border-radius: var(--r-pill);
+  background: var(--fill-soft); font-style: italic;
+}
+
+/* The composer is a COLUMN of two rows (A2, 2026-08-11): the text field owns a
+   full-width row, the controls sit on a second row beneath it. As one row the
+   textarea competed for width with the attach buttons, the hint, the 4-option
+   target selector and the 3-option route control, and collapsed to a ~40px
+   column. Nothing here is theme-specific: the surface is still --input-fill and
+   every control keeps its own tokens, so Amber / Prism / Obsidian are unchanged. */
+/* Sukh's routing choice + its reason, shown above the composer BEFORE the send
+   (2026-08-15). Never a bare pick — the whole line is choice AND reason. */
+.chat__routing {
+  margin: 0 22px 6px; padding: 7px 12px; border-radius: var(--v2-r-pill);
+  font-size: 11px; line-height: 1.45; color: var(--v2-ink-2);
+  background: var(--v2-fill); border: 1px solid var(--v2-line);
+}
+/* The sensitivity / vault-egress floor decided it. Marked, because that reason
+   outranks every other and the user should see that at a glance. */
+.chat__routing--floor { border-color: var(--v2-local); color: var(--v2-ink); }
+.chat__routingnote { color: var(--v2-muted); }
+
+.chat__composer {
+  margin: 0 22px 18px; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 12px 12px 12px 16px; border-radius: var(--v2-r-card); background: var(--input-fill);
+  box-shadow: var(--v2-shadow); border: 1px solid var(--v2-line);
+}
+/* Row 2. It WRAPS, so a narrow window (or a long companion name in the target
+   selector) pushes controls onto another line instead of squeezing anything. */
+.chat__controls {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0;
+}
+/* Everything that belongs to the RIGHT of the row — hint, who, route, send —
+   held together so they wrap as one cluster and stay pinned right. */
+.chat__controlgroup {
+  margin-left: auto; display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; flex-wrap: wrap; min-width: 0;
+}
+.chat__attachbtn {
+  flex: 0 0 auto; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--v2-fill);
+  font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.chat__attachbtn:hover:not(:disabled) { background: var(--hair); }
+.chat__attachbtn:disabled { opacity: 0.45; cursor: default; }
+.chat__input {
+  width: 100%; min-width: 0; border: 0; background: transparent;
+  font-family: var(--font-body); font-size: 14px; line-height: 1.45; color: var(--ink);
+  resize: none; overflow-y: auto; max-height: 160px; padding: 4px 0;
+}
+.chat__input::placeholder { color: var(--muted-2); }
+.chat__input:disabled { color: var(--muted-2); }
+.chat__hint { font-size: 11px; color: var(--v2-muted); }
+/* THE ONE OVERRIDE CONTROL. Small, quiet, and the only thing standing between
+   the composer and the seven pills it used to show at all times. */
+.chat__override-btn {
+  flex: 0 0 auto; border: 1px solid var(--v2-line); background: transparent;
+  color: var(--v2-ink-2); font: inherit; font-size: 11px; cursor: pointer;
+  padding: 4px 11px; border-radius: var(--v2-r-pill); white-space: nowrap;
+}
+.chat__override-btn:hover, .chat__override-btn.is-open { background: var(--v2-fill); color: var(--v2-ink); }
+.chat__override-btn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 1px; }
+/* The panel it opens: a full-width row inside the wrapping control row, so the
+   pills sit above the send line rather than beside the text field. */
+.chat__override {
+  flex: 1 0 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--v2-line);
+}
+/* v2: who this send goes to, said before the send */
+.chat__whohint { font-size: 11px; color: var(--v2-ink-2); font-weight: 600; }
+/* the primary button — the second place the black accent is spent */
+.chat__send {
+  width: 38px; height: 38px; border: 0; border-radius: 50%;
+  background: var(--v2-accent); color: var(--v2-on-accent);
+  font-size: 17px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+.chat__send:hover:not(:disabled) { filter: brightness(1.15); }
+.chat__send:disabled { opacity: 0.45; cursor: default; }
+
+/* Per-message route control (auto / local / cloud). Theme-token styling only —
+   the track is a translucent overlay (reads on light AND dark surfaces) and the
+   active pill drives its fill from --input-fill + ink from --ink, both of which
+   flip per theme, so it stays legible in Amber, Prism, and Obsidian. */
+.chat__route {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px; border-radius: var(--r-pill); background: var(--hair);
+}
+.chat__routelabel { font-size: 10px; color: var(--muted-3); padding: 0 5px 0 3px; letter-spacing: 0.04em; }
+.chat__routebtn {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 11px; padding: 4px 9px; border-radius: var(--v2-r-chip); user-select: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.chat__routebtn:hover { color: var(--ink); }
+.chat__routebtn--on {
+  background: var(--input-fill); color: var(--ink); font-weight: 600;
+  box-shadow: var(--pill-shadow);
+}
+.chat__routebtn:focus-visible { outline: 2px solid var(--v2-blue-ink); outline-offset: 1px; }
+.chat__routebtn:disabled { opacity: 0.4; cursor: default; }
+.chat__routebtn:disabled:hover { color: var(--muted); }
+
+/* Target control (WHO does this task) — the SAME segmented idiom as the route
+   control it sits beside, so the two read as one row of per-message choices.
+   The companion pill carries a user-given name, so it is capped + ellipsised
+   rather than allowed to push the composer around. It no longer needs a
+   percentage cap (it stopped sharing a row with the textarea in A2) — a long
+   name ellipsises inside its pill and the cluster wraps. */
+.chat__target { max-width: 100%; flex-wrap: wrap; }
+.chat__target .chat__routebtn {
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The chosen target's own controls, on their own line above the composer: the
+   editable roles string for a team, or the agent picker + its honest note. */
+.chat__targetbar {
+  margin: 0 22px 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.chat__targetlabel { font-size: 10px; color: var(--muted-3); letter-spacing: 0.04em; }
+.chat__roster, .chat__agentpick {
+  min-width: 240px; max-width: 100%; border: 1px solid var(--hair); border-radius: var(--r-pill);
+  background: var(--input-fill); color: var(--ink); font-size: 11.5px; padding: 5px 10px;
+}
+.chat__agentpick { min-width: 200px; cursor: pointer; }
+.chat__roster:focus-visible, .chat__agentpick:focus-visible {
+  outline: 2px solid var(--v2-blue-ink); outline-offset: 1px;
+}
+.chat__targethint { font-size: 10.5px; color: var(--muted-3); }
+.chat__targethint--warn { color: var(--warn, var(--muted-2)); }
+
+/* streaming assistant text + idle status dot */
+.msg__stream { white-space: pre-line; }
+.msg__typing { color: var(--muted-2); font-size: 12.5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); flex: 0 0 8px; }
+.dot--ok { background: var(--ok); box-shadow: var(--v2-shadow-soft); }
+
+/* RIGHT RAIL — region 3. Full height, scrolls internally. On the Universal
+   thread it holds the measured ledger (which used to be stacked under the
+   conversation); with a project bound it holds that project's own context. */
+/* The rail no longer scrolls as a whole — the ledger inside it divides its own
+   height so the week's summary is always on screen and only the run LIST
+   scrolls. A scrolling rail hid the summary below the fold. */
+/* The rail SCROLLS (2026-08-28). It was `overflow: hidden`, and on a planned
+   project the panel's tail — the PLAN section with the START BUILD button —
+   fell below the fold with no way to reach it at common window heights. A
+   control the flow depends on must always be reachable; the rail now scrolls
+   like any long column. */
+.ws__side { width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
+
+/* P1-3b: active-project rail — wider (it hosts the same panels as the
+   Projects page's detail view); the parent constrains height, so it just
+   scrolls internally when a long plan/verdict list overflows. */
+.ws__side--project { width: 340px; flex-basis: 340px; }
+.ws__railhead { display: flex; align-items: center; gap: 8px; }
+.ws__railname { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws__raildelete {
+  margin-left: auto; background: transparent; border: none; cursor: pointer;
+  font-size: 14px; line-height: 1; opacity: 0.5; padding: 4px; border-radius: var(--v2-r-chip); color: inherit;
+}
+.ws__raildelete:hover { opacity: 1; background: rgba(128,128,128,0.15); }
+/* In-app delete-project confirm (replaces the native window.confirm). */
+.ws__raildelconfirm { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ws__raildelq { font-size: 11px; opacity: 0.7; }
+.ws__raildelyes, .ws__raildelno {
+  border: 1px solid rgba(128,128,128,0.3); background: transparent; font: inherit; font-size: 11px;
+  cursor: pointer; padding: 3px 8px; border-radius: var(--v2-r-chip); color: inherit; line-height: 1;
+}
+.ws__raildelyes { color: var(--danger-warm); border-color: rgba(206, 105, 105,0.4); }
+.ws__raildelyes:hover { background: rgba(206, 105, 105,0.1); }
+.ws__raildelno:hover { background: rgba(128,128,128,0.12); }
+.ws__railgoal { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+
+/* ── engine console ─────────────────────────────────────────────
+   No longer a permanent box under the chat: this is the expandable `▸` detail
+   of ONE pipeline step (see CrewBoard's `renderStageDetail`), so it exists
+   only while a step is open and lives inside the bounded run stage. */
+.ws__console {
+  flex: 0 0 auto;
+  border-radius: var(--v2-r-inner);
+  background: #17161c;
+  box-shadow: var(--v2-shadow);
+  overflow: hidden;
+}
+.ws__consolehead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #5f6570;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ws__consoledot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #55525f;
+}
+.ws__consoledot--live {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: consolePulse 1.4s ease-in-out infinite;
+}
+@keyframes consolePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.ws__consolebody {
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 9px 14px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ws__consoleline {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #c9cdd6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws__consoleline--err { color: #ce6969; }
+.ws__consoleline--wait { color: #5f6570; font-style: italic; }
+
+/* the Manager's calm one-line status atop the run stream (narrate.ts) */
+.ws__narrate {
+  font-size: 11.5px; color: #cfc8e8; padding: 2px 2px 8px; line-height: 1.5;
+  border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;
+}
+
+/* honest empty states */
+.chat__empty { padding: 26px 8px; font-size: 12px; color: var(--muted-2); text-align: center; }
+
+/* context meter + compaction levers (P2-4) */
+.chat__meter { display: flex; align-items: center; gap: 10px; padding: 6px 4px 2px; }
+.chat__meterbar { flex: 1; height: 6px; border-radius: 3px; background: var(--meter-track); overflow: hidden; min-width: 60px; }
+.chat__meterfill { height: 100%; transition: width 0.3s ease; }
+.chat__meterfill--green { background: #4a9e5c; }
+.chat__meterfill--amber { background: #5f6570; }
+.chat__meterfill--red { background: #c0574a; }
+.chat__metertext { font-size: 11px; opacity: 0.65; white-space: nowrap; }
+.chat__compress, .chat__newsession {
+  font-size: 12px; padding: 4px 10px; border-radius: var(--v2-r-chip); cursor: pointer;
+  background: transparent; border: 1px solid var(--scrollbar); font: inherit; color: inherit;
+}
+.chat__compress:hover, .chat__newsession:hover { background: rgba(0,0,0,0.04); }
+.chat__compress:disabled, .chat__newsession:disabled { opacity: 0.45; cursor: default; }
+/* In-app "new session?" confirm (replaces the native window.confirm). */
+.chat__confirm { display: flex; align-items: center; gap: 8px; }
+.chat__confirmq { font-size: 11px; opacity: 0.7; white-space: nowrap; }
+.chat__confirmyes { color: var(--danger-warm); border-color: rgba(206, 105, 105,0.4); }
+.chat__confirmyes:hover { background: rgba(206, 105, 105,0.08); }
+
+/* "the last team run · nothing is running now" — the honest caption under a
+   crew board that is showing history rather than live work. */
+.ws__lastcrew {
+  font-size: 10.5px; color: var(--v2-muted);
+  padding: 6px 2px 0; letter-spacing: 0.02em;
+}
+
+/* Work's chats list shrinks with the app rail beside it (AppShell.css), so the
+   conversation — the hero of this page — keeps the width it needs. */
+@media (max-width: 1180px) {
+  .ws__nav { width: 158px; flex: 0 0 158px; }
+}
+@media (max-width: 980px) {
+  .ws__nav { width: 134px; flex: 0 0 134px; }
+}
+
+/* THE EVIDENCE ROW — Recent runs beside This week, under the work.
+   The ledger YIELDS before the conversation does: it shrinks and scrolls
+   internally under squeeze (`0 1 auto` + its own overflow), while `.ws__main`
+   holds the chat-hero floor above. `0 0 auto` was the earlier fix for the
+   ledger making Work taller than the window — but un-shrinkable, it won the
+   squeeze against the chat and pressed the conversation to a sliver. Bounded
+   both ways now: it cannot grow the page, and it cannot evict the chat. */
+.ws__evidence {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  min-width: 0;
+  margin-top: 12px;
+  padding-bottom: 4px;
+}
+
+/* Chat markdown — the coworker bar's text rendering. */
+.msg__stream .md__pre { background: var(--field-fill); border: 1px solid var(--hair-7); border-radius: 8px; padding: 8px 10px; overflow-x: auto; margin: 6px 0; font-size: 12px; }
+.msg__stream code { font-family: ui-monospace, Menlo, monospace; font-size: 0.92em; background: var(--field-fill); border-radius: 4px; padding: 0 4px; }
+.msg__stream .md__pre code { background: none; padding: 0; }
+.msg__stream .md__h { font-size: 13px; font-weight: 700; margin: 8px 0 2px; }
+.msg__stream .md__list { margin: 4px 0; padding-left: 18px; }
+.msg__stream a { color: var(--accent); text-decoration: underline; }
+
+/* Seat bubbles — one per board contribution, colored monogram per AI. */
+.msg--seat { display: flex; gap: 8px; align-items: flex-start; align-self: stretch; max-width: 92%; }
+.msg__seatdot { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+.msg__seatbody { background: var(--card-solid); border: 1px solid var(--hair-7); border-radius: 12px; padding: 7px 10px; min-width: 0; }
+.msg__seathead { font-size: 10.5px; color: var(--ink-3); margin-bottom: 3px; }
+
+/* Collapsed repeat chip on identical consecutive notices. */
+.msg__repeat { margin-left: 8px; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--field-fill); border: 1px solid var(--hair-7); color: var(--ink-3); }
+
+.msg__seatround { color: var(--ink-3); }
+
+/* Long user messages fold (raw step text was an unreadable wall); everything wraps. */
+.msg--user { overflow-wrap: anywhere; }
+.msg__usertext { white-space: pre-wrap; }
+.msg__fold { display: block; margin-top: 6px; background: none; border: 0; padding: 0; font-size: 10.5px; color: inherit; opacity: 0.75; cursor: pointer; text-decoration: underline; }
+
+/* Copy action on bubbles — quiet until hover. */
+.msg__copy { display: block; margin-top: 4px; background: none; border: 0; padding: 0; font-size: 10px; color: var(--ink-3); opacity: 0; cursor: pointer; transition: opacity 120ms ease; }
+.msg--user .msg__copy { color: inherit; }
+.msg:hover .msg__copy, .msg__copy:focus-visible { opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) { .msg__copy { transition: none; } }
+.msg__actions { display: flex; gap: 10px; }

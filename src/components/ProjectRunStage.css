@@ -1,0 +1,199 @@
+/* ── cinematic run stage (Task B5) ──────────────────────────────
+   Orb-spawn, glow progress, narration strip, request overlay. Every
+   animation here is transform/opacity only EXCEPT the two explicitly
+   requested glow pulses (box-shadow, matching dockPulse/approvalPulse
+   elsewhere in the app) — each has a reduced-motion static fallback below. */
+
+.prs {
+  /* positioned ancestor for .prs__overlay — without this the absolute
+     request card would anchor to the page, not the stage */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--v2-r-inner);
+  background: rgba(131, 162, 219, 0.05);
+  border: 1px solid rgba(131, 162, 219, 0.14);
+}
+
+/* ── orb row: completed-step dots + the live spawn ──────────────── */
+.prs__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+}
+.prs__dots { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.prs__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 10px;
+  background: var(--orb);
+  box-shadow: var(--v2-shadow-soft);
+}
+/* Plays once per newly-added dot (React key is stable per index — only a
+   just-appended dot is a fresh mount), reading as "the last step's orb
+   shrank into this dot". */
+.prs__dot--pop { animation: prsDotPop 0.4s ease both; }
+
+.prs__orb {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: 0 0 34px;
+  background: var(--orb);
+  /* Entrance (transform/opacity) + the app's existing ambient breathing glow
+     (dockPulse, theme/global.css) reused verbatim while the step is live. */
+  animation:
+    prsSpawn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both,
+    dockPulse 3s ease-in-out infinite;
+}
+
+.prs__refine {
+  font-size: 10.5px;
+  color: var(--warn-ink);
+  background: rgba(131, 162, 219, 0.14);
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+
+.prs__steplabel { font-size: 12px; color: var(--ink-2); }
+
+/* ── glowing progress bar ────────────────────────────────────────── */
+.prs__bar {
+  height: 7px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.prs__barfill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--gold-grad);
+  transition: width 0.6s ease;
+}
+.prs__barfill--live { animation: prsGlowPulse 1.6s ease-in-out infinite; }
+
+/* ── narration strip (scoped copy of Workspace's ws__console aesthetic) ── */
+.prs__console {
+  margin-top: 2px;
+  border-radius: var(--v2-r-inner);
+  background: #17161c;
+  padding: 0 0 2px;
+}
+.prs__consolehead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 10.5px;
+  color: #8a87a0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.prs__consoledot { width: 7px; height: 7px; border-radius: 50%; background: #57546a; }
+.prs__consoledot--live {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: prsConsolePulse 1.4s ease-in-out infinite;
+}
+.prs__consolebody {
+  max-height: 130px;
+  overflow-y: auto;
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.prs__consoleline { font-size: 10.5px; line-height: 1.5; color: #c9cdd6; }
+.prs__consoleline--err { color: #ce6969; }
+.prs__consoleline--wait { color: #5f6570; font-style: italic; }
+
+/* ── request overlay: circle-anchored card over the orb position ────── */
+.prs__overlay {
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 1;
+}
+.prs__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, 100%);
+  padding: 18px 20px 16px;
+  border-radius: var(--v2-r-inner);
+  background: var(--card-solid);
+  box-shadow: 0 0 0 1px var(--hair-2), 0 18px 44px rgba(0, 0, 0, 0.28);
+  text-align: center;
+  animation: prsCardIn 0.4s ease both;
+}
+.prs__cardorb {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--orb);
+  box-shadow: var(--orb-glow);
+}
+.prs__cardtext { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.prs__cardbtns { display: flex; gap: 8px; }
+.prs__cardyes,
+.prs__cardno {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 7px 15px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  border: 1px solid rgba(131, 162, 219, 0.4);
+  background: transparent;
+  color: inherit;
+}
+.prs__cardyes { background: rgba(110, 154, 131, 0.14); border-color: rgba(110, 154, 131, 0.4); color: var(--ok-ink-2); }
+.prs__cardno { color: var(--muted-2); }
+
+/* ── keyframes ────────────────────────────────────────────────────── */
+@keyframes prsSpawn {
+  0%   { opacity: 0; transform: translate(46px, 40px) scale(0.2); }
+  60%  { opacity: 1; transform: translate(-3px, -2px) scale(1.08); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+@keyframes prsDotPop {
+  0%   { opacity: 0; transform: scale(0.4); }
+  70%  { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes prsGlowPulse {
+  0%, 100% { box-shadow: var(--v2-shadow-soft); }
+  50%      { box-shadow: var(--v2-shadow); }
+}
+@keyframes prsConsolePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+@keyframes prsCardIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── reduced motion: static badges + a plain bar, every animation above
+   accounted for. None of the classes above set opacity/transform/box-shadow
+   as a STATIC base (only inside their keyframe) — so removing the animation
+   here is sufficient to leave a fully-visible, unscaled, glow-free resting
+   state; nothing needs to be redeclared. ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .prs__orb,
+  .prs__dot--pop,
+  .prs__barfill--live,
+  .prs__consoledot--live,
+  .prs__card {
+    animation: none;
+  }
+}

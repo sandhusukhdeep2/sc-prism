@@ -1,0 +1,49 @@
+/* LiveActivity — the Work rail's per-project "who's on the team, what's
+   happening" panel (P4-2). Compact for the 340px project rail width
+   (.ws__side--project); tokens only, so it matches both themes automatically. */
+.liveact { display: flex; flex-direction: column; gap: 8px; }
+
+.liveact__sectionhead {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+}
+.liveact__kicker {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 600;
+}
+
+/* ── team ─────────────────────────────────────────────────────────── */
+.liveact__team { display: flex; flex-direction: column; gap: 6px; }
+.liveact__teamrow {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  font-size: 12px; color: var(--ink-2);
+}
+.liveact__teamname { font-weight: 600; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liveact__modelchip {
+  font-size: 9.5px; letter-spacing: 0.04em; color: var(--muted-2);
+  background: var(--hair-2); border-radius: var(--v2-r-chip); padding: 1px 6px; flex: 0 0 auto;
+}
+.liveact__teamactivity { margin-left: auto; font-size: 10.5px; color: var(--muted-2); flex: 0 0 auto; text-align: right; }
+
+.liveact__dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; background: var(--dot-idle); }
+.liveact__dot--idle { background: var(--dot-idle); }
+.liveact__dot--ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.liveact__dot--failed { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+/* ATTENTION — the newest attributable run's checks passed and only the reviewer
+   dissented. Amber: not the green pass, not the red failure. */
+.liveact__dot--attention { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.liveact__dot--working {
+  background: var(--gold-deep); box-shadow: 0 0 6px var(--gold-deep);
+  animation: liveactPulse 1.4s ease-in-out infinite;
+}
+
+/* (The run/skill/created feed moved to the engine console — see
+   ConsoleActivity + .ws__act* in Workspace.css — so this rail is team-only.) */
+
+@keyframes liveactPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveact__dot--working { animation: none; }
+}

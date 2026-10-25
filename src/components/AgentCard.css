@@ -1,0 +1,36 @@
+.agentcard {
+  display: block;
+  border-radius: var(--r-card);
+  background: var(--card-solid);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+.agentcard__head { display: flex; align-items: center; justify-content: space-between; }
+.agentcard__kicker {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 600;
+}
+.agentcard__count { font-size: 11px; color: var(--muted-3); }
+
+/* honest idle empty state (no fabricated agent) */
+.agentcard__empty {
+  margin-top: 14px; font-size: 12.5px; line-height: 1.5; color: var(--muted);
+}
+
+.agentcard__row { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+.agentcard__orb {
+  width: 64px; height: 64px; flex: 0 0 64px; border-radius: 50%;
+  background: var(--orb); box-shadow: var(--orb-glow);
+}
+.agentcard__role { font-size: 14px; font-weight: 600; color: var(--ink); }
+.agentcard__meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.agentcard__stat { font-size: 11.5px; color: #5f6570; margin-top: 2px; }
+
+/* The fabricated progress bar (and its %) is gone: the engine never reported a
+   completion percentage. What IS real is how long the run has been going. */
+.agentcard__foot {
+  display: flex; justify-content: space-between; margin-top: 16px;
+  padding-top: 10px; border-top: 1px solid var(--hair);
+}
+.agentcard__foot .mono { font-size: 10.5px; color: var(--muted-2); }
+.agentcard__elapsed { color: var(--eval-ink); font-weight: 600; }

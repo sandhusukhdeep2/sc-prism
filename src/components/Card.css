@@ -1,0 +1,83 @@
+/* Card — the one white panel, and the one recessed well.
+   Token-only colours, so both grounds invert with the theme. */
+
+.card {
+  background: var(--v2-card);
+  border-radius: var(--v2-r-card);
+  padding: 18px 20px;
+  box-shadow: var(--v2-shadow);
+  min-width: 0;
+}
+
+/* The recessed ground — what the crew board sits in, so white things placed
+   inside it lift out. Deliberately has NO shadow: a well does not cast one. */
+.card--inset {
+  background: var(--v2-inset);
+  box-shadow: none;
+}
+
+/* For a card whose child owns its own edges — a table that must bleed to the
+   card's corners, a list with its own row padding. */
+.card--flush { padding: 0; }
+.card--flush .card__head { padding: 18px 20px 0; }
+
+.card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--v2-ink);
+}
+
+.card__hint {
+  font-size: 11px;
+  color: var(--v2-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card__spacer { flex: 1; }
+
+.card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* The round icon buttons the reference puts in a card's corner — used for a
+   card's own actions, never for navigation. */
+.card__btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--v2-fill);
+  color: var(--v2-ink-2);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background 140ms ease-out,
+    color 140ms ease-out,
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card__btn:hover { background: var(--v2-accent); color: var(--v2-on-accent); }
+.card__btn:active { transform: scale(0.92); }
+.card__btn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card__btn { transition: none; }
+  .card__btn:active { transform: none; }
+}

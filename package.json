@@ -1,0 +1,46 @@
+{
+  "name": "sc-prism-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SC Prism — run many AIs on one board and keep control of all of it (desktop client)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandhusukhdeep2/sc-prism.git"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "tauri": "tauri",
+    "tauri:dev": "bash scripts/ensure-resources.sh && tauri dev",
+    "tauri:build": "bash scripts/prep-bundle.sh && RUSTFLAGS=\"--remap-path-prefix=$HOME=/build ${RUSTFLAGS:-}\" tauri build",
+    "dmg": "bash scripts/make-dmg.sh"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/outfit": "^5.3.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^4.1.9"
+  }
+}

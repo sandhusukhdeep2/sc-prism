@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability set for the main SC Prism window.","local":true,"windows":["main"],"permissions":["core:default","fs:default","fs:allow-appdata-read-recursive","fs:allow-appdata-write-recursive"]}}

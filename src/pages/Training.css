@@ -1,0 +1,10 @@
+/* Training — the page shell only. The header is PageHead and the panel is
+   Card, both shared, so this page cannot drift away from the rest of the app
+   the way it had (it carried no card, no radius and no elevation at all). */
+.training {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+  max-width: 820px;
+}

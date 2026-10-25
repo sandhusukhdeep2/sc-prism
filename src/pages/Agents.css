@@ -1,0 +1,465 @@
+.agents { display: flex; flex-direction: column; height: 100%; min-height: 440px; }
+
+/* page toolbar */
+.agents__toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 0 4px; flex: 0 0 auto; }
+.agents__search {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border-radius: var(--v2-r-inner); background: var(--raise); font-size: 12px; color: var(--muted);
+}
+.agents__search-ico { fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
+.agents__searchinput {
+  border: none; background: transparent; outline: none; font: inherit; font-size: 12px;
+  color: var(--ink); width: 150px;
+}
+.agents__searchinput::placeholder { color: var(--muted); }
+.agents__spacer { flex: 1; }
+.agents__filter {
+  padding: 8px 13px; border-radius: var(--v2-r-inner); background: var(--raise);
+  font-size: 12px; color: var(--muted); cursor: pointer; border: none; font-family: inherit;
+  appearance: none; -webkit-appearance: none;
+}
+.agents__new {
+  display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px; border-radius: var(--v2-r-inner);
+  background: var(--gold-grad); font-size: 13px; font-weight: 700; color: var(--on-gold);
+  cursor: pointer; box-shadow: var(--v2-shadow); border: none;
+  font-family: inherit;
+}
+
+.agents__empty {
+  padding: 40px 0; text-align: center; font-size: 13px; color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.agents__scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 0 8px; }
+
+/* section header */
+.sect-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.sect-head__title {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 600;
+}
+.sect-head__note { font-size: 10.5px; color: var(--muted-3); font-family: var(--font-mono); }
+.sect-head__rule { flex: 1; height: 1px; background: var(--hair); }
+
+/* agent tiles */
+.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.agent-grid--sys { margin-bottom: 24px; }
+
+.agent-tile {
+  position: relative;
+  border-radius: var(--r-verdict); background: var(--card-solid);
+  box-shadow: var(--shadow-card); padding: 18px 20px;
+}
+.agent-tile--off { opacity: 0.62; }
+.agent-tile--biz {
+  background: var(--input-fill);
+  box-shadow: var(--v2-shadow);
+}
+/* Top-aligned, not centred: a long role used to float the monogram to the
+   middle of a wall of text (2026-08-31 design pass). */
+.agent-tile__head { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.agent-tile__orb { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 50%; margin-top: 2px; }
+.agent-tile__name { font-size: 14px; font-weight: 600; color: var(--ink); }
+/* A project agent's role is often a whole charter sentence. Clamp it to three
+   lines with a real ellipsis — it used to run 9 lines and cut mid-word, which
+   read as broken (his screenshot, 2026-08-31). Full text on hover. */
+.agent-tile__idcol { min-width: 0; }
+.agent-tile__sub {
+  font-size: 11px; color: var(--muted); font-family: var(--font-mono);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+.agent-tile__spacer { flex: 1; }
+.agent-tile__menu {
+  color: var(--muted-3); cursor: pointer; border: none; background: none; font: inherit;
+  font-size: 16px; line-height: 1; padding: 0 4px;
+}
+.agent-tile__pop {
+  position: absolute; top: 44px; right: 16px; z-index: 5;
+  border-radius: var(--v2-r-chip); background: var(--input-fill); padding: 5px;
+  box-shadow: var(--v2-shadow);
+}
+.agent-tile__popitem {
+  display: block; width: 100%; text-align: left; border: none; background: none; cursor: pointer;
+  padding: 7px 12px; border-radius: var(--v2-r-chip); font: inherit; font-size: 12px; color: var(--danger-ink);
+}
+.agent-tile__popitem:hover { background: rgba(206, 105, 105, 0.1); }
+/* P9: two-step delete confirm inside the ⋯ popover (mirrors SkillCard). */
+.agent-tile__confirm { display: flex; align-items: center; gap: 6px; padding: 4px 8px; white-space: nowrap; }
+.agent-tile__confirmq { font-size: 11px; color: var(--muted); }
+.agent-tile__confirmyes, .agent-tile__confirmno {
+  border: none; background: none; cursor: pointer; font: inherit; font-size: 11px;
+  padding: 4px 8px; border-radius: var(--v2-r-chip);
+}
+.agent-tile__confirmyes { color: var(--danger-ink); font-weight: 600; }
+.agent-tile__confirmyes:hover { background: rgba(206, 105, 105, 0.12); }
+.agent-tile__confirmno { color: var(--muted); }
+.agent-tile__confirmno:hover { background: rgba(0, 0, 0, 0.05); }
+
+.mbadge { padding: 3px 9px; border-radius: var(--v2-r-chip); font-size: 9.5px; font-weight: 600; font-family: var(--font-mono); }
+.mbadge--claude { background: var(--dark); color: #83a2db; }
+.mbadge--gemini { background: var(--dark); color: #83a2db; }
+.mbadge--local { background: var(--gold-grad); color: var(--on-gold); font-weight: 700; }
+
+.chip-row { display: flex; gap: 5px; margin-top: 12px; flex-wrap: wrap; }
+.chip-skill {
+  padding: 4px 9px; border-radius: var(--v2-r-chip); background: var(--hair-2);
+  font-size: 10px; color: var(--on-dark-label); font-family: var(--font-mono);
+}
+.chip-skill__stat { color: var(--muted-2); }
+/* --warn-ink is the per-theme flipping status amber (dark ink on Amber's light
+   tile, bright amber on Prism/Obsidian). The agent tile is a THEMED surface, so
+   this ink must flip or it reads dark-on-dark. */
+.chip-skill__attention { color: var(--warn-ink); }
+
+/* per-card assignment control (business agents only — real system built-ins
+   have no reassign control and stay read-only) */
+.agent-assign { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.agent-assign__label { font-size: 10px; color: var(--muted-2); font-family: var(--font-mono); }
+.agent-assign__select {
+  flex: 1; padding: 6px 10px; border-radius: var(--v2-r-chip); font: inherit; font-size: 11px;
+  color: var(--ink-3); background: var(--fill-soft-2); border: 1px solid var(--hair-10);
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+
+.agent-usage {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+  font-size: 10.5px; color: var(--muted-2); font-family: var(--font-mono);
+}
+.agent-usage__dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; background: var(--dot-idle); }
+.agent-usage__dot--idle { background: var(--dot-idle); }
+.agent-usage__dot--working { background: var(--gold-deep); box-shadow: 0 0 6px var(--gold-deep); }
+.agent-usage__dot--ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.agent-usage__dot--failed { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+/* ATTENTION — checks passed, reviewer dissented. Neither green nor red. */
+.agent-usage__dot--attention { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.agent-usage__label { flex: 0 1 auto; }
+.agent-usage__spacer { flex: 1; }
+
+.agtoggle {
+  width: 32px; height: 19px; flex: 0 0 32px; border-radius: var(--v2-r-pill);
+  background: var(--gold-grad); position: relative; border: none; cursor: pointer; padding: 0;
+}
+.agtoggle--off { background: var(--dash); }
+.agtoggle__knob {
+  position: absolute; right: 2.5px; top: 2.5px; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff; transition: right 0.15s ease, left 0.15s ease;
+}
+.agtoggle--off .agtoggle__knob { right: auto; left: 2.5px; }
+
+/* new agent draft card */
+.agent-tile--new {
+  border-radius: var(--r-verdict); border: 1.5px dashed var(--edge);
+  padding: 18px 20px; display: flex; flex-direction: column; background: var(--raise-35);
+}
+.agent-new__title { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.agent-new__desc { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+.agent-new__spacer { flex: 1; }
+.agent-new__actions { display: flex; gap: 8px; margin-top: 12px; }
+.agent-new__btn {
+  padding: 8px 14px; border-radius: var(--v2-r-chip); font-size: 11px; font-weight: 600; cursor: pointer;
+  border: none; font-family: inherit;
+}
+.agent-new__btn--dark { background: var(--dark); color: #fff; }
+.agent-new__btn--soft { background: var(--hair-2); color: var(--ink-3); }
+.agent-new__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* inline new-agent form */
+.agent-form { gap: 8px; }
+.agent-form__input {
+  margin-top: 8px; padding: 8px 11px; border-radius: var(--v2-r-chip); font: inherit; font-size: 12px;
+  color: var(--ink); background: var(--input-fill); border: 1px solid var(--hair-strong);
+  appearance: none; -webkit-appearance: none;
+}
+.agent-form__input:focus { outline: none; border-color: var(--gold-deep); }
+
+/* ── team launcher ──────────────────────────────────────────── */
+.team {
+  margin: 18px 22px 6px;
+  border-radius: var(--v2-r-card);
+  background: var(--card-solid);
+  box-shadow: var(--v2-shadow);
+  padding: 18px 20px;
+}
+.team__head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.team__kicker { font-size: 15px; font-weight: 600; color: var(--ink); }
+.team__hint { font-size: 10.5px; color: var(--muted-2); }
+.team__form { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.team__intent {
+  flex: 2 1 320px; height: 40px; border-radius: var(--v2-r-chip);
+  background: var(--field-fill); border: 1px solid var(--hair-7);
+  padding: 0 13px; font-size: 12.5px; color: var(--ink);
+}
+.team__agents {
+  flex: 1 1 260px; height: 40px; border-radius: var(--v2-r-chip);
+  background: var(--field-fill); border: 1px solid var(--hair-7);
+  padding: 0 13px; font-size: 12px; color: var(--ink-3);
+}
+.team__budget {
+  flex: 0 0 140px; height: 40px; border-radius: var(--v2-r-chip);
+  background: var(--field-fill); border: 1px solid var(--hair-7);
+  padding: 0 13px; font-size: 12px; color: var(--ink-3);
+}
+.team__launch {
+  height: 40px; padding: 0 20px; border: 0; border-radius: var(--v2-r-chip);
+  background: var(--gold-grad); color: var(--on-gold);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  box-shadow: var(--v2-shadow);
+}
+.team__launch:disabled { opacity: 0.55; box-shadow: none; cursor: default; }
+.team__status { margin-top: 10px; font-size: 11.5px; color: var(--warn-ink-2); }
+.team__error { margin-top: 10px; font-size: 11.5px; color: var(--danger-ink); }
+/* Who sits out and why — the exclusion is never silent (2026-08-12). */
+.team__sitout {
+  margin-top: 10px; font-size: 11px; color: var(--muted-2);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.agent-tile__sitout {
+  margin-top: 8px; font-size: 10.5px; color: var(--danger-ink);
+  opacity: 0.9; line-height: 1.35;
+}
+.team__board { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.team__msg, .team__synth {
+  border-radius: var(--v2-r-inner); background: var(--input-fill); padding: 12px 16px;
+  box-shadow: var(--v2-shadow-soft);
+}
+.team__synth { box-shadow: var(--v2-shadow); }
+.team__msghead { display: flex; gap: 10px; align-items: center; font-size: 10.5px; margin-bottom: 6px; }
+.team__sender { font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: 0.06em; }
+.team__provider { color: var(--muted-2); }
+.team__real { color: var(--ok-ink); font-weight: 600; }
+.team__real--stub { color: var(--warn-ink-2); }
+.team__msgbody { font-size: 13px; line-height: 1.6; color: var(--bubble-ink); white-space: pre-wrap; }
+.team__path { margin-top: 2px; font-size: 10.5px; color: var(--muted-2); }
+.team__verdict {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border-radius: var(--v2-r-inner); background: var(--input-fill); margin-bottom: 10px;
+  box-shadow: var(--v2-shadow-soft);
+  flex-wrap: wrap;
+}
+.team__verdict--passed { border-left: 3px solid var(--ok); }
+.team__verdict--failed { border-left: 3px solid var(--fail-ink); }
+.team__verdict-badge {
+  padding: 4px 11px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; flex: 0 0 auto;
+}
+.team__verdict-badge--passed {
+  background: var(--gold-grad); color: var(--on-gold);
+}
+.team__verdict-badge--failed {
+  background: rgba(206, 105, 105, 0.15); color: var(--fail-ink);
+}
+.team__verdict-tokens {
+  font-size: 11px; color: var(--bubble-ink); flex: 0 0 auto;
+}
+.team__verdict-over-budget {
+  font-size: 11px; color: var(--fail-ink); font-weight: 600; flex: 0 0 auto;
+}
+.team__verdict-reason {
+  font-size: 11px; color: var(--danger-ink); flex: 1 1 auto; line-height: 1.4;
+}
+
+/* ── manager agents panel ───────────────────────────────────── */
+.mgrs {
+  margin: 12px 22px 6px; border-radius: var(--v2-r-card); background: var(--card-solid);
+  box-shadow: var(--v2-shadow);
+  padding: 18px 20px;
+}
+.mgrs__head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.mgrs__kicker { font-size: 15px; font-weight: 600; color: var(--ink); }
+.mgrs__hint { font-size: 10.5px; color: var(--muted-2); }
+.mgrs__spacer { flex: 1; }
+.mgrs__addbtn {
+  border: 1px solid var(--track); border-radius: var(--v2-r-chip); background: none;
+  padding: 6px 14px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer;
+}
+.mgrs__addbtn:hover { color: var(--ink); }
+/* labeled two-column add-job grid (persistent field labels, no edge overflow) */
+.mgrs__form {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px;
+  margin-top: 14px; align-items: end;
+}
+.mgrs__field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.mgrs__field--wide { grid-column: 1 / -1; }
+.mgrs__flabel {
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 600;
+}
+.mgrs__input {
+  width: 100%; box-sizing: border-box; min-width: 0;
+  height: 38px; border-radius: var(--v2-r-chip); background: var(--field-fill); border: 1px solid var(--hair-7);
+  padding: 0 12px; font: inherit; font-size: 12.5px; color: var(--ink);
+}
+.mgrs__formactions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+.mgrs__save { height: 38px; padding: 0 16px; border: 0; border-radius: var(--v2-r-chip); background: var(--gold-grad); color: var(--on-gold); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: filter 0.15s ease; }
+.mgrs__save:hover:not(:disabled) { filter: brightness(1.05); }
+.mgrs__save:disabled { opacity: 0.5; cursor: default; }
+.mgrs__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 14px; }
+.mgrs__card { border-radius: var(--v2-r-inner); background: var(--input-fill); box-shadow: var(--v2-shadow-soft); padding: 13px 15px; }
+.mgrs__card--off { opacity: 0.65; }
+.mgrs__row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.mgrs__name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.mgrs__count { font-size: 10.5px; color: var(--muted-2); }
+/* A JOB ROW. It used to end in one mono run-on — "every 12h · never ran ·
+   manager off — will not run" — three different kinds of fact at one weight,
+   right-aligned away from the thing they describe. Each now has its own slot
+   and its own weight: cadence is a clock, the last run is quiet history, and
+   the state is a chip that colours itself. */
+.mgrs__job {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 10px; margin: 0 -10px;
+  border-top: 1px solid var(--hair-2);
+  border-radius: var(--v2-r-chip);
+  transition: background 140ms ease-out;
+}
+.mgrs__job:hover { background: var(--v2-fill); }
+
+.mgrs__dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px;
+  /* Never-run is HOLLOW rather than absent: "has not happened yet" is a state
+     worth seeing, and a missing dot used to shift the whole row left. */
+  box-shadow: inset 0 0 0 1.5px var(--muted-2);
+}
+.mgrs__dot--ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.mgrs__dot--err { background: var(--fail-ink); box-shadow: 0 0 6px var(--fail-ink); }
+/* Switched off: the row is still legible, but nothing about it glows. */
+.mgrs__dot--off { background: none; box-shadow: inset 0 0 0 1.5px var(--muted-2); opacity: 0.6; }
+
+.mgrs__cadence {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; color: var(--muted); white-space: nowrap;
+}
+.mgrs__cadence .icon { opacity: 0.55; }
+.mgrs__last { font-size: 10.5px; color: var(--muted-2); white-space: nowrap; }
+
+.mgrs__state {
+  font-size: 10px; white-space: nowrap;
+  padding: 3px 9px; border-radius: var(--v2-r-pill);
+}
+.mgrs__state--on   { background: rgba(110, 154, 131, 0.14); color: var(--v2-local-ink); }
+.mgrs__state--off  { background: var(--hair-2); color: var(--muted-2); }
+.mgrs__state--wait { background: rgba(131, 162, 219, 0.16); color: var(--warn-ink); font-weight: 600; }
+
+.mgrs__jobtitle { font-size: 12.5px; color: var(--ink); }
+.mgrs__dept { font-size: 9.5px; color: var(--muted); background: var(--hair-2); border-radius: var(--v2-r-chip); padding: 2px 7px; }
+.mgrs__meta { font-size: 10px; color: var(--muted-2); }
+.mgrs__del { border: 0; background: none; color: var(--muted-2); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: var(--v2-r-chip); }
+.mgrs__del:hover { color: var(--danger-ink); background: rgba(206, 105, 105,0.08); }
+/* P9: two-step remove confirm for a manager job (mirrors SkillCard). */
+.mgrs__delconfirm { display: inline-flex; align-items: center; gap: 6px; }
+.mgrs__delq { font-size: 11px; color: var(--muted); }
+.mgrs__delyes, .mgrs__delno {
+  border: 0; background: none; cursor: pointer; font: inherit; font-size: 11px;
+  padding: 3px 8px; border-radius: var(--v2-r-chip);
+}
+.mgrs__delyes { color: var(--danger-ink); font-weight: 600; }
+.mgrs__delyes:hover { background: rgba(206, 105, 105, 0.12); }
+.mgrs__delno { color: var(--muted); }
+.mgrs__delno:hover { background: rgba(0, 0, 0, 0.05); }
+.mgrs__empty { font-size: 11px; color: var(--muted-2); padding: 6px 0; }
+.mgrs__kind {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(131, 162, 219, 0.15);
+  color: var(--warn-ink);
+}
+.mgrs__job--pending {
+  background: rgba(131, 162, 219, 0.08);
+  border-radius: var(--v2-r-chip);
+}
+.mgrs__pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--warn-ink);
+}
+.mgrs__ok,
+.mgrs__no {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  border: 1px solid rgba(131, 162, 219, 0.4);
+  background: transparent;
+  color: inherit;
+}
+.mgrs__ok {
+  background: rgba(110, 154, 131, 0.12);
+  border-color: rgba(110, 154, 131, 0.4);
+}
+
+/* ── companion heartbeat section (2026-07-29 spec) ──────────── */
+.hb { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--hair-2); padding-top: 9px; }
+.hb__row { display: flex; align-items: center; gap: 10px; }
+/* The state line replaced the big consent switch (2026-08-05 §Part 3): the
+   card STATES what is true instead of inviting a flip. */
+.hb__state {
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hb__state--on { color: var(--ink); }
+/* "Wake now" — disabled means a real refusal with a real reason (.hb__why). */
+.hb__wake {
+  flex: 0 0 auto;
+  border: 1px solid var(--hair-10); background: none; border-radius: var(--v2-r-chip);
+  padding: 4px 10px; font: inherit; font-size: 11px; color: var(--ink);
+  cursor: pointer;
+}
+.hb__wake:hover:not(:disabled) { border-color: var(--hair-20); }
+.hb__wake:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+.hb__wake:disabled { color: var(--muted-2); cursor: not-allowed; opacity: 0.6; }
+/* The quiet off switch — one click away, but not the loudest thing on the card. */
+.hb__off {
+  flex: 0 0 auto;
+  border: none; background: none; padding: 4px 2px; font: inherit;
+  font-size: 10.5px; color: var(--muted-2); cursor: pointer;
+  border-bottom: 1px solid var(--hair-7);
+}
+.hb__off:hover { color: var(--ink); }
+.hb__off:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+.hb__why { font-size: 10px; color: var(--muted-2); line-height: 1.5; }
+.hb__cadence { height: 30px; max-width: 120px; }
+.hb__consent { font-size: 10px; color: var(--muted-2); line-height: 1.5; }
+.hb__charter { resize: vertical; min-height: 54px; font-size: 11.5px; line-height: 1.45; }
+.hb__beat {
+  display: flex; align-items: baseline; gap: 8px; padding: 5px 0;
+  border-top: 1px solid var(--hair-2); font-size: 11.5px; color: var(--ink-2);
+}
+.hb__glyph { flex: 0 0 auto; color: var(--muted-2); }
+.hb__glyph--worked { color: var(--ok-ink); }
+.hb__glyph--err { color: var(--danger-ink); }
+.hb__beatline { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb__when { flex: 0 0 auto; font-size: 9.5px; color: var(--muted-2); }
+
+/* The chosen model cannot answer on this Mac — said at the moment of choosing,
+   not discovered later on the agent's tile. */
+.agent-form__warn {
+  grid-column: 1 / -1;
+  font-size: 10.5px; line-height: 1.5; color: var(--v2-coral-ink);
+  background: var(--v2-fill); border-radius: var(--v2-r-inner); padding: 6px 9px;
+}
+
+/* NARROW WINDOWS: the two-column add-job form stacks; labels stay with
+   their fields (crushed-rows sweep, 2026-08-29). */
+@media (max-width: 820px) {
+  .mgrs__form { grid-template-columns: 1fr; }
+}
+
+/* Section tabs — the crew leads; Team and Managers behind their own tabs. */
+.agents__tabs { display: inline-flex; gap: 2px; padding: 4px; border-radius: var(--v2-r-pill); background: var(--v2-fill); margin: 6px 0 4px; flex: 0 0 auto; align-self: flex-start; }
+.agents__tab { padding: 7px 18px; border-radius: var(--v2-r-pill); font-size: 12.5px; font-weight: 500; color: var(--v2-ink-2); transition: background 140ms ease-out, color 140ms ease-out; }
+.agents__tab:hover { color: var(--v2-ink); }
+.agents__tab--on { background: var(--v2-accent); color: var(--v2-on-accent); font-weight: 600; }
+.agents__tab:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+
+/* The whole card head is the link to the agent's own page. */
+.agent-tile__head--link { cursor: pointer; border-radius: 8px; }
+.agent-tile__head--link:hover .agent-tile__name { text-decoration: underline; text-underline-offset: 3px; }
+.agent-tile__head--link:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+
+/* Audit fix: saved-path lines are reveal buttons, not dead text. */
+.team__path--btn { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: var(--ink-3); }
+.team__path--btn:hover { color: var(--ink); text-decoration: underline; }

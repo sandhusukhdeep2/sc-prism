@@ -1,13 +1,34 @@
+node_modules
+dist
+dist-ssr
+*.local
 .DS_Store
+.vite
+
+# Tauri (added later)
+src-tauri/target
+
+# Generated, large: staged self-contained runtime (python + engine) for the .app.
+# Rebuild with: bash scripts/prep-bundle.sh
+src-tauri/resources
+
+# DMG output
+dist-dmg
+.gotool
+.gopath
+.gocache
+engine/bifrost/bifrostd
+.pytool
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# LLM GRPO proof venv (torch/transformers, CPU-only) — see engine/scprism_engine/grpo_llm.py
+engine/.venv-llm
+
+# Claude Code local worktrees (agent scratch clones — never part of the app)
+.claude/worktrees/
+
+# Release artefacts
 *.dmg
-
-# Working files — yours, not the public repo's.
-LINKEDIN-POST.md
-RELEASE-CHECKLIST.md
-capability-probe.py
-
-# screenshot compositing sources (the published PNGs are what matter)
-assets/shots/*.html
-assets/shots/*.body.html
-assets/shots/build.py
-assets/shots/shell.css

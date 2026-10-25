@@ -1,0 +1,355 @@
+/* CrewBoard — visual system v2 (spec 2026-08-18).
+   Every colour, radius and shadow is a --v2-* token, so the board flips with
+   the theme and the theme-guard test can prove a hardcoded colour never
+   creeps back in. */
+
+/* THE BOARD AS AN INSET PANEL (2026-08-27, to Sukhdeep's design note). The
+   columns used to sit on a bordered surface barely distinguishable from the
+   page. They now sit INSIDE a recessed grey panel, so the white cards lift out
+   of it and the whole crew reads as one object with a boundary — the single
+   biggest reason the reference looks composed and the app did not. The border
+   is gone: the tone change is the edge, which is quieter and holds up on all
+   three themes. */
+.crew {
+  background: var(--v2-inset, var(--v2-board));
+  border-radius: var(--v2-r-card);
+  padding: 20px 20px 16px;
+  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
+
+.crew__head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.crew__title { font-weight: 700; font-size: 17px; color: var(--v2-ink); letter-spacing: -0.02em; }
+.crew__spacer { flex: 1; }
+.crew__count { font-size: 11px; color: var(--v2-muted); }
+
+/* the overlapping cluster — coworkers, drawn as monograms */
+.crew__cluster { display: flex; margin-left: 4px; }
+
+/* EVERY SEAT IS A BUTTON — click it to open what that coworker is doing.
+   Reset to a bare button so it keeps the cluster's overlap geometry. */
+.crew__seat {
+  position: relative; display: flex;
+  padding: 0; border: none; background: none; cursor: pointer;
+  border-radius: 50%;
+  /* THE DEPLOY. Each seat lands a beat after the one before it, in the order
+     the engine really reported them, so a crew assembling reads as arrival
+     rather than as a row that was always there. The stagger is driven by the
+     --seat index the component sets, so a crew of any size stays in step. */
+  animation: crewDeploy 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--seat, 0) * 70ms);
+  transition: transform 140ms ease-out;
+}
+.crew__seat:hover { transform: translateY(-3px); z-index: 2; }
+.crew__seat:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 3px; z-index: 2; }
+
+@keyframes crewDeploy {
+  from { transform: scale(0.55) translateY(8px); opacity: 0; }
+  to   { transform: scale(1)    translateY(0);   opacity: 1; }
+}
+
+.crew__mono {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--v2-on-fill);
+  flex: none;
+}
+.crew__mono--idle { color: var(--v2-on-idle); }
+.crew__mono--lg {
+  width: 34px; height: 34px; font-size: 12px;
+  border: 2.5px solid var(--v2-card);
+  margin-left: -9px;
+  box-shadow: var(--v2-shadow-soft);
+}
+.crew__cluster .crew__seat:first-child .crew__mono--lg { margin-left: 0; }
+.crew__mono--sm { width: 28px; height: 28px; font-size: 11px; }
+
+/* Rule 1: this class is applied ONLY for a genuinely live run.
+
+   THE HALO IS THE AGENT'S OWN COLOUR. It used to be a house blue for everyone,
+   which quietly contradicted the one thing the palette is for: blue means a
+   cloud model answered, green means it stayed on your Mac. An on-device agent
+   glowing blue said the opposite of the truth. `--tint` is the model colour the
+   monogram is already painted in, and `color-mix` turns it into the halo.
+
+   Two rings, offset in time, so the pulse BREATHES rather than blinking: a near
+   ring that stays close and a far one that travels out and fades. The rhythm is
+   slow on purpose — this is a coworker thinking, not an alarm. */
+.crew__mono--pulse {
+  animation: crewBreathe 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes crewBreathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--tint, var(--v2-blue)) 52%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--tint, var(--v2-blue)) 26%, transparent);
+  }
+  45% {
+    box-shadow:
+      0 0 0 5px color-mix(in srgb, var(--tint, var(--v2-blue)) 14%, transparent),
+      0 0 0 11px color-mix(in srgb, var(--tint, var(--v2-blue)) 0%, transparent);
+  }
+  70% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--tint, var(--v2-blue)) 22%, transparent),
+      0 0 0 9px color-mix(in srgb, var(--tint, var(--v2-blue)) 6%, transparent);
+  }
+}
+
+.crew__badge {
+  position: absolute; bottom: -3px; right: -3px;
+  min-width: 17px; height: 17px; padding: 0 3px;
+  border-radius: var(--v2-r-pill);
+  background: var(--v2-blue); color: var(--v2-on-fill);
+  border: 2px solid var(--v2-card);
+  font-size: 9.5px; font-weight: 700; line-height: 13px; text-align: center;
+}
+
+/* "vault reads stayed on this Mac" is a GOVERNANCE WIN, so it is tinted with
+   the on-device green rather than sitting in neutral grey like a caption. */
+.crew__lock {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: color-mix(in srgb, var(--v2-local) 14%, transparent);
+  color: var(--v2-local-ink);
+  padding: 5px 12px; border-radius: var(--v2-r-pill);
+  font-size: 11px; font-weight: 600;
+}
+
+/* the pipeline: column stacks, each with its LABEL BENEATH */
+.crew__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+/* THE FLOW BETWEEN STAGES. The journey-board reference Sukhdeep sent draws a
+   line from each stage into the next, and it is doing real work: it is what
+   turns four separate lists into one pipeline you read left to right.
+   Drawn between columns rather than inside them, so it cannot imply a
+   connection between two particular agents — the stages flow, the people in
+   them are not paired off. The FIRST column has nothing feeding into it, so it
+   draws no stub. */
+.crew__col { position: relative; }
+.crew__col + .crew__col::before {
+  content: '';
+  position: absolute;
+  left: -13px;
+  top: 34px;
+  width: 14px;
+  height: 22px;
+  border-left: 1.5px solid var(--v2-line);
+  border-bottom: 1.5px solid var(--v2-line);
+  border-bottom-left-radius: 10px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* WORK FLOWING. While a run is genuinely live, a light travels the connector
+   from one stage into the next — the pipeline reads as something moving rather
+   than a diagram of something that moved. Guarded by `.is-live`, which the
+   component sets from the SAME `live` flag every pulse on this board obeys, so
+   a paused run's connectors sit perfectly still. */
+.crew__cols.is-live .crew__col + .crew__col::after {
+  content: '';
+  position: absolute;
+  left: -13px;
+  top: 34px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--v2-blue);
+  opacity: 0;
+  animation: crewFlow 2.6s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  pointer-events: none;
+}
+/* Each connector fires a beat after the one before it, so the light reads as
+   ONE thing travelling left to right rather than every gap blinking at once. */
+.crew__cols.is-live .crew__col:nth-child(2)::after { animation-delay: 0ms; }
+.crew__cols.is-live .crew__col:nth-child(3)::after { animation-delay: 320ms; }
+.crew__cols.is-live .crew__col:nth-child(4)::after { animation-delay: 640ms; }
+.crew__cols.is-live .crew__col:nth-child(n+5)::after { animation-delay: 960ms; }
+
+@keyframes crewFlow {
+  0%       { transform: translate(0, 0);      opacity: 0; }
+  12%      {                                   opacity: 0.9; }
+  55%      { transform: translate(0, 20px);   opacity: 0.9; }
+  78%      { transform: translate(13px, 20px); opacity: 0; }
+  100%     { transform: translate(13px, 20px); opacity: 0; }
+}
+
+/* On a wrapped grid the connector would point at a column that is now on the
+   row above, so it is dropped rather than left lying. */
+@media (max-width: 860px) {
+  .crew__col + .crew__col::before,
+  .crew__cols.is-live .crew__col + .crew__col::after { display: none; }
+}
+/* The white cards lift OUT of the inset panel — a softer, wider shadow than a
+   card on the page needs, because it is being read against a grey ground. */
+.crew__stack {
+  background: var(--v2-card);
+  border-radius: var(--v2-r-card);
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(16, 20, 26, 0.04), 0 8px 20px -8px rgba(16, 20, 26, 0.12);
+}
+.crew__collabel { text-align: center; font-size: 12px; color: var(--v2-muted); margin-top: 12px; }
+/* The label doubles as the `▸` control that opens this step's engine
+   detail (2026-08-18) — the black console's only home now that it is no
+   longer a permanent box under the chat. Styled as the label it already was,
+   so the board gains a control without gaining chrome. */
+.crew__collabel--btn {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; padding: 2px 0; border: 0; background: transparent;
+  font: inherit; font-size: 12px; color: var(--v2-muted); cursor: pointer;
+}
+.crew__collabel--btn:hover { color: var(--v2-ink); }
+.crew__collabel--btn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; border-radius: var(--v2-r-pill); }
+.crew__chev { font-size: 10px; line-height: 1; }
+/* the opened step's detail, under the columns */
+.crew__detail { margin-top: 12px; }
+
+/* A pipeline card is a button for the same reason a seat is: it names a
+   coworker, so it must be openable. Reset to sit flush in the stack. */
+.crew__item {
+  display: flex; gap: 10px; align-items: flex-start;
+  width: 100%; padding: 8px 3px; text-align: left;
+  border: none; background: none; font: inherit; color: inherit; cursor: pointer;
+  border-radius: var(--v2-r-chip);
+  animation: crewLand 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--seat, 0) * 60ms);
+  transition: background 140ms ease-out;
+}
+.crew__item:hover { background: var(--v2-fill); }
+.crew__item:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 1px; }
+.crew__item + .crew__item { border-top: 1px solid var(--v2-line); }
+
+@keyframes crewLand {
+  from { transform: translateY(7px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.crew__body { flex: 1; min-width: 0; }
+.crew__name { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--v2-ink); }
+.crew__ai { font-size: 10.5px; color: var(--v2-muted); margin-top: 1px; }
+.crew__now { font-size: 10.5px; color: var(--v2-ink-2); margin-top: 2px; line-height: 1.4; }
+
+.crew__bar {
+  height: 3px; border-radius: 2px; margin-top: 6px; overflow: hidden;
+  background: var(--v2-track);
+  /* The shuttle inside is absolutely free to leave — the track clips it. */
+  position: relative;
+}
+/* AN INDETERMINATE BAR, NOT A FAKE PROGRESS BAR. This used to grow from 10% to
+   78% and shrink back, which looks exactly like progress being made and then
+   LOST — a determinate shape over work whose duration the app cannot know. A
+   shuttle says the true thing: something is happening, and we are not
+   pretending to know how far along it is. It travels in the agent's own model
+   colour, like the halo. */
+.crew__bar i {
+  display: block;
+  height: 100%;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--tint, var(--v2-blue)) 22%,
+    var(--tint, var(--v2-blue)) 78%,
+    transparent
+  );
+  animation: crewShuttle 1.9s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes crewShuttle {
+  0%   { transform: translateX(-105%); }
+  100% { transform: translateX(275%); }
+}
+
+.crew__tick { flex: none; font-size: 13px; line-height: 1.4; }
+.crew__tick--ok { color: var(--v2-blue-ink); }
+.crew__tick--bad { color: var(--v2-coral-ink); }
+
+/* BLACK is the accent, spent on the ONE card waiting on the user. */
+.crew__decide {
+  background: var(--v2-accent);
+  color: var(--v2-on-accent);
+  border-radius: var(--v2-r-inner);
+  padding: 12px 14px;
+}
+.crew__decide + .crew__decide { margin-top: 8px; }
+.crew__decidetitle { font-size: 13px; font-weight: 600; }
+.crew__decidedetail { font-size: 11.5px; opacity: 0.78; margin-top: 3px; line-height: 1.4; }
+
+/* Reduced motion: the pulse and the sweep stop. The bar keeps a static width
+   so a working agent still reads as working without any movement. */
+@media (prefers-reduced-motion: reduce) {
+  .crew__mono--pulse { animation: none; }
+  .crew__cols.is-live .crew__col + .crew__col::after { display: none; }
+  .crew__bar i { animation: none; width: 50%; }
+}
+
+/* "×7" — the number of model turns this one agent really took at this stage.
+   It replaced seven identical cards stacked in a column. */
+.crew__turns {
+  margin-left: 6px; font-size: 10px; font-weight: 600;
+  color: var(--v2-muted); background: var(--v2-fill);
+  padding: 1px 6px; border-radius: var(--v2-r-pill);
+}
+
+
+/* Motion is a nicety; the facts are the point. A reader who has asked the
+   system for less of it still gets every seat, every card and every label —
+   they simply stop arriving and stop pulsing. */
+@media (prefers-reduced-motion: reduce) {
+  .crew__seat,
+  .crew__item { animation: none; }
+  .crew__seat:hover { transform: none; }
+  .crew__mono--pulse { animation: none; }
+  /* The bar stops travelling but still READS as working: a static filled track
+     in the agent's colour, rather than a frozen 38% sliver that would look like
+     a stalled progress bar. */
+  .crew__bar i {
+    animation: none;
+    width: 100%;
+    transform: none;
+    background: var(--tint, var(--v2-blue));
+    opacity: 0.5;
+  }
+}
+
+/* "Is it stuck?" — the question a pulse cannot answer, because it looks the
+   same at four seconds and four minutes. This states the elapsed number.
+   It never says "stuck": a single on-device call on this Mac has honestly
+   taken seven minutes, so the fact is reported and the judgement stays with
+   the person who has the context. */
+.crew__waiting {
+  font-size: 11px;
+  color: var(--v2-muted);
+  transition: color 240ms ease-out;
+}
+/* Past the slowest call really measured here, the line earns contrast — still
+   a fact, just one now worth a glance. */
+.crew__waiting.is-long { color: var(--v2-coral); font-weight: 600; }
+
+/* One chevron that TURNS, rather than two characters swapped — the rotation is
+   the affordance, and it reads as the same control in two states. */
+.crew__chev {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0.6;
+}
+.crew__chev.is-open { transform: rotate(90deg); opacity: 1; }
+.crew__collabel--btn:hover .crew__chev { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crew__chev { transition: none; }
+}
+
+/* What a coworker has to SHOW for its turn — real counted tool calls (notes
+   read, results returned), never a progress estimate. Sits under the "what it
+   is doing" line, quieter than it, because it is evidence rather than status. */
+.crew__work {
+  font-size: 10px;
+  color: var(--v2-muted);
+  margin-top: 3px;
+  letter-spacing: 0.01em;
+}

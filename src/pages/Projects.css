@@ -1,0 +1,232 @@
+/* ── new project form ───────────────────────────────────────── */
+.proj__form {
+  margin: 0 0 18px; border-radius: var(--v2-r-card); background: var(--card-solid);
+  box-shadow: var(--v2-shadow);
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;
+}
+.proj__forminput, .proj__formtextarea {
+  border-radius: var(--v2-r-chip); background: var(--field-fill); border: 1px solid var(--hair-7);
+  padding: 10px 13px; font: inherit; font-size: 12.5px; color: var(--ink); flex: 1;
+}
+.proj__formtextarea { resize: vertical; }
+.proj__formrow { display: flex; gap: 10px; }
+
+/* new / attach mode toggle */
+.proj__modetoggle {
+  display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; border-radius: var(--v2-r-chip);
+  background: rgba(0, 0, 0, 0.05);
+}
+.proj__modebtn {
+  border: 0; background: none; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--muted); padding: 7px 14px; border-radius: var(--v2-r-chip);
+}
+.proj__modebtn--active { background: var(--card-solid); color: var(--ink); box-shadow: var(--v2-shadow-soft); }
+.proj__formsubmit {
+  align-self: flex-start; height: 40px; padding: 0 20px; border: 0; border-radius: var(--v2-r-chip);
+  background: var(--gold-grad); color: var(--on-gold); font: inherit; font-size: 13px;
+  font-weight: 700; cursor: pointer; box-shadow: var(--v2-shadow);
+}
+.proj__formsubmit:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+
+/* ── status chips ────────────────────────────────────────────── */
+.proj__status {
+  font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700;
+  padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap;
+}
+.proj__status--new { background: rgba(0, 0, 0, 0.06); color: var(--muted-2); }
+.proj__status--interviewing { background: rgba(131, 162, 219, 0.2); color: var(--badge-ink); }
+.proj__status--planned { background: rgba(131, 162, 219, 0.35); color: var(--badge-ink-5); }
+.proj__status--running { background: var(--gold-grad); color: var(--on-gold); }
+.proj__status--awaiting { background: rgba(131, 162, 219, 0.18); color: var(--warn-ink); }
+.proj__status--attention { background: rgba(206, 105, 105, 0.16); color: var(--danger-ink-2); }
+.proj__status--done { background: rgba(110, 154, 131, 0.16); color: var(--ok-ink-2); }
+
+/* ── project detail view ────────────────────────────────────────── */
+.proj__viewmeta { display: flex; gap: 16px; font-size: 11px; color: var(--muted-2); flex-wrap: wrap; margin-top: -8px; }
+
+.proj__mergebtn {
+  align-self: flex-start; height: 36px; padding: 0 18px; border: 1px solid rgba(110, 154, 131, 0.4);
+  border-radius: var(--v2-r-chip); background: rgba(110, 154, 131, 0.12); color: var(--ok-ink-2); font: inherit;
+  font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.proj__mergebtn:hover { background: rgba(110, 154, 131, 0.2); }
+
+/* this project's assigned agents (Task B) — real activity, no fabricated
+   numbers; empty state points at the Agents page to assign some. */
+.proj__agents { display: flex; flex-direction: column; gap: 8px; }
+.proj__agentslink { font-size: 11px; color: var(--muted-2); text-decoration: none; }
+.proj__agentslink:hover { color: var(--ink-2); text-decoration: underline; }
+.proj__agentsempty { font-size: 12px; color: var(--muted-2); }
+.proj__agentlist { display: flex; flex-direction: column; gap: 6px; }
+.proj__agentrow {
+  display: flex; align-items: flex-start; gap: 10px; padding: 9px 13px; border-radius: var(--r-chip);
+  background: var(--fill-soft);
+}
+.proj__agentorb { width: 22px; height: 22px; border-radius: 50%; flex: 0 0 22px; margin-top: 1px; }
+/* min-width:0 on BOTH the flex child and its text rows — without it a long
+   name refuses to shrink and pushes its own badge onto the next line. */
+.proj__agentinfo { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.proj__agentname { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.proj__agentnametext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj__agentmodel { flex: 0 0 auto; font-size: 10.5px; font-weight: 500; color: var(--muted-2); }
+.proj__agentactivityrow { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.proj__agentrole { font-size: 11px; color: var(--muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj__agentspacer { flex: 1; }
+.proj__agentdot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; background: var(--scrollbar); }
+.proj__agentdot--idle { background: var(--dot-idle); }
+.proj__agentdot--working { background: var(--gold-deep); box-shadow: 0 0 6px var(--gold-deep); }
+.proj__agentdot--ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.proj__agentdot--failed { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+/* ATTENTION — checks passed, reviewer dissented. Neither green nor red. */
+.proj__agentdot--attention { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.proj__agentactivity {
+  font-size: 10.5px; color: var(--muted-2);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* team-of-models roster control (P1-4) — new projects come pre-assembled
+   with the multi-model team by default; this shows the assembled roster and
+   offers an "Adjust / use one model" override. */
+.proj__team { display: flex; flex-direction: column; gap: 8px; }
+.proj__teamline { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.proj__teamactions { display: flex; align-items: center; gap: 6px; }
+.proj__teamlink {
+  border: none; background: none; padding: 0; font: inherit; font-size: 11px; font-weight: 600;
+  color: var(--muted-2); text-decoration: underline; cursor: pointer;
+}
+.proj__teamlink:hover { color: var(--ink-2); }
+.proj__teamsep { font-size: 11px; color: var(--muted-2); opacity: 0.6; }
+.proj__teaminput {
+  border-radius: var(--v2-r-chip); background: var(--field-fill); border: 1px solid var(--hair-7);
+  padding: 9px 12px; font: inherit; font-size: 12px; color: var(--ink);
+}
+.proj__teamnote { font-size: 11px; color: var(--muted-2); opacity: 0.85; }
+/* Roles dropped because their provider isn't connected — said, never hidden. */
+.proj__teamsitout { font-size: 11px; color: var(--danger-ink); margin-top: 4px; line-height: 1.4; }
+
+/* standing build/test loops owned by this project (P2-4) — off until the
+   user clicks "+ Add build/test loop"; visual family borrows Desk's
+   .desk__row/.desk__chip (chip pills, r-chip rows) restated here so this
+   file has no cross-file CSS dependency. */
+.proj__loops { display: flex; flex-direction: column; gap: 10px; }
+.proj__loopbtns { display: flex; gap: 8px; }
+.proj__loopbtn {
+  padding: 7px 14px; border-radius: var(--r-pill); font: inherit; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: 1px solid var(--hair); background: transparent;
+  color: var(--ink-2);
+}
+.proj__loopbtn:hover { background: var(--fill-soft); }
+.proj__loopbtn:disabled { opacity: 0.45; cursor: default; background: transparent; }
+.proj__verifyinput {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--field-fill);
+  border: 1px solid var(--hair-7);
+  border-radius: var(--v2-r-chip);
+  padding: 4px 8px;
+}
+.proj__verifyinput::placeholder { color: var(--muted-2); }
+.proj__loopslist { display: flex; flex-direction: column; gap: 6px; }
+.proj__looprow {
+  display: flex; align-items: center; gap: 12px; padding: 9px 13px; border-radius: var(--r-chip);
+  background: var(--fill-soft);
+}
+.proj__loopkind {
+  font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700;
+  padding: 3px 9px; border-radius: var(--r-pill); flex: 0 0 auto;
+  background: rgba(0, 0, 0, 0.06); color: var(--muted-2);
+}
+.proj__loopkind--build { background: rgba(131, 162, 219, 0.28); color: var(--badge-ink); }
+.proj__loopkind--test { background: rgba(110, 154, 131, 0.16); color: var(--ok-ink-2); }
+.proj__looptask { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj__loopevery { font-size: 10.5px; color: var(--muted-2); flex: 0 0 auto; }
+.proj__loopenable {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted-2);
+  cursor: pointer; flex: 0 0 auto;
+}
+
+/* section head, shared by chat + plan */
+.proj__sectionhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.proj__sectionkicker { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
+.proj__sectionhint { font-size: 11.5px; color: var(--muted-2); }
+
+/* ── plan + run ──────────────────────────────────────────────── */
+.proj__plan { display: flex; flex-direction: column; gap: 12px; }
+.proj__steps { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.proj__step { display: flex; align-items: center; gap: 12px; padding: 9px 13px; border-radius: var(--v2-r-chip); background: rgba(0, 0, 0, 0.03); }
+.proj__step--done { background: rgba(110, 154, 131, 0.1); }
+.proj__step--current { background: rgba(131, 162, 219, 0.18); }
+.proj__stepnum { font-size: 11px; color: var(--muted-2); width: 20px; flex: 0 0 20px; }
+.proj__step--done .proj__stepnum { color: var(--ok-ink-2); }
+.proj__step--current .proj__stepnum { color: var(--badge-ink); font-weight: 700; }
+.proj__steplabel { font-size: 13px; color: var(--ink-2); }
+
+.proj__startbtn {
+  align-self: flex-start; height: 40px; padding: 0 20px; border: 0; border-radius: var(--v2-r-chip);
+  background: var(--gold-grad); color: var(--on-gold); font: inherit; font-size: 13px;
+  font-weight: 700; cursor: pointer; box-shadow: var(--v2-shadow);
+}
+.proj__runningnote { font-size: 12px; color: var(--badge-ink); }
+.proj__lastnote { font-size: 11.5px; color: var(--muted-2); }
+
+/* awaiting fallback banner (the orb overlay in B5 is the primary affordance) */
+.proj__askbanner {
+  border-radius: var(--v2-r-inner); background: rgba(131, 162, 219, 0.1); border: 1px solid rgba(131, 162, 219, 0.35);
+  padding: 13px 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.proj__askbannertext { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.proj__askbannerhint { font-size: 10.5px; color: var(--warn-ink); }
+.proj__askbannerbtns { display: flex; gap: 8px; }
+.proj__askyes, .proj__askno {
+  font: inherit; font-size: 11.5px; padding: 6px 14px; border-radius: var(--r-pill); cursor: pointer;
+  border: 1px solid rgba(131, 162, 219, 0.4); background: transparent; color: inherit;
+}
+.proj__askyes { background: rgba(110, 154, 131, 0.14); border-color: rgba(110, 154, 131, 0.4); color: var(--ok-ink-2); }
+.proj__askno { color: var(--muted-2); }
+
+/* MV5: approve-mode build proposal — calm, not a warning (askbanner's amber
+   is reserved for "needs your input"; this is routine confirmation). */
+.proj__proposal {
+  border-radius: var(--v2-r-inner); background: rgba(120, 130, 150, 0.08); border: 1px solid rgba(120, 130, 150, 0.25);
+  padding: 13px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.proj__proposaltext { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.proj__proposalbtns { display: flex; gap: 8px; }
+.proj__approvebtn, .proj__cancelbtn {
+  font: inherit; font-size: 11.5px; padding: 6px 14px; border-radius: var(--r-pill); cursor: pointer;
+  border: 1px solid rgba(120, 130, 150, 0.3); background: transparent; color: inherit;
+}
+.proj__approvebtn { background: var(--gold-grad); border-color: transparent; color: var(--on-gold); font-weight: 700; }
+.proj__cancelbtn { color: var(--muted-2); }
+
+/* verdict list */
+.proj__verdicts { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.proj__verdictlist { display: flex; flex-direction: column; gap: 10px; }
+
+/* Delete project — two-step inline confirm, honest scope in the note. */
+.proj__deletebtn { color: var(--fail, #a93f3b); border-color: currentColor; }
+.proj__deletebtn--armed { background: var(--fail, #a93f3b); color: var(--card-solid); border-color: transparent; }
+.proj__deleteconfirm { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.proj__deletenote { font-size: 11px; color: var(--ink-3); }
+
+/* The room's Files panel — real folder contents, click to reveal. */
+.proj__files { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--hair-7); }
+.proj__fileshead { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+.proj__filerow { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; padding: 3px 6px; border: 0; background: none; border-radius: 6px; color: var(--ink); text-align: left; cursor: pointer; }
+.proj__filerow:hover { background: var(--field-fill); }
+.proj__filerow--dir { color: var(--ink-3); cursor: default; }
+.proj__filepath { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj__filesize { color: var(--ink-3); flex: 0 0 auto; }
+
+/* File rows: open in-app (primary) + reveal in Finder (secondary ↗). */
+.proj__filerowwrap { display: flex; align-items: center; gap: 2px; }
+.proj__filerowwrap .proj__filerow { flex: 1; }
+.proj__filereveal { flex: 0 0 auto; background: none; border: 0; padding: 2px 6px; font-size: 11px; color: var(--ink-3); cursor: pointer; border-radius: 6px; }
+.proj__filereveal:hover { color: var(--ink); background: var(--field-fill); }
+
+/* Folded Files header — a button, count visible, one click to open. */
+.proj__fileshead--btn { background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; width: 100%; }
+.proj__fileshead--btn:hover { color: var(--ink); }

@@ -1,0 +1,144 @@
+/* LiveRunCards — Mission Control's live task cards on the Work page.
+   Theme tokens only (both themes restyle automatically), sized to sit above
+   the chat card without stealing its height. */
+
+.lrun {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+/* ── a LIVE run ─────────────────────────────────────────────────────────── */
+.lrun__card {
+  border: 1px solid var(--hair-2);
+  border-radius: var(--v2-r-inner);
+  padding: 9px 12px;
+  background: var(--fill-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lrun__top { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+.lrun__badge {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--raise-55);
+  color: var(--ink-3);
+}
+.lrun__badge--chat { background: var(--raise-55); }
+.lrun__badge--team { background: rgba(93, 135, 255, 0.16); }
+.lrun__badge--manager { background: rgba(131, 162, 219, 0.18); }
+.lrun__badge--heartbeat { background: rgba(120, 200, 160, 0.16); }
+.lrun__badge--project { background: rgba(180, 130, 220, 0.16); }
+.lrun__badge--loop { background: rgba(120, 170, 210, 0.16); }
+.lrun__badge--task { background: rgba(150, 160, 190, 0.16); }
+.lrun__badge--test { background: rgba(120, 200, 160, 0.12); }
+.lrun__badge--compaction { background: var(--raise-55); }
+
+.lrun__intent {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lrun__elapsed { flex: 0 0 auto; font-size: 11px; color: var(--muted-2); }
+
+.lrun__models { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lrun__modelslabel {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.lrun__model {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border: 1px solid var(--hair-2);
+  border-radius: var(--r-pill);
+  color: var(--ink-3);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The "asked for" roster is deliberately quieter than a real, span-backed
+   model chip — a request should never read as loudly as a fact. */
+.lrun__model--asked { opacity: 0.72; border-style: dashed; }
+.lrun__modeldot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+
+/* The ONE animation here. It is applied ONLY to a card built from a run that
+   is in the store's liveRuns list — a finished row never receives it. */
+.lrun__card--glow {
+  border-color: var(--orb-ring, rgba(131, 162, 219, 0.5));
+  animation: lrunGlow 1.8s ease-in-out infinite;
+}
+@keyframes lrunGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(131, 162, 219, 0); }
+  50%      { box-shadow: var(--v2-shadow-soft); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lrun__card--glow { animation: none; box-shadow: var(--v2-shadow-soft); }
+}
+
+/* PARKED on a human answer: still on screen (it resumes when you answer), but
+   deliberately STILL — nothing is executing behind it, so nothing may pulse. */
+.lrun__card--paused { border-style: dashed; opacity: 0.9; }
+.lrun__waiting {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+/* ── a FINISHED run (compact outcome row, links to the trace) ────────────── */
+.lrun__row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--hair-2);
+  border-radius: var(--v2-r-chip);
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.85;
+}
+.lrun__row:hover { opacity: 1; background: var(--fill-soft-2); }
+.lrun__row--passed { border-left: 2px solid var(--ok); }
+.lrun__row--failed { border-left: 2px solid var(--danger); }
+.lrun__row--stopped { border-left: 2px solid var(--muted-2); }
+
+.lrun__outcome { flex: 0 0 auto; font-size: 11px; font-weight: 600; }
+.lrun__outcome--passed { color: var(--ok); }
+.lrun__outcome--failed { color: var(--danger); }
+.lrun__outcome--stopped { color: var(--muted-2); }
+
+.lrun__detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--muted-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lrun__trace { flex: 0 0 auto; font-size: 10.5px; color: var(--muted-2); }

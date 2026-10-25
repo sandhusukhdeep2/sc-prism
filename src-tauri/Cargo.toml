@@ -1,0 +1,32 @@
+[package]
+name = "sc-prism"
+version = "0.1.0"
+description = "SC Prism — run many AIs on one board and keep control of all of it"
+authors = ["SlashCreative"]
+license = "Apache-2.0"
+repository = "https://github.com/sandhusukhdeep2/sc-prism"
+edition = "2021"
+
+[lib]
+name = "sc_prism_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# HTTP client for the `ping_provider` health-check command. The `rustls`
+# feature adds a pure-Rust TLS backend so the probe can reach `https://` cloud
+# endpoints (OpenAI / Gemini / Claude), not just local `http://` servers.
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

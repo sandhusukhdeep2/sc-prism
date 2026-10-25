@@ -1,0 +1,228 @@
+.shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--content-grad);
+  overflow: hidden;
+}
+
+/* top bar */
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 16px 30px;
+}
+/* THE LOCKUP. The mark used to sit in a dark rounded tile — a container it
+   didn't need, and one that fought the pill nav beside it. It now sits bare and
+   takes the page's ink via `currentColor`, so it inverts with the theme; only
+   its three provider rays keep their own hue. */
+.brand { display: flex; align-items: center; gap: 9px; color: var(--v2-ink); }
+.brand__mark { display: flex; align-items: center; justify-content: center; }
+.brand__name { font-size: 15.5px; font-weight: 600; letter-spacing: -0.02em; color: var(--v2-ink); }
+
+/* THE RAIL (2026-08-27) — one persistent navigation, on every page.
+   It replaces the pill nav + "More ▾" dropdown, which left seven destinations
+   with no navigation of their own and made Work (the only page with a sidebar)
+   look like a different application. Same form language as the pills it
+   replaces: BLACK IS THE ACCENT, so the page you are on is one solid near-black
+   shape and everything else is quiet. Every colour is a --v2 token, so it
+   inverts with the theme like the rest of the system. */
+.shell__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.rail {
+  flex: 0 0 auto;
+  width: 186px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 6px 14px 20px 30px;
+  overflow-y: auto;
+}
+
+.rail__group { display: flex; flex-direction: column; gap: 2px; }
+
+.rail__heading {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-muted);
+  padding: 0 12px 6px;
+}
+
+.rail__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: var(--v2-r-pill);
+  font-size: 13.5px;
+  color: var(--v2-ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+  /* The pill itself is painted by a pseudo-element so it can SCALE on press
+     without dragging the icon and label with it — the label must stay put while
+     the surface under it reacts. */
+  transition: color 160ms ease-out;
+}
+.rail__link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: transparent;
+  transition:
+    background 160ms ease-out,
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rail__link > * { position: relative; }
+
+.rail__link:hover { color: var(--v2-ink); }
+.rail__link:hover::before { background: var(--v2-fill); }
+/* A press is acknowledged: the surface dips, then releases. */
+.rail__link:active::before { transform: scale(0.965); }
+
+.rail__link.is-active { color: var(--v2-on-accent); font-weight: 600; }
+.rail__link.is-active::before { background: var(--v2-accent); }
+.rail__link.is-active:hover { color: var(--v2-on-accent); }
+
+.rail__link:focus-visible { outline: none; }
+.rail__link:focus-visible::before { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+
+/* The icon leads, and it is the part that moves. On hover it drifts a hair
+   toward the label — enough to feel alive, not enough to reflow anything. */
+.rail__link .icon {
+  flex: 0 0 auto;
+  opacity: 0.72;
+  transition:
+    opacity 160ms ease-out,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rail__link:hover .icon { opacity: 1; transform: translateX(1px); }
+.rail__link.is-active .icon { opacity: 1; }
+
+.rail__linktext { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Settings sits apart, pushed to the foot: it is where you change the app, not
+   one of the places you work in it. */
+.rail__foot { margin-top: auto; padding-top: 20px; }
+
+.topbar__spacer { flex: 1; }
+
+.status { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+.dot--ok { background: var(--ok); box-shadow: 0 0 7px var(--ok); }
+.dot--warn { background: var(--warn); box-shadow: 0 0 7px var(--warn); }
+.dot--danger { background: var(--danger); box-shadow: 0 0 7px var(--danger); }
+
+/* approval-waiting pill — the Loop parked at an irreversible step; links to the
+   approval gate. Amber to match the governance/warn tokens, with a gentle pulse
+   so it reads as "needs you" without being loud. Hidden entirely when idle. */
+.approval-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: var(--v2-r-card);
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap;
+  color: var(--warn-ink);
+  background: rgba(131, 162, 219, 0.14);
+  border: 1px solid rgba(131, 162, 219, 0.42);
+  animation: approvalPulse 1.9s ease-in-out infinite;
+}
+.approval-pill:hover {
+  background: rgba(131, 162, 219, 0.22);
+  border-color: rgba(131, 162, 219, 0.62);
+}
+.approval-pill__dot { background: var(--warn); box-shadow: 0 0 7px var(--warn); }
+
+@keyframes approvalPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(131, 162, 219, 0); }
+  50%      { box-shadow: var(--v2-shadow-soft); }
+}
+
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #2b2b2e, #4a4a4f);
+  color: #fff; font-size: 12px; font-weight: 600;
+}
+
+/* content */
+.content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 30px 96px 16px;
+}
+/* VERY WIDE WINDOWS. Pages are composed for reading, not stretching: past
+   ~1680px the columns stop growing and the page centers, so a full-screen
+   window on a wide display reads as a document, not a left-hugging strip
+   with a dead right half. */
+.content > * { max-width: 1680px; margin-inline: auto; width: 100%; }
+/* FIT THE WINDOW (2026-08-18). Most pages are documents and scroll here. Work
+   is an APP SCREEN: it owns its own regions and each of them scrolls
+   internally, so the shell must not put a second scroll container (or 96px of
+   dead padding) underneath it. This class is applied by route, deliberately —
+   it is a statement about which pages are app screens, not a blanket
+   overflow:hidden. */
+.content--fit {
+  /* Work fits the window and owns its internal scrolling - but below the
+     page's own minimum (a very short window) this region scrolls rather
+     than clipping the chat (the crushed-rows bug, 2026-08-29). At normal
+     heights nothing overflows, so no second scrollbar ever appears. */
+  overflow-y: auto;
+  padding-bottom: 14px;
+}
+
+/* NARROW WINDOWS. The rail is navigation and must never be hidden — losing it
+   is the bug this whole layout exists to fix — but on Work it stands beside
+   Work's own chats list, and two 186px columns plus a chat and a ledger do not
+   fit a small window. So the rail gives ground in the order that costs least:
+   first its breathing room, then its group headings (the links still say what
+   they are), and never the links themselves. */
+@media (max-width: 1180px) {
+  .rail { width: 152px; flex-basis: 152px; padding-left: 18px; padding-right: 10px; }
+  .content { padding-left: 12px; padding-right: 18px; }
+  .topbar { padding-left: 18px; padding-right: 18px; }
+}
+@media (max-width: 980px) {
+  .rail { width: 126px; flex-basis: 126px; gap: 10px; }
+  .rail__heading { display: none; }
+  .rail__foot { padding-top: 12px; }
+  .rail__link { padding: 7px 11px; font-size: 13px; gap: 8px; }
+}
+/* The last thing to go is the WORD, never the destination. Below this the rail
+   is icons only and each link carries its label as a tooltip — you can still
+   reach every page, which is the promise the rail exists to keep. */
+@media (max-width: 820px) {
+  .rail { width: 60px; flex-basis: 60px; padding-left: 12px; padding-right: 8px; align-items: center; }
+  .rail__group { align-self: stretch; }
+  .rail__link { justify-content: center; padding: 9px 0; gap: 0; }
+  .rail__linktext {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .rail__link:hover .icon { transform: none; }
+}
+
+
+/* Motion is confirmation, not decoration — a reader who asked for less of it
+   still gets every state, drawn rather than animated. */
+@media (prefers-reduced-motion: reduce) {
+  .rail__link,
+  .rail__link::before,
+  .rail__link .icon { transition: none; }
+  .rail__link:hover .icon { transform: none; }
+  .rail__link:active::before { transform: none; }
+}
+
+/* Foldable rail groups. */
+.rail__heading--btn { background: none; border: 0; cursor: pointer; width: 100%; text-align: left; }
+.rail__heading--btn:hover { color: var(--ink); }

@@ -1,0 +1,360 @@
+.settings { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+/* header */
+.settings__spacer { flex: 1; }
+
+.settings__body { flex: 1; min-height: 0; display: flex; gap: 20px; padding-bottom: 4px; }
+
+/* sub-nav */
+.settings__nav {
+  width: 210px; flex: 0 0 210px; border-radius: var(--r-card); background: var(--card-solid);
+  box-shadow: var(--shadow-card); padding: 14px; display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto;
+}
+.settings__navitem { padding: 11px 14px; font-size: 13px; color: var(--muted); cursor: pointer; }
+button.settings__navitem {
+  border: 0; background: transparent; font-family: inherit; text-align: left; width: 100%; display: block;
+}
+.settings__navitem.is-active { border-radius: var(--v2-r-inner); background: var(--gold-grad); font-weight: 600; color: var(--on-gold); }
+.settings__navnote { padding: 11px 14px; border-radius: var(--v2-r-inner); background: var(--fill-soft); font-size: 10.5px; color: var(--muted-2); line-height: 1.6; }
+
+/* content */
+.settings__content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding-right: 4px; }
+
+/* provider card */
+.settings__provider { border-radius: var(--v2-r-card); background: var(--card-solid); box-shadow: var(--shadow-card); padding: 20px 22px; }
+.settings__prow { display: flex; align-items: center; gap: 12px; }
+.settings__pname { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+
+/* toggle */
+.settings__toggle { width: 38px; height: 24px; border-radius: var(--v2-r-pill); position: relative; flex: 0 0 38px; }
+.settings__toggle--on { background: var(--gold-grad); }
+.settings__toggle--off { background: var(--track); }
+.settings__knob { position: absolute; right: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: var(--v2-shadow-soft); }
+.settings__knob--off { right: auto; left: 3px; }
+
+/* logo tiles */
+.settings__logo { width: 30px; height: 30px; border-radius: var(--v2-r-chip); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 700; flex: 0 0 30px; }
+.settings__logo--dark { background: var(--dark); }
+.settings__logo--claude { background: #ce6969; }
+.settings__logo--openai { background: #0f9d8a; font-size: 12px; }
+.settings__logo--gemini { background: linear-gradient(135deg, #4285F4, #9b72cb); font-size: 12px; }
+
+/* status */
+.settings__status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.settings__status--ok { color: var(--ok-ink); }
+.settings__status--auth { color: var(--warn-ink-2); }
+.settings__status--err { color: var(--danger-ink); }
+.settings__statusdot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 7px var(--ok); }
+.settings__statusdot--auth { background: #83a2db; box-shadow: var(--v2-shadow-soft); }
+.settings__statusdot--err { background: #ce6969; box-shadow: var(--v2-shadow-soft); }
+
+/* primary radio */
+.settings__primary { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink); font-weight: 600; }
+.settings__setprimary { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+.settings__radio { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #5f6570; }
+.settings__radio--on { border: 5px solid var(--gold-deep); background: var(--input-fill); }
+
+/* routing mode (R1) */
+.settings__routes { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.settings__routeopt { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: var(--v2-r-inner); border: 1px solid var(--hair-7); background: var(--field-fill); cursor: pointer; user-select: none; }
+.settings__routeopt--on { border-color: var(--gold-deep); background: var(--input-fill); }
+.settings__routeopt .settings__radio { flex: none; margin-top: 1px; }
+.settings__routetext { display: flex; flex-direction: column; gap: 3px; }
+.settings__routetitle { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+
+/* provider fields */
+.settings__pfields { display: flex; gap: 10px; margin-top: 13px; margin-left: 50px; }
+.settings__input { flex: 1; height: 36px; border-radius: var(--v2-r-chip); background: var(--field-fill); border: 1px solid var(--hair-7); display: flex; align-items: center; padding: 0 12px; font-size: 12px; color: var(--ink-3); }
+.settings__input--key { font-size: 12.5px; letter-spacing: 2px; }
+input.settings__input { min-width: 0; -webkit-appearance: none; appearance: none; }
+.settings__input::placeholder { color: var(--muted-2); }
+.settings__keywrap { position: relative; display: flex; flex: 1; min-width: 0; }
+.settings__keywrap .settings__input { width: 100%; padding-right: 36px; }
+.settings__keyeye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: none; padding: 2px 8px; font-size: 14px; line-height: 1; color: var(--muted); cursor: pointer; }
+.settings__keyeye:hover { color: var(--ink); }
+.settings__test { height: 36px; padding: 0 16px; border-radius: var(--v2-r-chip); background: var(--dark); color: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; cursor: pointer; }
+.settings__toggle, .settings__setprimary, .settings__theme { cursor: pointer; user-select: none; }
+
+/* off providers */
+.settings__offrow { display: flex; gap: 14px; }
+.settings__off { flex: 1; border-radius: var(--v2-r-card); background: var(--raise); padding: 16px 20px; display: flex; align-items: center; gap: 12px; opacity: 0.8; }
+.settings__offname { font-size: 14px; font-weight: 600; color: var(--ink-3); }
+.settings__offlabel { font-size: 11.5px; color: var(--muted-3); }
+
+/* appearance */
+.settings__kicker { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
+.settings__instant { font-size: 11px; color: var(--muted-3); }
+.settings__themes { display: flex; gap: 14px; margin-top: 16px; }
+.settings__theme { flex: 1; border-radius: var(--v2-r-inner); overflow: hidden; cursor: pointer; box-shadow: var(--v2-shadow); }
+.settings__theme--active { box-shadow: 0 0 0 2px var(--gold-deep), 0 6px 18px rgba(131, 162, 219, 0.2); }
+.settings__preview { height: 74px; position: relative; }
+.settings__pv-left { position: absolute; left: 10px; top: 10px; right: 56%; bottom: 10px; border-radius: var(--v2-r-chip); }
+.settings__pv-right { position: absolute; right: 10px; top: 10px; width: 34%; bottom: 10px; border-radius: var(--v2-r-chip); }
+
+.settings__preview--obsidian { background: #0B0E11; }
+.settings__pv-left--obsidian { background: #12161B; border: 1px solid rgba(255, 255, 255, 0.08); }
+.settings__pv-right--obsidian { background: #12161B; border: 1px solid rgba(34, 211, 238, 0.3); }
+
+.settings__preview--prism { background: #0C0D14; }
+.settings__pv-left--prism { background: #14141F; }
+.settings__pv-right--prism { background: linear-gradient(135deg, #6366F1, #22D3EE, #A855F7); opacity: 0.75; }
+
+.settings__preview--daylight { background: linear-gradient(122deg, #edecee, #f6e6a3); }
+.settings__pv-left--daylight { background: var(--card-solid); box-shadow: var(--v2-shadow-soft); }
+.settings__pv-right--daylight { background: var(--dark); }
+
+.settings__themefoot { padding: 10px 13px; background: var(--input-fill); display: flex; align-items: center; gap: 8px; }
+.settings__themename { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+.settings__themename--active { color: var(--ink); font-weight: 700; }
+.settings__activetag { font-size: 10px; color: #5f6570; }
+
+/* reset setup */
+.settings__danger { border: 1px solid rgba(206, 105, 105, 0.25); }
+.settings__resethint { font-size: 11.5px; color: var(--muted-2); line-height: 1.6; margin-top: 8px; }
+/* A form save/remove error — a real error color, not the muted hint tone. */
+.settings__formerror { font-size: 11.5px; color: var(--danger-ink); font-weight: 600; line-height: 1.6; margin-top: 10px; }
+.settings__resetrow { display: inline-flex; align-items: center; gap: 12px; }
+.settings__resetwarn { font-size: 11px; color: var(--danger-ink); }
+.settings__resetbtn {
+  height: 34px; padding: 0 16px; border-radius: var(--v2-r-chip); border: 1px solid rgba(206, 105, 105, 0.4);
+  background: transparent; color: var(--danger-ink); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+}
+.settings__resetbtn:hover { background: rgba(206, 105, 105, 0.08); }
+.settings__resetcancel { font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.settings__resetgo {
+  height: 34px; padding: 0 16px; border-radius: var(--v2-r-chip); border: none;
+  background: #c04540; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+.settings__resetgo:hover { background: #a83c37; }
+
+.settings__getkey{border:0;background:none;padding:0;margin:6px 0 0 92px;font:inherit;font-size:11px;color:var(--warn-ink);text-decoration:underline;cursor:pointer;}
+.settings__getkey:hover{color:var(--ink);}
+
+/* CLI-bridge (subscription) provider hint in place of a key field */
+.settings__clihint {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--muted-2);
+  line-height: 1.5;
+  align-self: center;
+}
+
+/* The CLI's OWN failure line (installed but can't answer) — shown verbatim. */
+.settings__clierror {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--danger-ink);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+/* persistent connection state */
+.settings__disconnect {
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(206, 105, 105, 0.4);
+  border-radius: var(--v2-r-chip);
+  background: none;
+  color: var(--danger-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: center;
+}
+.settings__disconnect:hover { background: rgba(206, 105, 105, 0.08); }
+
+/* custom service cards */
+.settings__nameinput {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  width: 180px;
+  border-bottom: 1px dashed var(--scrollbar);
+  padding: 2px 0;
+}
+.settings__nameinput:focus { outline: none; border-bottom-color: var(--gold-deep); }
+.settings__remove {
+  border: 0;
+  background: none;
+  color: var(--muted-2);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--v2-r-chip);
+}
+.settings__remove:hover { color: var(--danger-ink); background: rgba(206, 105, 105, 0.08); }
+/* Two-step remove confirm (replaces the native window.confirm). */
+.settings__removeconfirm { display: inline-flex; align-items: center; gap: 6px; }
+.settings__removeq { font-size: 11px; color: var(--muted); }
+.settings__removeyes, .settings__removeno {
+  border: 0; background: none; font: inherit; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; padding: 4px 7px; border-radius: var(--v2-r-chip);
+}
+.settings__removeyes { color: var(--danger-ink); }
+.settings__removeyes:hover { background: rgba(206, 105, 105, 0.1); }
+.settings__removeno { color: var(--muted); }
+.settings__removeno:hover { background: rgba(0, 0, 0, 0.05); }
+.settings__addcustom {
+  border: 1.5px dashed var(--dash);
+  border-radius: var(--v2-r-card);
+  background: none;
+  padding: 14px 20px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 12px;
+}
+.settings__addcustom:hover { color: var(--ink); border-color: rgba(0, 0, 0, 0.3); }
+
+/* engine extensions */
+.settings__extrow { margin-top: 14px; align-items: flex-start; }
+.settings__extinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.settings__toggle--disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* MCP servers add/edit form — same input/button primitives as provider
+   fields, minus the toggle+logo indent (there's no toggle to align under). */
+.settings__mcpform { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.settings__mcpform .settings__pfields { margin-left: 0; }
+
+/* rerun-wizard nav link */
+.settings__navitem--gold { color: var(--warn-ink); font-weight: 600; }
+a.settings__navitem { text-decoration: none; }
+
+/* model + effort controls */
+.settings__modelrow { margin-top: 10px; }
+.settings__effort { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+.settings__effortsel {
+  height: 34px; border-radius: var(--v2-r-chip); background: var(--field-fill);
+  border: 1px solid var(--hair-7); font: inherit; font-size: 12px; color: var(--ink); padding: 0 8px;
+}
+
+/* live model loader */
+.settings__loadmodels {
+  height: 34px; padding: 0 12px; border: 1px solid var(--track); border-radius: var(--v2-r-chip);
+  background: none; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap;
+}
+.settings__loadmodels:hover { color: var(--ink); }
+.settings__loadmodels:disabled { opacity: 0.5; }
+
+/* local model picker — one row per model the server lists, measured facts only */
+.settings__mrow {
+  margin-top: 12px; padding: 12px 14px; border-radius: var(--v2-r-inner);
+  background: var(--fill-soft); border: 1px solid transparent;
+}
+.settings__mrow--blocked { border-color: var(--track); opacity: 0.92; }
+.settings__mhead { display: flex; align-items: center; gap: 10px; }
+.settings__mname { font-size: 12.5px; color: var(--ink); font-weight: 600; }
+.settings__minuse {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted-2); border: 1px solid var(--track); border-radius: var(--v2-r-chip); padding: 2px 7px;
+}
+.settings__mfacts {
+  display: flex; flex-direction: column; gap: 3px; margin-top: 8px;
+  font-size: 10.5px; color: var(--muted-2); line-height: 1.5;
+}
+.settings__msuggest { margin-top: 8px; font-size: 11px; color: var(--ink); line-height: 1.5; }
+
+/* per-kind picks — the best measured model for each kind of work, above the rows */
+.settings__kpicks {
+  margin-top: 12px; padding: 12px 14px; border-radius: var(--v2-r-inner);
+  background: var(--fill-soft); display: flex; flex-direction: column; gap: 7px;
+}
+.settings__khead {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 600;
+}
+.settings__krow { display: flex; align-items: baseline; gap: 8px; font-size: 11px; line-height: 1.5; }
+.settings__kkind { min-width: 84px; color: var(--muted-2); font-size: 10.5px; }
+.settings__kmodel { color: var(--ink); font-weight: 600; font-size: 11px; }
+.settings__kreason { flex: 1; color: var(--muted-2); font-size: 10.5px; }
+.settings__kuse {
+  border: 1px solid var(--track); border-radius: var(--v2-r-chip); background: none;
+  font-size: 10px; color: var(--muted); cursor: pointer; padding: 2px 8px; white-space: nowrap;
+}
+.settings__kuse:hover { color: var(--ink); }
+
+/* The dependency dial — a real drag control inside the Routing card. */
+.settings__dial { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--hair-7); }
+.settings__dialrow { display: flex; align-items: center; gap: 10px; }
+.settings__dialend { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-3); white-space: nowrap; }
+.settings__dialrange { flex: 1; appearance: none; -webkit-appearance: none; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--ok), var(--hair-7) 50%, var(--accent)); outline: none; cursor: grab; }
+.settings__dialrange:active { cursor: grabbing; }
+.settings__dialrange::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--card-solid); border: 2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.18); transition: transform 120ms ease; }
+.settings__dialrange::-webkit-slider-thumb:hover { transform: scale(1.12); }
+.settings__dialrange:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings__dialrange::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--card-solid); border: 2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+.settings__dialhint strong { color: var(--ink); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .settings__dialrange::-webkit-slider-thumb { transition: none; } }
+
+/* 'connected earlier' pill — remembered, not live-proven. */
+.settings__statusdot--saved { background: var(--ink-3); }
+
+/* Company hosting — a real card: the credential is prominent, the steps say
+   how a teammate connects, and stopping hosting asks first. */
+.settings__joinbox { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; padding: 10px 12px; border: 1px solid var(--hair-7); border-radius: var(--v2-r-chip); background: var(--field-fill); }
+.settings__joinlabel { font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-3); }
+.settings__joincode { font-size: 18px; font-weight: 700; letter-spacing: 0.16em; color: var(--ink); }
+.settings__joincopy { background: none; border: 1px solid var(--hair-7); border-radius: 999px; padding: 3px 12px; font-size: 11px; color: var(--ink-3); cursor: pointer; }
+.settings__joincopy:hover { color: var(--ink); background: var(--card-solid); }
+.settings__hostwhat { display: flex; flex-direction: column; gap: 5px; margin: 8px 0 6px; }
+.settings__hoststep { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+.settings__hoststep b { color: var(--ink); font-weight: 600; }
+.settings__hostnote { font-size: 11px; color: var(--ink-3); padding: 8px 10px; border-left: 2px solid var(--hair-7); margin: 6px 0 10px; line-height: 1.5; }
+.settings__hostbtn { background: none; border: 1px solid var(--hair-7); border-radius: 999px; padding: 5px 14px; font-size: 12px; color: var(--ink-3); cursor: pointer; }
+.settings__hostbtn:hover { color: var(--ink); background: var(--field-fill); }
+.settings__hostbtn--danger { color: var(--fail, #a93f3b); border-color: currentColor; }
+.settings__hostconfirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.settings__hostconfirmtext { font-size: 11.5px; color: var(--ink-3); }
+
+/* Crew lean presets — move every seat's brain in one click. Sits under the
+   dependency dial: the dial biases one send, this moves the whole crew. */
+.settings__lean { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair-7); }
+.settings__leanrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.settings__leanlabel { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
+.settings__leanbtn { background: none; border: 1px solid var(--hair-7); border-radius: 999px; padding: 4px 14px; font-size: 12px; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.settings__leanbtn:hover:not(:disabled) { background: var(--field-fill); border-color: var(--ink-3); }
+.settings__leanbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.settings__leanhint { margin-top: 7px; line-height: 1.55; }
+.settings__leanhint b { color: var(--ink); font-weight: 600; }
+
+/* Token budget — the limit made visible. It was always enforced; a user who
+   cannot see it has no way to tell a budget stop from a bug. */
+.settings__budget { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair-7); }
+.settings__budgetrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.settings__budgetinput { width: 110px; padding: 5px 9px; border: 1px solid var(--hair-7); border-radius: var(--v2-r-chip); background: var(--field-fill); color: var(--ink); font-size: 13px; }
+.settings__budgetinput:focus { outline: none; border-color: var(--ink-3); }
+.settings__budgetbar { position: relative; height: 6px; border-radius: 999px; background: var(--field-fill); margin: 10px 0 6px; overflow: hidden; }
+.settings__budgetfill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ink-3); transition: width 160ms ease; }
+.settings__budgetbar--warn .settings__budgetfill { background: var(--warn, #b8860b); }
+.settings__budgetbar--over .settings__budgetfill { background: var(--fail, #a93f3b); }
+.settings__splitrow { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.settings__splitbar { position: relative; flex: 0 0 120px; height: 6px; border-radius: 999px; background: var(--hair-7); overflow: hidden; }
+.settings__splitlocal { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ink); }
+
+/* Your AIs — one row per connected AI, each with its own token alert.
+   Replaces the three overlapping controls that made this card confusing. */
+.settings__ais { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair-7); }
+.settings__ailist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 4px; }
+.settings__airow {
+  display: grid; grid-template-columns: minmax(90px, 1fr) auto 110px minmax(120px, 1.4fr);
+  align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--hair-7); border-radius: var(--v2-r-chip);
+  background: var(--field-fill);
+}
+.settings__ainame { font-size: 13px; font-weight: 600; color: var(--ink); }
+.settings__aiseats { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.settings__aihint { font-size: 11px; line-height: 1.4; }
+.settings__ainote { margin: 8px 0 12px; line-height: 1.55; }
+@media (max-width: 700px) {
+  .settings__airow { grid-template-columns: 1fr auto; }
+  .settings__aihint { grid-column: 1 / -1; }
+}

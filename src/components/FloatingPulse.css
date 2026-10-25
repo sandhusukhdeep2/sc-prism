@@ -1,0 +1,78 @@
+/* FloatingPulse — the companion's honest presence orb (bottom-right).
+   The pulse animation is gated on `.is-live`, a class that exists ONLY while
+   a heartbeat wake run is live (state.heartbeatLive) — idle is static by
+   construction, never animated. Tokens only, so both themes restyle. */
+
+.fpulse {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+
+.fpulse__orb {
+  width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  border: 1px solid var(--hair-7); background: var(--raise);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: var(--shadow-card);
+}
+.fpulse__orb:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+
+.fpulse__core { width: 12px; height: 12px; border-radius: 50%; background: var(--dot-idle); }
+.fpulse__orb.is-live .fpulse__core {
+  background: var(--gold); box-shadow: 0 0 10px var(--gold);
+  animation: fpulseBeat 1.2s ease-in-out infinite;
+}
+
+@keyframes fpulseBeat {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.82); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fpulse__orb.is-live .fpulse__core { animation: none; }
+}
+
+/* ── popover ─────────────────────────────────────────────────────────── */
+.fpulse__pop {
+  width: 300px; max-width: calc(100vw - 36px);
+  background: var(--card-solid); border: 1px solid var(--hair-7);
+  border-radius: var(--v2-r-inner); box-shadow: var(--shadow-float); padding: 12px 14px;
+}
+.fpulse__title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 4px;
+}
+.fpulse__spacer { flex: 1; }
+.fpulse__toggle {
+  border: 1px solid var(--hair-10); background: none; border-radius: var(--v2-r-chip);
+  padding: 3px 8px; font: inherit; font-size: 10px; color: var(--muted);
+  cursor: pointer;
+}
+.fpulse__toggle:hover { color: var(--ink); }
+.fpulse__line { font-size: 10.5px; color: var(--muted-2); overflow-wrap: anywhere; }
+
+.fpulse__beats { list-style: none; margin: 8px 0 0; padding: 0; }
+.fpulse__beat {
+  display: flex; align-items: baseline; gap: 7px; padding: 4px 0;
+  border-top: 1px solid var(--hair-2); font-size: 11px; color: var(--ink-2);
+}
+.fpulse__glyph { flex: 0 0 auto; color: var(--muted-2); }
+.fpulse__glyph--worked { color: var(--ok-ink); }
+.fpulse__glyph--err { color: var(--danger-ink); }
+.fpulse__beatline { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpulse__when { flex: 0 0 auto; font-size: 9.5px; color: var(--muted-2); }
+
+/* "Wake now" (2026-08-05 §Part 3) — one immediate REAL beat. Disabled state is
+   a real refusal with a real reason (rendered in .fpulse__why), never a dead
+   control. */
+.fpulse__wake {
+  border: 1px solid var(--hair-10); background: none; border-radius: var(--v2-r-chip);
+  padding: 3px 8px; font: inherit; font-size: 10px; color: var(--ink);
+  cursor: pointer;
+}
+.fpulse__wake:hover:not(:disabled) { border-color: var(--hair-20); }
+.fpulse__wake:focus-visible { outline: 2px solid var(--orb-ring); outline-offset: 2px; }
+.fpulse__wake:disabled { color: var(--muted); cursor: not-allowed; opacity: 0.6; }
+
+.fpulse__why {
+  font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4;
+}

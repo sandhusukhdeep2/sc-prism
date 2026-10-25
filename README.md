@@ -2,14 +2,25 @@
 
 **Control over the AI you run. Not a promise — a record.**
 
+[![verify](https://github.com/sandhusukhdeep2/sc-prism/actions/workflows/verify.yml/badge.svg)](https://github.com/sandhusukhdeep2/sc-prism/actions/workflows/verify.yml)
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/sandhusukhdeep2/sc-prism?label=release)](https://github.com/sandhusukhdeep2/sc-prism/releases/latest)
+![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20Silicon-lightgrey)
+
+**[Download for macOS](https://github.com/sandhusukhdeep2/sc-prism/releases/latest)** ·
+**[Build from source](BUILDING.md)** ·
+**[Website](https://sandhusukhdeep2.github.io/sc-prism/)** ·
+**[Design docs](specs/00-project-blueprint.md)**
+
 SC Prism is a governance and orchestration platform for people who want to run
 many AI agents and still know exactly what they did. Multiple models work one
 shared board, deterministic code decides who acts, every action lands on an
 auditable record, and your own tests — not the model that did the work — decide
 whether it counts as done.
 
-It ships today as a single macOS app for one person. That is the first step of
-a deliberate sequence, not the shape of the thing.
+It is **open source under Apache-2.0** and ships today as a single macOS app
+for one person. That is the first step of a deliberate sequence, not the shape
+of the thing.
 
 ![SC Prism at a glance: you describe one job; a deterministic orchestrator staffs a board with a seat on each AI you have; every call passes your grant, the agent's own definition, a destructive-command denylist and a privacy floor; your own tests decide the verdict and everything lands on a hash-chained record — shown with four screenshots of the running app](assets/hero.png)
 
@@ -415,13 +426,16 @@ record.
 
 ## Install
 
-1. Download `SC.Prism.dmg` from the [latest release](../../releases/latest).
+1. Download `SC.Prism.dmg` from the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest).
 2. Open it, drag **SC Prism** to Applications, launch.
 3. The setup wizard walks you through providers (your own Claude/Gemini
    accounts or API keys, and/or a local model server), your vault folder, and
    the grants you choose to give.
 
-**Website:** [sandhusukhdeep2.github.io/sc-prism-releases](https://sandhusukhdeep2.github.io/sc-prism-releases)
+Or build it yourself — the whole app, engine and router are in this repository:
+see [BUILDING.md](BUILDING.md) for the steps from `git clone` to a running app.
+
+**Website:** [sandhusukhdeep2.github.io/sc-prism](https://sandhusukhdeep2.github.io/sc-prism/)
 
 **Requirements today:** macOS 14+ (Apple Silicon). macOS is where this starts, not where it stops — the engine is Python, the router is Go, and the surface is web technology, so nothing in the architecture is tied to one platform. Cross-platform follows the solo core being proven. Bring your own AI: a Claude or
 ChatGPT subscription CLI, API keys, and/or a local OpenAI-compatible model
@@ -431,8 +445,27 @@ one.
 ## Privacy
 
 No telemetry, no analytics, no accounts. Keys are held by the app's gateway
-and never rendered. The only network calls are the ones your runs make to the
-providers you configured — and the record shows every one.
+and never rendered. Network traffic goes only where you send it: the AI
+providers you connect; web search and page fetches, when you grant web
+research; and integrations you switch on (Telegram approvals, GitHub sync, MCP
+servers). The record shows every call. What the app can do on your machine, and
+the limits of its safeguards, are set out in [SECURITY.md](SECURITY.md).
+
+## Contributing
+
+Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
+first. The bar is the project's own: a fix comes with a test that fails without
+it, nothing on screen is invented, and no gate gets weaker. Security problems go
+through [SECURITY.md](SECURITY.md), never a public issue.
+
+If this is the kind of tool you think should exist, a star helps other people
+find it.
+
+## Licence
+
+SC Prism is licensed under the [Apache License 2.0](LICENSE). Copyright 2026
+Sukhdeep Singh Sandhu. Third-party components and their licences are listed in
+[NOTICE](NOTICE).
 
 ---
 

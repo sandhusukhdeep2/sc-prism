@@ -1,0 +1,13 @@
+# Optional DeepEval Tier-2 backend venv (see deepeval_backend.py).
+# The default stdlib eval path needs no venv; this is opt-in only.
+.venv/
+
+# DeepEval's hidden cache/telemetry dir, pinned here via DEEPEVAL_CACHE_FOLDER.
+.deepeval/
+
+# Optional LightRAG graph/dense backend venv (see lightrag_backend.py).
+# The default stdlib retrieval cascade needs no venv; this is opt-in only.
+.venv-rag/
+
+# LightRAG's on-disk index/cache dir, pinned here via _DEFAULT_WORKING_DIR.
+.lightrag/

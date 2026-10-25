@@ -1,0 +1,74 @@
+/* Companion capability grants — onboarding step. Uses the global tokens the
+   other setup pages use; .wizback and .step come from the shared wizard CSS. */
+.grants {
+  min-height: 100vh;
+  padding: 26px 28px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.grants__dots { display: flex; gap: 7px; margin: 26px 0 8px; }
+.grants__dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--track, rgba(0, 0, 0, 0.12));
+}
+.grants__dot--on { background: var(--gold, #83a2db); }
+
+.grants__card {
+  max-width: 640px;
+  width: 100%;
+  margin-top: 26px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.grants__card h1 { font-size: 28px; margin: 0 0 14px; letter-spacing: -0.01em; }
+.grants__ask { color: var(--ink-3, #3d434d); font-size: 14.5px; line-height: 1.6; margin: 0 0 12px; max-width: 56ch; }
+.grants__ask .mono { font-size: 12.5px; }
+
+.grants__actions { display: flex; gap: 12px; margin: 18px 0 6px; flex-wrap: wrap; justify-content: center; }
+.grants__grant {
+  height: 44px; padding: 0 22px; border: 0; border-radius: var(--v2-r-inner); cursor: pointer;
+  /* The design system's primary-CTA pair (same as the Editor's Save): the old
+     `--gold`/`--dark` literals went dark-on-dark after the v2 theme remap —
+     his screenshot: black pills with invisible text. */
+  background: var(--gold-grad); color: var(--on-gold); font-size: 14px; font-weight: 700;
+  box-shadow: var(--v2-shadow);
+}
+.grants__grant:disabled { opacity: 0.45; cursor: default; }
+.grants__deny {
+  height: 44px; padding: 0 18px; border-radius: var(--v2-r-inner); cursor: pointer;
+  background: none; border: 1px solid var(--hair-7, rgba(0, 0, 0, 0.12)); color: var(--ink-3, #3d434d); font-size: 13.5px;
+}
+.grants__deny:hover, .grants__grant:not(:disabled):hover { filter: brightness(0.97); }
+
+.grants__inline { display: flex; flex-direction: column; gap: 9px; width: 100%; max-width: 520px; margin: 10px 0 4px; }
+.grants__field {
+  height: 38px; border-radius: var(--v2-r-chip); background: var(--field-fill, #fff);
+  border: 1px solid var(--hair-7, rgba(0, 0, 0, 0.12)); padding: 0 12px; font-size: 12.5px; color: var(--ink, #23201a);
+}
+.grants__test {
+  height: 38px; border-radius: var(--v2-r-chip); border: 1px solid var(--track, rgba(0, 0, 0, 0.14));
+  background: none; color: var(--ink-3, #3d434d); font-size: 12.5px; cursor: pointer;
+}
+.grants__test:disabled { opacity: 0.5; }
+.grants__status { font-size: 12px; color: var(--warn-ink, #5f6570); margin: 6px 0 0; }
+.grants__status--ok { color: var(--ok-ink, #2e8a54); }
+
+.grants__toggle {
+  display: flex; gap: 10px; align-items: flex-start; text-align: left;
+  color: var(--ink-3, #3d434d); font-size: 13px; line-height: 1.55; max-width: 54ch; margin-top: 14px; cursor: pointer;
+}
+.grants__toggle input { margin-top: 3px; accent-color: var(--gold, #83a2db); }
+
+.grants__fine { font-size: 10.5px; color: var(--muted, #8a8271); margin-top: 14px; letter-spacing: 0.02em; }
+
+.grants__summary { list-style: none; padding: 0; margin: 6px 0 14px; text-align: left; font-size: 12.5px; color: var(--ink-3, #3d434d); }
+.grants__summary li { padding: 7px 2px; border-bottom: 1px solid var(--hair-7, rgba(0, 0, 0, 0.08)); }
+.grants__summary li span { color: var(--ink, #23201a); }
+.grants__continue {
+  height: 46px; padding: 0 30px; border: 0; border-radius: var(--v2-r-inner); cursor: pointer;
+  background: var(--gold-grad); color: var(--on-gold); font-size: 14.5px; font-weight: 700;
+  box-shadow: var(--v2-shadow);
+}
