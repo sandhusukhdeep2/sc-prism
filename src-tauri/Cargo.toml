@@ -30,3 +30,11 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+# Proc macros and build scripts run on the build machine and never ship. On
+# macOS 27.0.1 with the Xcode 27 linker, a proc-macro dylib stripped by this
+# profile comes out with a misaligned LINKEDIT string pool that dyld refuses to
+# load, so rustc reports "can't find crate for `serde_derive`" and the release
+# build fails. Leave those unstripped; the app binary above is still stripped.
+[profile.release.build-override]
+strip = false
