@@ -1,6 +1,6 @@
 [package]
 name = "sc-prism"
-version = "0.1.0"
+version = "0.1.1"
 description = "SC Prism — run many AIs on one board and keep control of all of it"
 authors = ["SlashCreative"]
 license = "Apache-2.0"

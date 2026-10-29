@@ -1,7 +1,7 @@
 {
   "name": "sc-prism-client",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "SC Prism — run many AIs on one board and keep control of all of it (desktop client)",
   "license": "Apache-2.0",

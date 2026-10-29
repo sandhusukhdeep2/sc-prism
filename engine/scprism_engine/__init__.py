@@ -471,4 +471,4 @@ __all__ = [
     "HIGH_RISK_INTENTS",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
