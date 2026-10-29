@@ -5,14 +5,21 @@ cd "$(dirname "$0")"
 
 fail=0
 
+# Step logs go in a fresh private directory per run (mode 0700, random name),
+# removed on exit. They used to be fixed names in the shared /tmp, where another
+# account on the machine could pre-plant a symlink and have this script
+# truncate a file of yours through it.
+LOGS="$(mktemp -d "${TMPDIR:-/tmp}/scprism-verify.XXXXXX")" || exit 1
+trap 'rm -rf "$LOGS"' EXIT
+
 echo "== typecheck =="
 npm run -s typecheck || fail=1
 
 echo "== build =="
-if npm run -s build >/tmp/scprism-build.log 2>&1; then
-  tail -3 /tmp/scprism-build.log
+if npm run -s build >"$LOGS/build.log" 2>&1; then
+  tail -3 "$LOGS/build.log"
 else
-  echo "build FAILED:"; tail -25 /tmp/scprism-build.log; fail=1
+  echo "build FAILED:"; tail -25 "$LOGS/build.log"; fail=1
 fi
 
 if grep -q '"test"' package.json; then
@@ -27,10 +34,10 @@ fi
 if command -v cargo >/dev/null 2>&1 && [ -d src-tauri ]; then
   echo "== native (rust) =="
   bash scripts/ensure-resources.sh   # the resources glob must match on a fresh clone
-  if (cd src-tauri && cargo test --lib) >/tmp/scprism-cargo.log 2>&1; then
-    tail -3 /tmp/scprism-cargo.log
+  if (cd src-tauri && cargo test --lib) >"$LOGS/cargo.log" 2>&1; then
+    tail -3 "$LOGS/cargo.log"
   else
-    echo "cargo test FAILED:"; tail -25 /tmp/scprism-cargo.log; fail=1
+    echo "cargo test FAILED:"; tail -25 "$LOGS/cargo.log"; fail=1
   fi
 else
   echo "== native (rust) == skipped (no cargo toolchain)"
@@ -44,12 +51,12 @@ if [ -d engine/tests ]; then
   PY=python3
   [ -x .pytool/python/bin/python3 ] && PY=.pytool/python/bin/python3
   echo "== engine (python $("$PY" -c 'import platform; print(platform.python_version())')) =="
-  if "$PY" -m unittest discover -s engine/tests >/tmp/scprism-python.log 2>&1; then
-    tail -3 /tmp/scprism-python.log
+  if "$PY" -m unittest discover -s engine/tests >"$LOGS/python.log" 2>&1; then
+    tail -3 "$LOGS/python.log"
   else
     echo "python tests FAILED:"
-    grep -E "^(FAIL|ERROR):" /tmp/scprism-python.log
-    tail -40 /tmp/scprism-python.log
+    grep -E "^(FAIL|ERROR):" "$LOGS/python.log"
+    tail -40 "$LOGS/python.log"
     fail=1
   fi
 fi
