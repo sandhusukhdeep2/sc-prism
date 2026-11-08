@@ -44,6 +44,7 @@ const spans: EngineSpan[] = [
       tokens_out: 0,
       cache: 'miss',
       is_real: false,
+      error: 'gemini refused the request (HTTP 401): invalid API key',
     },
   },
   {
@@ -90,6 +91,11 @@ describe('RunStream', () => {
     expect(claudeChip.style.color).toBe(domColor(modelColor('claude-cli')))
     expect(geminiChip.style.color).toBe(domColor(modelColor('gemini')))
     expect(claudeChip.style.color).not.toBe(geminiChip.style.color)
+  })
+
+  it("a stand-in row carries the engine's own cause, so hovering 'stub' says why there was no answer", () => {
+    render(<RunStream spans={spans} now={NOW} />)
+    expect(screen.getByText('stub')).toHaveAttribute('title', 'gemini refused the request (HTTP 401): invalid API key')
   })
 
   it('marks a non-real call honestly as "stub" — never dressed up as real', () => {

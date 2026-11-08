@@ -53,6 +53,9 @@ function ModelCallRow({ s, now }: { s: EngineSpan; now: number }) {
   const tokensOut = typeof a.tokens_out === 'number' ? a.tokens_out : undefined
   const hasTokens = tokensIn != null || tokensOut != null
   const isStub = a.is_real === false
+  // The engine's own cause for a stand-in (status=error since 2026-11-08);
+  // the badge carries it so hovering "stub" says why there was no answer.
+  const stubCause = typeof a.error === 'string' ? a.error : undefined
 
   return (
     <div className="run__row run__row--call">
@@ -77,7 +80,11 @@ function ModelCallRow({ s, now }: { s: EngineSpan; now: number }) {
         </span>
       )}
       {dur && <span className="run__dur">{dur}</span>}
-      {isStub && <span className="run__stub">stub</span>}
+      {isStub && (
+        <span className="run__stub" title={stubCause}>
+          stub
+        </span>
+      )}
       <span className={'run__status ' + cls}>{glyph}</span>
     </div>
   )

@@ -186,7 +186,9 @@ function modelPhrase(s: EngineSpan): string {
  * unreachable host, unsigned-in CLI) and no reply came back. Narrating that as
  * "your AI replied on claude · claude-sonnet-4-5" is exactly the fabrication
  * this module exists to prevent — engineConsole.spanLine prints REAL/stub off
- * the same attr, and the chat says "unreachable — nothing was sent".
+ * the same attr. Since 2026-11-08 the engine also closes such a span with
+ * status=error and the cause in `error` (a 401 is "local refused the request
+ * (HTTP 401): …"), which narrateModelCall reads.
  * An OPEN span has no `is_real` yet, so this is false while a call is genuinely
  * in flight.
  */
@@ -204,7 +206,15 @@ function narrateModelCall(s: EngineSpan): string {
   // said the turn stayed local.
   const where = on ? ` on ${local ? '🔒 ' : ''}${on}` : local ? ' on 🔒 your local model' : ''
   // A stub is the headline: no reply happened, whatever else the span carries.
-  if (stubbed(s)) return on ? `couldn't reach ${on} — nothing was sent` : "couldn't reach your AI — nothing was sent"
+  // The engine names the cause on the span (`error`: a refused key, a model
+  // that would not load, a connection refused) — say that. "Couldn't reach …
+  // nothing was sent" is only true when nothing was sent, so it is kept for
+  // spans that name no cause (written before the engine recorded one).
+  if (stubbed(s)) {
+    const target = on || 'your AI'
+    const cause = attr(s, 'error')
+    return cause ? `no answer from ${target} — ${cause}` : `couldn't reach ${target} — nothing was sent`
+  }
   if (s.status === 'error') return `${who} hit an error${where}`
   if (inFlight(s)) return `${who} is thinking${where}…`
   return `${who} replied${where}`

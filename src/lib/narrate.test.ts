@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { narrateStatus, narrateRun } from './narrate'
+import { narrateStatus, narrateRun, narrateSpan } from './narrate'
 import type { EngineSpan } from './nativeEngine'
 import type { Verdict } from '../engine/types'
 
@@ -227,5 +227,27 @@ describe('narrateRun', () => {
     // A clean step (no blocks) carries no such note.
     const clean = narrateRun(verdict({ passed: true, native: { models_used: ['local · y'], blocks: 0 } as unknown as Verdict['native'], route: { target: 'local' } as Verdict['route'], tier2: { evalScore: 0.9 } as Verdict['tier2'] }))
     expect(clean).not.toContain('Governance blocked')
+  })
+})
+
+describe('narrateSpan · a model turn that got no completion', () => {
+  const standIn = (attrs: Record<string, unknown>): EngineSpan => ({
+    name: 'model_call', type: 'model_call', status: 'error', duration_ms: 120,
+    attrs: { provider: 'local', model: 'gemma-3', route: 'local', is_local: true, is_real: false, ...attrs },
+  })
+
+  it('says what the engine recorded as the cause — a refused request is not "nothing was sent"', () => {
+    const line = narrateSpan(standIn({ error: 'local refused the request (HTTP 401): API key required' }))
+    expect(line).toBe('no answer from local · gemma-3 — local refused the request (HTTP 401): API key required')
+    expect(line).not.toContain('nothing was sent')
+  })
+
+  it('keeps the old sentence only for a span that names no cause (written before the engine did)', () => {
+    expect(narrateSpan(standIn({}))).toBe("couldn't reach local · gemma-3 — nothing was sent")
+  })
+
+  it('a real completion still reads as a reply', () => {
+    const real = standIn({ is_real: true }); real.status = 'ok'
+    expect(narrateSpan(real)).toContain('replied on')
   })
 })
