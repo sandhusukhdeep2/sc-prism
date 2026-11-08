@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 
 SPAN_TYPES = ("run", "model_call", "tool_exec", "retrieval", "hook", "verdict")
+# The two kinds a board watches in flight (spec 2026-11-08, engine gap 1).
+LIVE_SPAN_TYPES = ("model_call", "tool_exec")
 
 
 class TelemetryError(ValueError):
@@ -111,6 +113,13 @@ class Telemetry:
             start=time.time(),
             attrs=merged,
         )
+        # A model call or a tool call ANNOUNCES itself when it opens — the
+        # same span_id, status "open", no end — so a board can show the seat
+        # thinking / reading / searching while it happens. The close below
+        # rewrites the span; read_spans keeps the last record per span_id.
+        # Other types stay close-only: nothing watches a hook in flight.
+        if span_type in LIVE_SPAN_TYPES:
+            self._emit(sp, None)
         try:
             yield sp
         except BaseException as exc:  # emit even on failure, then re-raise
@@ -121,7 +130,7 @@ class Telemetry:
         else:
             self._emit(sp, time.time())
 
-    def _emit(self, sp: Span, end: float) -> None:
+    def _emit(self, sp: Span, end: Optional[float]) -> None:
         record = {
             "run_id": sp.run_id,
             "span_id": sp.span_id,
@@ -130,9 +139,9 @@ class Telemetry:
             "type": sp.span_type,
             "start": sp.start,
             "end": end,
-            "duration_ms": round((end - sp.start) * 1000.0, 3),
-            "status": sp.status,
-            "attrs": sp.attrs,
+            "duration_ms": None if end is None else round((end - sp.start) * 1000.0, 3),
+            "status": "open" if end is None else sp.status,
+            "attrs": dict(sp.attrs),
         }
         line = json.dumps(record, ensure_ascii=False)
         with self._lock:
@@ -142,10 +151,23 @@ class Telemetry:
 
 def read_spans(path: str) -> List[Dict[str, Any]]:
     """Read a spans.jsonl file back into a list of dicts (for reconstruction)."""
+    # One record per span: a live span wrote an "open" line first and its
+    # close rewrote the same span_id, so the LAST line for a span_id is the
+    # truth and it keeps the slot where the span first appeared. A line with
+    # no span_id (an older writer) is kept as it is.
     out: List[Dict[str, Any]] = []
+    slot: Dict[str, int] = {}
     with open(path, "r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
-            if line:
-                out.append(json.loads(line))
+            if not line:
+                continue
+            rec = json.loads(line)
+            sid = rec.get("span_id")
+            if isinstance(sid, str) and sid in slot:
+                out[slot[sid]] = rec
+                continue
+            if isinstance(sid, str):
+                slot[sid] = len(out)
+            out.append(rec)
     return out

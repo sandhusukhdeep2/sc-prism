@@ -1327,11 +1327,24 @@ export async function readSpansTail(vault: string, maxLines = 60): Promise<Engin
   if (!isNative()) return []
   try {
     const lines = await invoke<string[]>('read_spans_tail', { vault, maxLines })
+    // One record per span: since 2026-11-09 a model call or tool call writes
+    // an "open" line when it starts and rewrites the same span_id when it
+    // closes, so the LAST line for a span_id is the truth and it keeps the
+    // slot where the span first appeared. A line with no span_id is kept as is.
     const spans: EngineSpan[] = []
+    const slot = new Map<string, number>()
     for (const line of lines) {
       try {
         const d = JSON.parse(line) as EngineSpan
-        if (d && typeof d.name === 'string') spans.push(d)
+        if (!d || typeof d.name !== 'string') continue
+        const sid = typeof d.span_id === 'string' ? d.span_id : ''
+        const at = sid ? slot.get(sid) : undefined
+        if (at !== undefined) {
+          spans[at] = d
+          continue
+        }
+        if (sid) slot.set(sid, spans.length)
+        spans.push(d)
       } catch {
         // skip malformed line
       }

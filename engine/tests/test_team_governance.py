@@ -13,6 +13,8 @@ from unittest import mock
 
 import _bootstrap  # noqa: F401
 
+from scprism_engine.telemetry import read_spans
+
 from scprism_engine import gateway as gw_module
 from scprism_engine.gateway import ModelCallResult
 from scprism_engine.evidence import EvidenceStore
@@ -93,8 +95,7 @@ class RunTeamGovernanceTest(unittest.TestCase):
         spans_path = os.path.join(self.vault, "spans.jsonl")
         self.assertEqual(result.spans_path, spans_path)
         self.assertTrue(os.path.exists(spans_path))
-        with open(spans_path, encoding="utf-8") as fh:
-            spans = [json.loads(ln) for ln in fh if ln.strip()]
+        spans = read_spans(spans_path)
         self.assertTrue(spans, "spans.jsonl must be non-empty")
         run_spans = [
             s for s in spans
@@ -137,8 +138,7 @@ class RunTeamGovernanceTest(unittest.TestCase):
         # A training record was emitted for the passing run.
         records_path = os.path.join(self.vault, "training", "records.jsonl")
         self.assertTrue(os.path.exists(records_path))
-        with open(records_path, encoding="utf-8") as fh:
-            records = [json.loads(ln) for ln in fh if ln.strip()]
+        records = read_spans(records_path)
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["task_id"], result.task_id)
         self.assertTrue(records[0]["final_verdict"]["passed"])
@@ -278,8 +278,7 @@ class RunTeamGovernanceTest(unittest.TestCase):
 
         # The training record's inputs + reward read the REAL budget too.
         records_path = os.path.join(self.vault, "training", "records.jsonl")
-        with open(records_path, encoding="utf-8") as fh:
-            records = [json.loads(ln) for ln in fh if ln.strip()]
+        records = read_spans(records_path)
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["inputs"]["token_budget"], budget)
         # envelope_efficiency = (budget - tokens_spent)/budget, computed off

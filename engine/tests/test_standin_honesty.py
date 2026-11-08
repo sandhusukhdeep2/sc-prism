@@ -20,6 +20,8 @@ import unittest
 from unittest import mock
 
 import _bootstrap  # noqa: F401
+
+from scprism_engine.telemetry import read_spans
 from _fakes import RealGateway, fake_openai_server
 
 from scprism_engine.contract import parse
@@ -57,8 +59,7 @@ class TestAStandInSpanIsNotOk(unittest.TestCase):
         self._tmp.cleanup()
 
     def _model_calls(self):
-        with open(os.path.join(self.vault, "spans.jsonl"), encoding="utf-8") as fh:
-            rows = [json.loads(line) for line in fh if line.strip()]
+        rows = read_spans(os.path.join(self.vault, "spans.jsonl"))
         return [r for r in rows if r.get("type") == "model_call"]
 
     def test_a_stand_in_model_call_span_is_an_error_that_names_its_cause(self):

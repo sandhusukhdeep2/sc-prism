@@ -4,6 +4,8 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+
+from scprism_engine.telemetry import read_spans
 from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
@@ -85,8 +87,9 @@ class TestTier1IsAProjectGate(unittest.TestCase):
         self._tmp.cleanup()
 
     def _spans(self, name):
-        with open(os.path.join(self.vault, "spans.jsonl"), encoding="utf-8") as fh:
-            rows = [json.loads(line) for line in fh if line.strip()]
+        # Through the production reader: a live span writes an "open" line
+        # first, and only read_spans folds it into the close.
+        rows = read_spans(os.path.join(self.vault, "spans.jsonl"))
         return [r for r in rows if r.get("name") == name]
 
     def test_a_chat_shaped_run_skips_the_gate_honestly_and_can_pass(self):
