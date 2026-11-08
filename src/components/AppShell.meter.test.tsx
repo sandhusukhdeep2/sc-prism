@@ -45,7 +45,7 @@ afterEach(() => {
 })
 
 describe('the rail carries the local share', () => {
-  it('with the local provider disabled it says 0% local and offers to add one', () => {
+  it('with the local provider disabled and nothing measured it says 0% local and offers to turn it on', () => {
     localStorage.setItem(
       'scprism.settings',
       JSON.stringify({
@@ -55,7 +55,7 @@ describe('the rail carries the local share', () => {
     )
     renderShell()
     expect(screen.getByText(/0% local/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'add one' })).toHaveAttribute('href', '/providers')
+    expect(screen.getByRole('link', { name: 'turn it on' })).toHaveAttribute('href', '/providers')
   })
 
   it('with a local provider but no dashboard read (non-native) it claims nothing', () => {

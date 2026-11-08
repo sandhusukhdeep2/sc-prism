@@ -34,19 +34,23 @@ export default function LocalMeter({
   status: DashStatus
   hasLocalProvider: boolean
 }) {
-  if (!hasLocalProvider) {
-    // Not a link to Stats: the one action that matters here is adding a model.
+  // No local provider switched on AND no local work ever measured: the nudge.
+  // A measured share is never hidden by a toggle — the work happened, Stats
+  // still says so, and the privacy floor can keep routing locally regardless
+  // (review 2026-11-08). The local provider always exists in settings; what a
+  // person does here is turn it on.
+  if (!hasLocalProvider && (!share || share.localTokens === 0)) {
     return (
-      <div className="meter meter--none" role="status">
+      <div className="meter meter--none">
         <span className="meter__num">
           <Lock />
           0% local —{' '}
           <Link to="/providers" className="meter__add">
-            add one
+            turn it on
           </Link>
         </span>
         <span className="meter__bar" aria-hidden="true" />
-        <span className="meter__sub">no local model yet</span>
+        <span className="meter__sub">no local model running</span>
       </div>
     )
   }

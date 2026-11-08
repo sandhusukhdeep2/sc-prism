@@ -25,11 +25,15 @@ beforeEach(() => localStorage.clear())
 describe("Settings' nav reaches the rest", () => {
   it.each([
     ['Automations', '/automations'],
-    ['Companion wakes', '/companion-wakes'],
     ['Companion grants', '/companion-grants'],
   ])('links to %s', (name, href) => {
     renderSettings()
     expect(screen.getByRole('link', { name })).toHaveAttribute('href', href)
+  })
+
+  it('does not link to Companion wakes — that onboarding page starts a model run on every visit', () => {
+    renderSettings()
+    expect(screen.queryByRole('link', { name: 'Companion wakes' })).toBeNull()
   })
 
   it('still marks exactly one section as active', () => {

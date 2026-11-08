@@ -2353,7 +2353,6 @@ export default function Settings() {
           {/* Five places in the rail (2026-11-08 §D): what left the rail is
               reached from here — the app's own controls, in one place. */}
           <Link to="/automations" className="settings__navitem">Automations</Link>
-          <Link to="/companion-wakes" className="settings__navitem">Companion wakes</Link>
           <Link to="/companion-grants" className="settings__navitem">Companion grants</Link>
           <button
             type="button"

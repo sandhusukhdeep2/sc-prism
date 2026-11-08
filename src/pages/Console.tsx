@@ -8,6 +8,7 @@ import { bucketProviders, localShare, type ProviderBurn } from '../lib/engineSta
 import { staleNote, useLiveDashboard } from '../lib/liveDashboard'
 import { activeRuns } from '../lib/liveRuns'
 import { Link } from 'react-router-dom'
+import { burnShareLabel } from '../lib/burnShareLabel'
 import './Console.css'
 import PageHead from '../components/PageHead'
 
@@ -297,7 +298,7 @@ export default function Console() {
                   the footer now, where a share belongs. */}
               <div className="console__foot mono">
                 {fmtMoney(burn.cost)} {burn.real ? 'attributed' : 'this session'} · {burn.tokens.toLocaleString()} tok ·{' '}
-                {burn.providers.length} provider{burn.providers.length === 1 ? '' : 's'} · {burn.localSharePct}% of runs on your Mac
+                {burn.providers.length} provider{burn.providers.length === 1 ? '' : 's'} · {burnShareLabel(burn.real, burn.localSharePct)}
               </div>
             </>
           )}

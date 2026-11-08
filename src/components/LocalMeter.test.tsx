@@ -30,10 +30,23 @@ describe('LocalMeter — the local share in its honest states', () => {
     expect(screen.getByText('100% local')).toBeInTheDocument()
   })
 
-  it('no local provider: 0% local — add one, linking to Providers', () => {
-    draw({ share: share(), status: 'ok', hasLocalProvider: false })
+  it('local provider off and no local work ever: 0% local — turn it on, linking to Providers', () => {
+    draw({ share: share({ localTokens: 0, pct: 0 }), status: 'ok', hasLocalProvider: false })
     expect(screen.getByText(/0% local/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'add one' })).toHaveAttribute('href', '/providers')
+    expect(screen.getByRole('link', { name: 'turn it on' })).toHaveAttribute('href', '/providers')
+  })
+
+  it('local provider off but local work was measured: the measured share still shows', () => {
+    // Review 2026-11-08: switching the provider off must not erase 66% of
+    // measured work from the rail while Stats keeps saying 66%.
+    draw({ share: share(), status: 'ok', hasLocalProvider: false })
+    expect(screen.getByText('72% local')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'turn it on' })).toBeNull()
+  })
+
+  it('local provider off and nothing read yet: the nudge, not a blank', () => {
+    draw({ share: null, status: 'none', hasLocalProvider: false })
+    expect(screen.getByText(/0% local/)).toBeInTheDocument()
   })
 
   it('renders nothing while there is no dashboard at all', () => {
