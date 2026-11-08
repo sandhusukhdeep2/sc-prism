@@ -32,6 +32,15 @@ const KEY = 'scprism.agents'
 export type AgentModel = 'claude' | 'gemini' | 'local'
 
 /** A stored agent. `system` agents are built-in and not deletable. */
+/** The last proof run's verdict (design 2026-11-08 §B): proven iff every
+ *  call — one on its model, one per granted tool — was real. `reason` is the
+ *  engine's own cause when it is not. */
+export interface AgentProof {
+  at: number
+  proven: boolean
+  reason: string
+}
+
 export interface StoredAgent {
   id: string
   name: string
@@ -72,6 +81,8 @@ export interface StoredAgent {
   // (vault read scopes — slice D). Carried faithfully, acted on by nothing
   // yet — an agent's file says what it MAY do; only spans say what it did.
   tools?: string[]
+  /** When this agent was last proven, or why it is not. Absent = never proven. */
+  proof?: AgentProof
   memory?: string[]
 }
 
@@ -106,6 +117,7 @@ export type AgentPatch = Partial<
     | 'charter'
     | 'tools'
     | 'memory'
+    | 'proof'
   >
 >
 
@@ -292,7 +304,13 @@ function isAgent(x: unknown): x is StoredAgent {
     (a.tools === undefined ||
       (Array.isArray(a.tools) && a.tools.every((t) => typeof t === 'string'))) &&
     (a.memory === undefined ||
-      (Array.isArray(a.memory) && a.memory.every((m) => typeof m === 'string')))
+      (Array.isArray(a.memory) && a.memory.every((m) => typeof m === 'string'))) &&
+    (a.proof === undefined ||
+      (typeof a.proof === 'object' &&
+        a.proof !== null &&
+        typeof (a.proof as AgentProof).at === 'number' &&
+        typeof (a.proof as AgentProof).proven === 'boolean' &&
+        typeof (a.proof as AgentProof).reason === 'string'))
   )
 }
 
@@ -453,6 +471,9 @@ export function update(id: string, patch: AgentPatch): void {
       const allowed: AgentPatch = {}
       if (patch.enabled !== undefined) allowed.enabled = patch.enabled
       if (patch.model !== undefined) allowed.model = patch.model
+      // A proof is a FACT about the seat (did it answer, did its tools run),
+      // not an edit of its identity — every agent, system or not, can carry one.
+      if (patch.proof !== undefined) allowed.proof = patch.proof
       return Object.keys(allowed).length ? { ...a, ...allowed } : a
     }
     return {
@@ -1009,6 +1030,7 @@ export interface ParsedAgentFile {
   tools?: string[]
   memory?: string[]
   charter: string
+  proof?: AgentProof
 }
 
 /** Split a frontmatter list value: `[a, b]`, `a, b`, or `a b`. A bracketed or
@@ -1063,6 +1085,15 @@ export function parseAgentMd(relpath: string, raw: string): ParsedAgentFile {
     .find((l) => l && !l.startsWith('#'))
   const tools = fm.tools ? parseAgentList(fm.tools) : []
   const memory = fm.memory ? parseAgentList(fm.memory) : []
+  // The proof travels in the file as `proven_at: <ISO>` (proven) or
+  // `unproven_reason: <text>` (not) — one or the other, never both.
+  const fmx = fm as Record<string, string | undefined>
+  const provenAt = fmx.proven_at ? Date.parse(fmx.proven_at) : NaN
+  const proof: AgentProof | undefined = Number.isFinite(provenAt)
+    ? { at: provenAt, proven: true, reason: '' }
+    : fmx.unproven_reason
+      ? { at: 0, proven: false, reason: fmx.unproven_reason.trim() }
+      : undefined
   return {
     name: fm.name || heading || fileName || relpath,
     role: fm.description || firstPara || 'a vault-defined agent',
@@ -1070,6 +1101,7 @@ export function parseAgentMd(relpath: string, raw: string): ParsedAgentFile {
     skills: fm.skills ? parseAgentList(fm.skills) : [],
     ...(tools.length > 0 ? { tools } : {}),
     ...(memory.length > 0 ? { memory } : {}),
+    ...(proof ? { proof } : {}),
     charter: body,
   }
 }
@@ -1113,6 +1145,7 @@ export function mergeVaultAgent(
     sourcePath: ownsAFile ? rel : existing.sourcePath,
     tools: ownsAFile ? parsed.tools : existing.tools,
     memory: ownsAFile ? parsed.memory : existing.memory,
+    proof: ownsAFile ? parsed.proof : existing.proof,
   }
 }
 
@@ -1278,7 +1311,7 @@ export function charterFromCompanionFile(parsed: { charter: string }): string {
 }
 
 export function serializeAgentMd(
-  a: Pick<StoredAgent, 'name' | 'role' | 'model' | 'skills' | 'tools' | 'memory' | 'charter'>,
+  a: Pick<StoredAgent, 'name' | 'role' | 'model' | 'skills' | 'tools' | 'memory' | 'charter' | 'proof'>,
 ): string {
   const oneLine = (v: string) => v.replace(/\r\n|\r|\n/g, ' ').trim()
   const list = (xs: string[] | undefined): string => {
@@ -1297,6 +1330,8 @@ export function serializeAgentMd(
     ...(tools ? [`tools: ${tools}`] : []),
     ...(skills ? [`skills: ${skills}`] : []),
     ...(memory ? [`memory: ${memory}`] : []),
+    ...(a.proof?.proven ? [`proven_at: ${new Date(a.proof.at).toISOString()}`] : []),
+    ...(a.proof && !a.proof.proven ? [`unproven_reason: ${oneLine(a.proof.reason) || 'not yet proven'}`] : []),
   ].join('\n')
   const charter = (a.charter ?? '').trim()
   return `---\n${fm}\n---\n${charter ? `\n${charter}\n` : ''}`
@@ -1312,7 +1347,7 @@ export function serializeAgentMd(
  * fire it after `create`/`update` without an extra try/catch.
  */
 export async function persistAgentToVault(
-  a: Pick<StoredAgent, 'name' | 'role' | 'model' | 'skills' | 'tools' | 'memory' | 'charter' | 'sourcePath'>,
+  a: Pick<StoredAgent, 'name' | 'role' | 'model' | 'skills' | 'tools' | 'memory' | 'charter' | 'sourcePath' | 'proof'>,
   vaultPath?: string,
 ): Promise<boolean> {
   if (!isNative()) return false
