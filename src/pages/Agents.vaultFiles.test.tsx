@@ -96,14 +96,16 @@ describe('Agents page — the vault file rides every mutation', () => {
       renderAgents()
     })
     fireEvent.click(screen.getByRole('button', { name: /open form/i }))
-    fireEvent.change(screen.getByPlaceholderText(/name \(e\.g\. pr-reviewer\)/i), {
-      target: { value: 'Filing Clerk' },
-    })
-    fireEvent.change(screen.getByPlaceholderText(/role \(e\.g\./i), {
-      target: { value: 'keeps the records straight' },
-    })
+    // The ceremony (2026-11-08 §B): four confirmed parts, then Create — a
+    // proof is optional, and this test creates without one.
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Filing Clerk' } })
+    fireEvent.change(screen.getByLabelText('What it is for'), { target: { value: 'keeps the records straight' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm name & role' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm which AI' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm what it may use' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm what it knows' }))
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /create agent/i }))
+      fireEvent.click(screen.getByRole('button', { name: 'Create agent' }))
     })
     await waitFor(() =>
       expect(native.writeVaultNote).toHaveBeenCalledWith(

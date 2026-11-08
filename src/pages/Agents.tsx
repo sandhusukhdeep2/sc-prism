@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AgentCeremony from '../components/AgentCeremony'
+import { proofChipText, proveAgent } from '../lib/proveAgent'
 import './Agents.css'
 import {
   agentActivity,
-  agentModelToken,
   agentSlug,
   agentsForProject,
-  create as createAgent,
-  persistAgentToVault,
   remove as removeAgent,
   removeAgentFromVault,
   persistCompanionCharter,
@@ -52,6 +51,7 @@ import {
   TEAM_TOKEN_BUDGET,
   useApp,
   useWakeNow,
+  buildEngineProviders,
 } from '../store/AppStore'
 import { useProjects, type Project } from '../lib/projects'
 import { skillStats, type SkillStat } from '../lib/skillStats'
@@ -861,10 +861,25 @@ export default function Agents() {
   // no probe is triggered by rendering the page.
   const seatGate = useMemo(() => rosterGate(settings, { health }), [settings, health])
 
+  // PROVE an existing agent (design 2026-11-08 §B, Task 4): the same path the
+  // ceremony uses; the result is stored on the agent, in the engine's words.
+  const [provingId, setProvingId] = useState<string | null>(null)
+  const proveExisting = async (a: StoredAgent) => {
+    if (provingId) return
+    setProvingId(a.id)
+    try {
+      const r = await proveAgent(a, settings.vaultPath, buildEngineProviders(settings, state.activeProjectId).providers)
+      updateAgent(a.id, { proof: { at: r.at, proven: r.proven, reason: r.reason } })
+    } finally {
+      setProvingId(null)
+    }
+  }
   const renderTile = (a: StoredAgent) => (
     <AgentTile
       key={a.id}
       a={a}
+      proving={provingId === a.id}
+      onProve={() => void proveExisting(a)}
       projects={projects}
       verdicts={state.verdicts}
       sitsOut={seatGate(a.model)}
@@ -980,18 +995,18 @@ export default function Agents() {
             <div className="agent-grid">
               {libraryGroup.map(renderTile)}
               {adding ? (
-                <NewAgentForm
-                  projects={projects}
+                /* THE CEREMONY (design 2026-11-08 §B): four confirmable parts,
+                   then a proof run on the ordinary engine path; the ceremony
+                   itself creates the agent, stores its proof and writes its
+                   vault file, then hands the finished agent back here. */
+                <AgentCeremony
+                  vaultPath={settings.vaultPath}
+                  providers={buildEngineProviders(settings, state.activeProjectId).providers}
                   seatGate={seatGate}
+                  projectId={state.activeProjectId ?? ''}
+                  projects={projects}
                   onCancel={() => setAdding(false)}
-                  onCreate={(input) => {
-                    const a = createAgent(input)
-                    setAdding(false)
-                    // Write-through: the new coworker's definition file, at
-                    // the write path `create` just settled (canonical, or the
-                    // collision-guarded one).
-                    void persistAgentToVault(a, settings.vaultPath)
-                  }}
+                  onCreated={() => setAdding(false)}
                 />
               ) : (
                 <NewAgentCard onStart={() => setAdding(true)} />
@@ -1026,6 +1041,8 @@ function ModelBadge({ kind }: { kind: BadgeKind }) {
 
 function AgentTile({
   a,
+  proving,
+  onProve,
   projects,
   verdicts,
   sitsOut,
@@ -1042,6 +1059,8 @@ function AgentTile({
   verdicts: Verdict[]
   /** '' when this agent's model can really run; else why it will sit out. */
   sitsOut: string
+  proving: boolean
+  onProve: () => void
   skillStats: Map<string, SkillStat>
   menuOpen: boolean
   onToggle: () => void
@@ -1097,8 +1116,25 @@ function AgentTile({
           <div className="agent-tile__sub" title={a.role}>
             {a.role}
           </div>
+          {/* Whether this agent has been PROVEN — answered on its model and used
+              its tools — in the engine's words when it has not. */}
+          <div className={'agent-tile__proof mono' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')} title={a.proof?.reason || undefined}>
+            {proofChipText(a.proof)}
+          </div>
         </div>
         <span className="agent-tile__spacer" />
+        <button
+          type="button"
+          className="agent-tile__prove"
+          disabled={proving}
+          onClick={(e) => {
+            e.stopPropagation()
+            onProve()
+          }}
+          aria-label={`Prove ${a.name}`}
+        >
+          {proving ? 'proving…' : 'Prove'}
+        </button>
         {a.system && <ModelBadge kind={a.model} />}
         {!a.system && (
           <button
@@ -1237,130 +1273,3 @@ function NewAgentCard({ onStart }: { onStart: () => void }) {
   )
 }
 
-function NewAgentForm({
-  projects,
-  seatGate,
-  onCreate,
-  onCancel,
-}: {
-  projects: Project[]
-  /** Token → '' or the reason it can't answer. Same gate the launcher applies,
-   *  so the form cannot offer a model the run would then refuse. */
-  seatGate: (token: string) => string
-  onCreate: (input: {
-    name: string
-    role: string
-    model: AgentModel
-    skills: string[]
-    assignedTo: string
-  }) => void
-  onCancel: () => void
-}) {
-  const [name, setName] = useState('')
-  const [role, setRole] = useState('')
-  const [model, setModel] = useState<AgentModel>('local')
-  const [skills, setSkills] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
-
-  const submit = () => {
-    if (!name.trim()) return
-    onCreate({
-      name,
-      role,
-      model,
-      skills: skills
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      assignedTo,
-    })
-  }
-
-  // The reason the CHOSEN model can't answer, if any — stated under the field
-  // rather than left for the agent tile to reveal after the fact.
-  const modelWhy = seatGate(agentModelToken(model))
-
-  return (
-    <form
-      className="agent-tile--new agent-form"
-      onClick={(e) => e.stopPropagation()}
-      onSubmit={(e) => {
-        e.preventDefault()
-        submit()
-      }}
-    >
-      <div className="agent-new__title">New business agent</div>
-      <input
-        className="agent-form__input"
-        placeholder="name (e.g. pr-reviewer)"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        autoFocus
-      />
-      <input
-        className="agent-form__input"
-        placeholder="role (e.g. reviews PRs before merge)"
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-      />
-      {/* The model list used to be three flat options with nothing said about
-          whether any of them could actually answer on this Mac. You created the
-          agent, and only found out when the tile appeared reading "sits out:".
-          Each option now carries its real reason at the moment of choosing. */}
-      <select
-        className="agent-form__input"
-        value={model}
-        onChange={(e) => setModel(e.target.value as AgentModel)}
-        aria-label="Model"
-      >
-        {(['local', 'claude', 'gemini'] as AgentModel[]).map((m) => {
-          const why = seatGate(agentModelToken(m))
-          return (
-            <option key={m} value={m}>
-              {m === 'claude' ? 'Claude' : m === 'gemini' ? 'Gemini' : 'local'}
-              {why ? ` — ${why}` : ''}
-            </option>
-          )
-        })}
-      </select>
-      {modelWhy && (
-        <div className="agent-form__warn mono">
-          this agent will be created, but it cannot run yet — {modelWhy}
-        </div>
-      )}
-      <select
-        className="agent-form__input"
-        value={assignedTo}
-        onChange={(e) => setAssignedTo(e.target.value)}
-        aria-label="Assign to"
-      >
-        <option value="">Library (unassigned)</option>
-        <option value="system">System</option>
-        {projects.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <input
-        className="agent-form__input"
-        placeholder="skills, comma-separated"
-        value={skills}
-        onChange={(e) => setSkills(e.target.value)}
-      />
-      <div className="agent-new__spacer" />
-      <div className="agent-new__actions">
-        <button
-          type="submit"
-          className="agent-new__btn agent-new__btn--dark"
-          disabled={!name.trim()}
-        >
-          Create agent
-        </button>
-        <button type="button" className="agent-new__btn agent-new__btn--soft" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  )
-}
