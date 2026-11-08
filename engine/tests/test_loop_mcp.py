@@ -357,6 +357,55 @@ class TestRunTeamWithMCPClient(unittest.TestCase):
         self.assertEqual(result.synthesis, "team answer: refraction covered")
         self.assertEqual(len(_model_call_spans(self.vault)), 3)
 
+    def test_a_team_run_with_a_real_gate_names_the_seat_and_installs_no_narrowing(self):
+        """Seen in the installed app 2026-11-09: every team run died on its first
+        seat with NameError('skill_narrowing_for') — the app's tool client is a
+        capability gate (set_agent + set_skill_narrowing) and run_team reached
+        for a table only run_role_board builds. run_team discloses no skills,
+        so the honest install for each seat is NO narrowing, after set_agent."""
+
+        class GateLikeMCPClient(FakeMCPClient):
+            def __init__(self):
+                super().__init__()
+                self.turns = []
+
+            def set_agent(self, name):
+                self.turns.append(("agent", name))
+
+            def set_skill_narrowing(self, caps, decls):
+                self.turns.append(("narrow", caps, tuple(decls)))
+
+        fake = GateLikeMCPClient()
+        state = {"n": 0}
+
+        def scripted(messages, route):
+            state["n"] += 1
+            text = (
+                _tool_call_block("lookup", {"q": "refraction"})
+                if state["n"] == 1
+                else "team answer: refraction covered"
+            )
+            return ModelCallResult(
+                text=text, tokens_in=4, tokens_out=6, cache="miss",
+                provider=route.provider, model=route.model, is_real=False,
+            )
+
+        result = run_team(
+            "investigate refraction",
+            self.vault,
+            [AgentSpec("lead", "Lead and synthesize.", "local")],
+            rounds=1,
+            env={"PATH": "/nonexistent"},
+            model=scripted,
+            mcp_client=fake,
+        )
+        self.assertEqual(result.synthesis, "team answer: refraction covered")
+        self.assertEqual(fake.calls, [("lookup", {"q": "refraction"})])
+        # Every seat turn: named first, then explicitly un-narrowed.
+        self.assertIn(("agent", "lead"), fake.turns)
+        first_agent = fake.turns.index(("agent", "lead"))
+        self.assertEqual(fake.turns[first_agent + 1], ("narrow", None, ()))
+
     def test_team_cloud_route_withholds_sensitive_tool_result(self):
         # F1 (team path): a cloud agent's tool RESULT carrying a secret is
         # redacted before it is fed back — never reaches the next cloud POST.

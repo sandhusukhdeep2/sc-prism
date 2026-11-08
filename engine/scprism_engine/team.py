@@ -488,6 +488,14 @@ def run_team(
 
         floor = VaultEgressFloor(lead_gw, mcp_client, models_used)
 
+        # run_team discloses no skills (only run_role_board threads a catalog),
+        # so no seat has a skill-derived narrowing: every lookup below answers
+        # (None, ()) and the gate is told so explicitly after set_agent. Until
+        # 2026-11-09 this table did not exist here at all, and every team run
+        # against the app's capability gate died on its first seat with
+        # NameError — found by sending a task to the demo project.
+        skill_narrowing_for: Dict[str, Any] = {}
+
         def _call_model(spec_name: str, rnd: Any, agent_gw: Gateway, messages):
             route = agent_gw.route(intent)  # sensitivity may force local per agent
             call = model or agent_gw.model_call
