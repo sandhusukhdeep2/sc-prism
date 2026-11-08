@@ -89,6 +89,11 @@ def per_model_cost(spans: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         if not _is_model_call(s):
             continue
         a = s.get("attrs", {})
+        # A stand-in's tokens are an ESTIMATE of a prompt that bought nothing
+        # (the server refused it, or nothing listened): not spend, not work.
+        # A span with no is_real key (older engine) is kept — we do not guess.
+        if a.get("is_real") is False:
+            continue
         model = a.get("model", "?")
         provider = a.get("provider", "?")
         tin = int(a.get("tokens_in", 0) or 0)
@@ -117,6 +122,11 @@ def per_operation_cost(spans: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]
         if not _is_model_call(s):
             continue
         a = s.get("attrs", {})
+        # A stand-in's tokens are an ESTIMATE of a prompt that bought nothing
+        # (the server refused it, or nothing listened): not spend, not work.
+        # A span with no is_real key (older engine) is kept — we do not guess.
+        if a.get("is_real") is False:
+            continue
         op = s.get("name", "?")
         provider = a.get("provider", "?")
         model = a.get("model", "?")

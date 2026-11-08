@@ -11,6 +11,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
@@ -62,7 +63,7 @@ class TestCostAttribution(unittest.TestCase):
     def test_cost_attributable_to_operation_and_model_for_a_run(self):
         c = parse("architect a distributed plan", task_id="cost-1",
                   scope=["engine/**"])
-        run(c, vault=self.vault, tier1_commands=["true"], gateway=_offline_gateway())
+        run(c, vault=self.vault, tier1_commands=["true"], gateway=RealGateway())  # cost is attributed to REAL completions only (2026-11-08)
         spans = obs.load_spans(self.vault)
 
         by_model = obs.per_model_cost(spans)
