@@ -15,8 +15,16 @@ export const PROOF_WEB_URL = 'https://example.com/'
 /** Capabilities a proof will exercise; the rest are never touched by a proof. */
 const PROVABLE = ['vault', 'web', 'tools'] as const
 
-export function proofIntent(name: string, role: string): string {
-  return `Say hello in one sentence and name yourself: you are ${name}, ${role}.`
+/** The fixed proof prompt. The engine's tool loop calls a tool only when the
+ *  model asks for one (toolloop.run_tool_loop), so the prompt ASKS for each
+ *  granted tool, in one harmless, read-only way; a model that ignores the ask
+ *  reads "<tool> was not called" — honest, and the ceremony says so. */
+export function proofIntent(name: string, role: string, tools: readonly string[] = []): string {
+  const asks: string[] = []
+  if (tools.includes('vault')) asks.push('Then use your vault tool to list the top-level folders of the vault and say how many there are.')
+  if (tools.includes('web')) asks.push(`Then fetch ${PROOF_WEB_URL} with your web tool and quote its title.`)
+  if (tools.includes('tools')) asks.push('Then list the tools your MCP servers offer, by name only.')
+  return [`Say hello in one sentence and name yourself: you are ${name}, ${role}.`, ...asks].join(' ')
 }
 
 export function proofCapabilities(tools: readonly string[]): string {

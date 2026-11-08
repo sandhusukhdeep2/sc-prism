@@ -240,7 +240,7 @@ export default function AgentCeremony({
         <div className="ceremony__proof">
           <div className="ceremony__proofhead">
             <strong>Prove it</strong>
-            <span className="ceremony__hint">one real call on its model, one real call per tool · budget {PROOF_BUDGET} tokens</span>
+            <span className="ceremony__hint">one real call on its model, one real call per tool · budget {PROOF_BUDGET} tokens · the proof asks it to use each tool; a model that ignores the ask reads unproven</span>
           </div>
           {proving && (
             <div className="ceremony__lines" aria-live="polite">

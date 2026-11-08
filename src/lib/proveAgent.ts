@@ -23,7 +23,7 @@ export async function proveAgent(
   let verdict: Awaited<ReturnType<typeof runNativeTask>> = null
   try {
     verdict = await runNativeTask(
-      proofIntent(agent.name.trim(), agent.role.trim()),
+      proofIntent(agent.name.trim(), agent.role.trim(), tools),
       vaultPath,
       { ...providers, agentName: agentSlugForRun(agent.name), stage: 'proof', agentCapabilities: proofCapabilities(tools) },
       runId,

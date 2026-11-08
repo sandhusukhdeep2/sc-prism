@@ -30,6 +30,16 @@ describe('proofRun — the fixed prompt, the arguments, an honest grade', () => 
       .toBe('Say hello in one sentence and name yourself: you are Compliance checker, checks proposals against the never-touch list.')
   })
 
+  it('the prompt ASKS for each granted tool — the engine calls a tool only when the model asks', () => {
+    const p = proofIntent('Checker', 'checks', ['vault', 'web', 'tools'])
+    expect(p.startsWith('Say hello in one sentence and name yourself: you are Checker, checks.')).toBe(true)
+    expect(p).toContain('vault tool to list the top-level folders')
+    expect(p).toContain('fetch https://example.com/')
+    expect(p).toContain('list the tools your MCP servers offer')
+    expect(proofIntent('Checker', 'checks', ['vault'])).not.toContain('example.com')
+    expect(proofIntent('Checker', 'checks', ['terminal'])).toBe('Say hello in one sentence and name yourself: you are Checker, checks.')
+  })
+
   it('only vault, web and MCP tools are exercised by a proof — never terminal, computer or writes', () => {
     expect(proofCapabilities(['vault', 'web', 'terminal', 'computer', 'writes', 'tools'])).toBe('vault,web,tools')
     expect(proofCapabilities([])).toBe('')

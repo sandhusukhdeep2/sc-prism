@@ -59,6 +59,12 @@ beforeEach(() => {
 afterEach(() => localStorage.clear())
 
 describe('the ceremony', () => {
+  it('says that the proof asks the agent to use each tool, so an ignored ask reads honestly', () => {
+    draw()
+    assemble({ model: 'local', tools: ['vault'] })
+    expect(screen.getByText(/asks it to use each tool/)).toBeInTheDocument()
+  })
+
   it('assembles the card part by part, in order', () => {
     draw()
     expect(screen.queryByRole('button', { name: 'Confirm which AI' })).toBeNull()
@@ -77,7 +83,8 @@ describe('the ceremony', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Prove it' }))
     await waitFor(() => expect(native.runNativeTask).toHaveBeenCalledTimes(1))
     const [intent, vault, provs, runId, route, image, budget, turns, mode] = native.runNativeTask.mock.calls[0]
-    expect(intent).toBe('Say hello in one sentence and name yourself: you are Checker, checks proposals.')
+    expect(intent).toContain('Say hello in one sentence and name yourself: you are Checker, checks proposals.')
+    expect(intent).toContain('vault tool') // the proof asks for each granted tool
     expect(vault).toBe('/vault')
     expect(provs).toMatchObject({ agentName: 'checker', stage: 'proof', agentCapabilities: 'vault' })
     expect(runId).toBe('run-proof-1')
