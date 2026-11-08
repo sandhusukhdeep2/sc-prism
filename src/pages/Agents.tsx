@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AgentCeremony from '../components/AgentCeremony'
-import { proofChipText, proveAgent } from '../lib/proveAgent'
+import { proofButtonLabel, proofChipText, proveAgent } from '../lib/proveAgent'
 import './Agents.css'
 import {
   agentActivity,
@@ -19,6 +19,7 @@ import {
   defaultLibraryRoster,
   type AgentModel,
   type StoredAgent,
+  persistAgentToVault,
 } from '../lib/agents'
 import { splitRoster, filterRoster, rosterGate, sitOutLine, type SitOut } from '../lib/roster'
 import RosterPicker from '../components/RosterPicker'
@@ -51,7 +52,6 @@ import {
   TEAM_TOKEN_BUDGET,
   useApp,
   useWakeNow,
-  buildEngineProviders,
 } from '../store/AppStore'
 import { useProjects, type Project } from '../lib/projects'
 import { skillStats, type SkillStat } from '../lib/skillStats'
@@ -868,8 +868,12 @@ export default function Agents() {
     if (provingId) return
     setProvingId(a.id)
     try {
-      const r = await proveAgent(a, settings.vaultPath, buildEngineProviders(settings, state.activeProjectId).providers)
-      updateAgent(a.id, { proof: { at: r.at, proven: r.proven, reason: r.reason } })
+      const r = await proveAgent(a, settings.vaultPath, settings)
+      const proof = { at: r.at, proven: r.proven, reason: r.reason }
+      updateAgent(a.id, { proof })
+      // The file is the source of truth: without this the next vault sync
+      // takes the proof from the file, which has none, and erases it.
+      void persistAgentToVault({ ...a, proof }, settings.vaultPath)
     } finally {
       setProvingId(null)
     }
@@ -1001,7 +1005,7 @@ export default function Agents() {
                    vault file, then hands the finished agent back here. */
                 <AgentCeremony
                   vaultPath={settings.vaultPath}
-                  providers={buildEngineProviders(settings, state.activeProjectId).providers}
+                  settings={settings}
                   seatGate={seatGate}
                   projectId={state.activeProjectId ?? ''}
                   projects={projects}
@@ -1133,7 +1137,7 @@ function AgentTile({
           }}
           aria-label={`Prove ${a.name}`}
         >
-          {proving ? 'proving…' : 'Prove'}
+          {proving ? 'proving…' : proofButtonLabel(a.model)}
         </button>
         {a.system && <ModelBadge kind={a.model} />}
         {!a.system && (

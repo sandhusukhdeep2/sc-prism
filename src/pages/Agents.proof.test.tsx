@@ -72,6 +72,14 @@ describe('the crew cards wear their proof', () => {
     expect(screen.getAllByText('not yet proven').length).toBeGreaterThan(0)
   })
 
+  it('a cloud agent’s button says what proving costs', async () => {
+    create({ name: 'Cloud One', role: 'r', model: 'claude' })
+    await act(async () => {
+      renderAgents()
+    })
+    expect(screen.getByRole('button', { name: 'Prove Cloud One' })).toHaveTextContent('Prove on claude · costs cents')
+  })
+
   it('Prove runs the shared prover once and the chip updates', async () => {
     // A name no earlier test used: the agents store is module-level state and
     // survives between tests in this file.
@@ -86,5 +94,7 @@ describe('the crew cards wear their proof', () => {
     // Scoped to THIS tile: another test's proven agent is still in the store.
     const tile = screen.getByText('Prove Me').closest('.agent-tile') as HTMLElement
     await within(tile).findByText(/^proven ✓ /)
+    // The proof is written to the agent's file, or the next vault sync erases it.
+    await waitFor(() => expect(native.writeVaultNote).toHaveBeenCalledWith('/vault', 'agents/prove-me.md', expect.stringContaining('proven_at:')))
   })
 })

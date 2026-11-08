@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { EngineProviders } from '../lib/nativeEngine'
+import { DEFAULT_SETTINGS, type Settings } from '../lib/settings'
 
 // Making an agent is a ceremony that ends with proof (design 2026-11-08 §B).
 // The engine is mocked at the one seam the ceremony uses — runNativeTask /
@@ -10,6 +10,7 @@ const native = vi.hoisted(() => ({
   newRunId: vi.fn(() => 'run-proof-1'),
   runNativeTask: vi.fn(),
   readSpansTail: vi.fn(async () => [] as unknown[]),
+  cancelEngineRun: vi.fn(async () => {}),
 }))
 vi.mock('../lib/nativeEngine', async (importActual) => {
   const actual = await importActual<typeof import('../lib/nativeEngine')>()
@@ -18,8 +19,8 @@ vi.mock('../lib/nativeEngine', async (importActual) => {
 
 const { default: AgentCeremony } = await import('./AgentCeremony')
 
-const providers = { baseUrl: 'http://127.0.0.1:8000', primary: 'local' } as unknown as EngineProviders
-const REAL = { taskId: 't', task: 'proof', passed: true, outcome: 'replied', response: 'Hello — I am Checker.' }
+const settings: Settings = { ...DEFAULT_SETTINGS, vaultPath: '/vault', providers: DEFAULT_SETTINGS.providers.map((p) => ({ ...p, enabled: p.id === 'local' || p.id === 'claude-cli' })) }
+const REAL = { taskId: 't', task: 'proof', passed: true, outcome: 'replied', response: 'Hello — I am Checker.', native: { models_used: ['local · gemma-3'] } }
 const REFUSED = { ...REAL, response: '[rejected:local:gemma-3] provider refused the request (HTTP 401): API key required' }
 
 function draw(over: Partial<Parameters<typeof AgentCeremony>[0]> = {}) {
@@ -28,7 +29,7 @@ function draw(over: Partial<Parameters<typeof AgentCeremony>[0]> = {}) {
   render(
     <AgentCeremony
       vaultPath="/vault"
-      providers={providers}
+      settings={settings}
       seatGate={() => ''}
       projectId="p1"
       onCreated={onCreated}
@@ -55,6 +56,7 @@ beforeEach(() => {
   localStorage.clear()
   native.runNativeTask.mockReset()
   native.readSpansTail.mockReset().mockResolvedValue([])
+  native.cancelEngineRun.mockClear()
 })
 afterEach(() => localStorage.clear())
 
@@ -83,14 +85,15 @@ describe('the ceremony', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Prove it' }))
     await waitFor(() => expect(native.runNativeTask).toHaveBeenCalledTimes(1))
     const [intent, vault, provs, runId, route, image, budget, turns, mode] = native.runNativeTask.mock.calls[0]
-    expect(intent).toContain('Say hello in one sentence and name yourself: you are Checker, checks proposals.')
-    expect(intent).toContain('vault tool') // the proof asks for each granted tool
+    expect(intent).toContain('vault tool') // the proof asks for the tool calls first…
+    expect(intent).toContain('say hello and name yourself: you are Checker, checks proposals.') // …and the greeting last
     expect(vault).toBe('/vault')
-    expect(provs).toMatchObject({ agentName: 'checker', stage: 'proof', agentCapabilities: 'vault' })
+    expect(provs).toMatchObject({ agentName: 'checker', stage: 'proof', agentCapabilities: 'vault', maxTokens: 400, primary: 'local', tier1: '' })
+    expect(String(provs.userCapabilities)).toContain('vault')
     expect(runId).toBe('run-proof-1')
     expect(route).toBe('local')
     expect(image).toBeUndefined()
-    expect(budget).toBe(400)
+    expect(budget).toBe(0) // an output cap, never a total budget that starves the tool loop
     expect(turns).toBe(1)
     expect(mode).toBe('converse')
   })
@@ -138,6 +141,22 @@ describe('the ceremony', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
     expect(onCreated.mock.calls[0][0].proof).toMatchObject({ proven: false })
     expect(onCreated.mock.calls[0][0].proof.reason).toContain('HTTP 401')
+  })
+
+  it('Cancel while a proof runs tells the engine to stop that run', async () => {
+    native.runNativeTask.mockReturnValue(new Promise(() => {}))
+    const { onCancel } = draw()
+    assemble({ model: 'local' })
+    fireEvent.click(screen.getByRole('button', { name: 'Prove it' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(native.cancelEngineRun).toHaveBeenCalledWith('run-proof-1'))
+    expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('says MCP tools are not exercised by a proof', () => {
+    draw()
+    assemble({ model: 'local' })
+    expect(screen.getAllByText(/MCP tools are not exercised/).length).toBeGreaterThan(0)
   })
 
   it('creating without proving is allowed and reads not yet proven', async () => {

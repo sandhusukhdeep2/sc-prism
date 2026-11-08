@@ -1,34 +1,52 @@
 // A PROOF RUN (design 2026-11-08 §B): one real call on the agent's model and
 // one real, harmless call per granted tool, run through the ordinary engine
-// path (`runNativeTask` with agentName / stage 'proof' / agentCapabilities),
-// then graded from the verdict and that run's own spans. "Proven" means every
-// call was real; anything less is "unproven" with the engine's cause.
+// path and graded from the verdict and THAT RUN's own spans. "Proven" means
+// every call was real and the model that answered was the agent's own brand;
+// anything less is "unproven" with the engine's cause.
+//
+// Reviewed 2026-11-08: the engine stamps spans with its own run id (the
+// client's id is only a cancel handle), so a run's spans are found through its
+// root span's task_id; MCP tools are not reachable on a solo run, so a proof
+// exercises vault and web only; the engine runs a tool only when a reply is
+// nothing but the call, so the prompt asks for the calls first.
 import type { EngineSpan } from './nativeEngine'
 import type { Verdict } from '../engine/types'
 import { toolEnding } from './agentDossier'
+import { spansForTask } from './delegation'
 
-export const PROOF_BUDGET = 400
-export const PROOF_TOOL_TURNS = 1
+/** Output cap for the proof's model turns (`providers.maxTokens`). A TOTAL
+ *  token budget would starve the tool loop: the companion prompt alone is a
+ *  few hundred tokens. */
+export const PROOF_MAX_TOKENS = 400
 /** The one fixed, documented web lookup a proof may make. */
 export const PROOF_WEB_URL = 'https://example.com/'
 
-/** Capabilities a proof will exercise; the rest are never touched by a proof. */
-const PROVABLE = ['vault', 'web', 'tools'] as const
+/** Capabilities a proof exercises. `tools` (MCP) is not reachable from a solo
+ *  run; terminal, computer and writes are never exercised by a proof. */
+const PROVABLE = ['vault', 'web'] as const
+type Provable = (typeof PROVABLE)[number]
 
-/** The fixed proof prompt. The engine's tool loop calls a tool only when the
- *  model asks for one (toolloop.run_tool_loop), so the prompt ASKS for each
- *  granted tool, in one harmless, read-only way; a model that ignores the ask
- *  reads "<tool> was not called" — honest, and the ceremony says so. */
-export function proofIntent(name: string, role: string, tools: readonly string[] = []): string {
-  const asks: string[] = []
-  if (tools.includes('vault')) asks.push('Then use your vault tool to list the top-level folders of the vault and say how many there are.')
-  if (tools.includes('web')) asks.push(`Then fetch ${PROOF_WEB_URL} with your web tool and quote its title.`)
-  if (tools.includes('tools')) asks.push('Then list the tools your MCP servers offer, by name only.')
-  return [`Say hello in one sentence and name yourself: you are ${name}, ${role}.`, ...asks].join(' ')
-}
+export type ProofBrand = 'local' | 'claude' | 'gemini'
 
 export function proofCapabilities(tools: readonly string[]): string {
   return PROVABLE.filter((c) => tools.includes(c)).join(',')
+}
+
+/** One tool turn per provable grant, never fewer than one. */
+export function proofToolTurns(tools: readonly string[]): number {
+  return Math.max(1, PROVABLE.filter((c) => tools.includes(c)).length)
+}
+
+/** The fixed proof prompt: the tool calls FIRST, each as one harmless
+ *  read-only thing, then the greeting. */
+export function proofIntent(name: string, role: string, tools: readonly string[] = []): string {
+  const asks: string[] = []
+  if (tools.includes('vault')) asks.push('First, call your vault tool to list the top-level folders of the vault.')
+  if (tools.includes('web')) asks.push(`${asks.length ? 'Then' : 'First,'} fetch ${PROOF_WEB_URL} with your web tool and quote its title.`)
+  const greeting = asks.length
+    ? `Finally, in one sentence, say hello and name yourself: you are ${name}, ${role}.`
+    : `Say hello in one sentence and name yourself: you are ${name}, ${role}.`
+  return [...asks, greeting].join(' ')
 }
 
 export interface ProofLine {
@@ -76,12 +94,20 @@ function firstSentence(text: string): string {
   return (m ? m[0] : text.trim().slice(0, 160)).trim()
 }
 
-const TOOL_NAMES: Record<(typeof PROVABLE)[number], (tool: string) => boolean> = {
+/** Did the brand that answered match the agent's? `models_used` entries read
+ *  `provider · model`; a brand's CLI (`claude-cli`) counts as the brand. An
+ *  absent list is not evidence either way and is not guessed at. */
+function answeredOnBrand(modelsUsed: readonly string[] | undefined, brand: ProofBrand): boolean {
+  if (!modelsUsed || modelsUsed.length === 0) return true
+  return modelsUsed.some((m) => {
+    const provider = m.split('·')[0].trim().toLowerCase()
+    return provider === brand || provider.startsWith(`${brand}-`)
+  })
+}
+
+const TOOL_NAMES: Record<Provable, (tool: string) => boolean> = {
   vault: (t) => t === 'vault_list' || t === 'vault_read' || t === 'vault_search',
   web: (t) => t === 'web_fetch' || t === 'web_search',
-  // Any MCP tool: the proof asks the granted servers to `list`, and the span
-  // carries that server's tool name, whatever it is.
-  tools: (t) => t !== '' && !/^(vault_|web_)/.test(t),
 }
 
 function attrStr(attrs: Record<string, unknown> | undefined, key: string): string {
@@ -92,8 +118,8 @@ function attrStr(attrs: Record<string, unknown> | undefined, key: string): strin
 export function gradeProof(
   verdict: Verdict | null,
   spans: readonly EngineSpan[],
-  runId: string,
   tools: readonly string[],
+  brand: ProofBrand,
   now: number,
 ): ProofResult {
   const lines: ProofLine[] = []
@@ -102,13 +128,22 @@ export function gradeProof(
   }
   const response = verdict.response
   const real = isRealText(response)
+  // `models_used` is what the native engine reported (`provider · model`); the sim leaves `native` undefined.
+  const modelsUsed = verdict.native?.models_used
+  const onBrand = answeredOnBrand(modelsUsed, brand)
   lines.push({
     kind: 'model',
     label: 'answered on its model',
-    ok: real,
-    detail: real ? firstSentence(response) : standInCause(response ?? ''),
+    ok: real && onBrand,
+    detail: !real
+      ? standInCause(response ?? '')
+      : !onBrand
+        ? `answered on ${(modelsUsed ?? []).join(', ')} — not on ${brand}`
+        : firstSentence(response),
   })
-  const mine = spans.filter((s) => s.run_id === runId && (s.type === 'tool_exec' || s.name === 'tool_exec'))
+  // THIS run's tool calls: the run's root span is found by task_id, and its
+  // tool_exec spans hang under it. A client-side run id never reaches the engine.
+  const mine = spansForTask(spans, verdict.taskId).filter((s) => s.type === 'tool_exec' || s.name === 'tool_exec')
   for (const cap of PROVABLE) {
     if (!tools.includes(cap)) continue
     const call = mine.find((s) => TOOL_NAMES[cap](attrStr(s.attrs, 'tool')))
@@ -119,11 +154,14 @@ export function gradeProof(
     const ending = toolEnding(call.attrs)
     const ok = ending === 'ok' && call.status !== 'error'
     const target = attrStr(call.attrs, 'path') || attrStr(call.attrs, 'url') || attrStr(call.attrs, 'server')
+    // The span's own cause first (`error` from the tool, `reason` from a gate),
+    // then the ending — never a bare "failed" when the engine said more.
+    const cause = attrStr(call.attrs, 'error') || attrStr(call.attrs, 'reason') || (ending === 'ok' ? 'failed' : ending)
     lines.push({
       kind: 'tool',
       label: cap,
       ok,
-      detail: ok ? `${attrStr(call.attrs, 'tool')}${target ? ' ' + target : ''}` : `${cap}: ${ending === 'ok' ? 'failed' : ending}`,
+      detail: ok ? `${attrStr(call.attrs, 'tool')}${target ? ' ' + target : ''}` : `${cap}: ${cause}`,
     })
   }
   const failing = lines.find((l) => !l.ok)

@@ -10,10 +10,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AgentModel, StoredAgent } from '../lib/agents'
 import { create, list, persistAgentToVault, update } from '../lib/agents'
-import type { EngineProviders, EngineSpan } from '../lib/nativeEngine'
-import { newRunId, readSpansTail } from '../lib/nativeEngine'
-import { proveAgent, agentSlugForRun } from '../lib/proveAgent'
-import { PROOF_BUDGET, type ProofResult } from '../lib/proofRun'
+import type { EngineSpan } from '../lib/nativeEngine'
+import { cancelEngineRun, newRunId, readSpansTail } from '../lib/nativeEngine'
+import type { Settings } from '../lib/settings'
+import { proveAgent, agentSlugForRun, proofButtonLabel } from '../lib/proveAgent'
+import { PROOF_MAX_TOKENS, type ProofResult } from '../lib/proofRun'
 import type { Project } from '../lib/projects'
 import './AgentCeremony.css'
 
@@ -28,7 +29,7 @@ const MODELS: { id: AgentModel; label: string; local: boolean }[] = [
 const TOOLS: { id: string; label: string; proof: string }[] = [
   { id: 'vault', label: 'vault', proof: 'lists your notes (names only)' },
   { id: 'web', label: 'web', proof: 'fetches one fixed page' },
-  { id: 'tools', label: 'tools', proof: 'asks each MCP server to list' },
+  { id: 'tools', label: 'tools', proof: 'granted, not exercised — MCP servers are not reachable from a proof' },
 ]
 
 function splitList(text: string): string[] {
@@ -41,7 +42,7 @@ function clock(ms: number): string {
 
 export default function AgentCeremony({
   vaultPath,
-  providers,
+  settings,
   seatGate,
   projectId = '',
   projects = [],
@@ -49,7 +50,7 @@ export default function AgentCeremony({
   onCancel,
 }: {
   vaultPath: string
-  providers: EngineProviders
+  settings: Settings
   /** Token → '' or the reason that model cannot answer right now. */
   seatGate: (token: string) => string
   projectId?: string
@@ -80,7 +81,9 @@ export default function AgentCeremony({
     const tick = async () => {
       try {
         const tail = await readSpansTail(vaultPath, 200)
-        if (!stop) setLiveLines(tail.filter((s) => s.run_id === runIdRef.current && s.type === 'tool_exec'))
+        // The engine stamps its own run id; this run's spans carry the agent and the stage.
+        const slug = agentSlugForRun(name)
+        if (!stop) setLiveLines(tail.filter((s) => s.type === 'tool_exec' && s.attrs?.agent === slug && s.attrs?.round === 'proof'))
       } catch {
         // the tail is a nicety; the grade comes from the verdict + spans after the run
       }
@@ -90,7 +93,7 @@ export default function AgentCeremony({
       stop = true
       clearInterval(timer)
     }
-  }, [proving, vaultPath])
+  }, [proving, vaultPath, name])
 
   const prove = async () => {
     if (proving) return
@@ -98,7 +101,7 @@ export default function AgentCeremony({
     setProof(null)
     const runId = newRunId()
     runIdRef.current = runId
-    setProof(await proveAgent({ name, role, model, tools }, vaultPath, providers, runId))
+    setProof(await proveAgent({ name, role, model, tools }, vaultPath, settings, runId))
     setProving(false)
   }
 
@@ -116,6 +119,10 @@ export default function AgentCeremony({
   }
 
   const confirm = (n: number) => () => setPart((p) => Math.max(p, n))
+  const cancel = () => {
+    if (proving && runIdRef.current) void cancelEngineRun(runIdRef.current)
+    onCancel()
+  }
 
   return (
     <section className="ceremony" aria-label="New agent">
@@ -208,7 +215,7 @@ export default function AgentCeremony({
                 </label>
               ))}
             </div>
-            <p className="ceremony__hint">your own grants are the ceiling; terminal, computer and file writes are granted on the agent's page and never exercised by a proof.</p>
+            <p className="ceremony__hint">your own grants are the ceiling; terminal, computer and file writes are granted on the agent's page and never exercised by a proof; MCP tools are not exercised by a proof either.</p>
           </div>
           {part < 3 && (
             <button type="button" className="ceremony__confirm" onClick={confirm(3)}>
@@ -240,7 +247,7 @@ export default function AgentCeremony({
         <div className="ceremony__proof">
           <div className="ceremony__proofhead">
             <strong>Prove it</strong>
-            <span className="ceremony__hint">one real call on its model, one real call per tool · budget {PROOF_BUDGET} tokens · the proof asks it to use each tool; a model that ignores the ask reads unproven</span>
+            <span className="ceremony__hint">one real call on its model, one real call per tool · replies capped at {PROOF_MAX_TOKENS} tokens · the proof asks it to use each tool; a model that ignores the ask reads unproven · MCP tools are not exercised by a proof</span>
           </div>
           {proving && (
             <div className="ceremony__lines" aria-live="polite">
@@ -261,10 +268,10 @@ export default function AgentCeremony({
           )}
           <div className="ceremony__actions">
             <button type="button" className="ceremony__prove" onClick={() => void prove()} disabled={proving}>
-              {isLocal ? 'Prove it' : `Prove on ${model} · costs cents`}
+              {proofButtonLabel(model)}
             </button>
             <span className="ceremony__spacer" />
-            <button type="button" className="ceremony__cancel" onClick={onCancel}>Cancel</button>
+            <button type="button" className="ceremony__cancel" onClick={cancel}>Cancel</button>
             <button type="button" className="ceremony__create" onClick={createAgent} disabled={!ready || proving}>
               Create agent
             </button>
