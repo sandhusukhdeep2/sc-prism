@@ -1215,9 +1215,12 @@ export function chatWallMs(budget: TurnBudget): number {
 export const TEAM_TOKEN_BUDGET = 100_000
 
 /** The honest refusal when the app's ONE engine slot is already held. Shared so
- *  the Agents page and the Work chat refuse in the SAME words; never queued. */
+ *  the Agents page and the Work chat refuse in the SAME words; never queued.
+ *  Past tense on purpose: in the chat it stays as a notice, and hours later
+ *  "is in progress" sat under a header saying nothing was running (seen
+ *  2026-11-09). It says what happened to THAT attempt. */
 export const TEAM_BUSY_TEXT =
-  'Another run is in progress — wait for it to finish, then launch the team.'
+  'Not started — another run was in progress. Try again once nothing is running.'
 
 /** Honest copy for the two non-result endings (never dressed up as a failure of
  *  the team's reasoning). */

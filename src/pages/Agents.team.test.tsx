@@ -160,7 +160,7 @@ describe('TeamLauncher — the busy protocol (H5, spec §Part 2)', () => {
     renderAgents()
     await launch()
 
-    expect(screen.getByText(/Another run is in progress/i)).toBeInTheDocument()
+    expect(screen.getByText(/another run was in progress/i)).toBeInTheDocument()
     // The refusal is real: no engine call, and no card that would claim one.
     expect(h.runNativeTeam).not.toHaveBeenCalled()
     expect(captured.app!.state.liveRuns).toHaveLength(0)
