@@ -45,6 +45,7 @@ import { agentTaskBrief, agentTaskDisplay, useAgents } from '../lib/agents'
 import { agentOrbs } from '../lib/orbs'
 import { roomCountLine } from '../lib/roomCount'
 import { dedupeSpans } from '../lib/dedupeSpans'
+import { runsPill } from '../lib/runsPill'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
@@ -667,10 +668,8 @@ export default function Workspace() {
   // and links to the page that owns the rest. Both come from the same measured
   // record the ledger reads, so the strip cannot disagree with the rail.
   const runsRecorded = state.verdicts.length
-  const hasRuns = runsRecorded > 0
-  const statusChip = hasRuns
-    ? `${runsRecorded} run${runsRecorded === 1 ? '' : 's'} recorded all time · ${s.localSharePct}% ran on your Mac`
-    : 'no runs yet — stats appear as you work'
+  // "of runs": the rail's meter counts tokens; this counts runs (runsPill.ts).
+  const statusChip = runsPill(runsRecorded, s.localSharePct)
 
   // Header status line — Desk.tsx has the shared useDeskState() hook so
   // header and rail compute identically and can never drift.
