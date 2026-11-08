@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from .gateway import stand_in_cause
 from .verifier import Tier1Result, Tier2Result
 
 
@@ -206,30 +207,6 @@ def _tier2_summary(t2: Optional[Tier2Result]) -> Dict[str, Any]:
     }
 
 
-def _stand_in_cause(response: str) -> str:
-    """The reason behind a gateway stand-in, for a human.
-
-    A stand-in is ``[offline:provider:model] <detail>`` (or ``[stub:`` /
-    ``[rejected:``). A NAMED detail — "the server rejected the API key (HTTP
-    401)" — is the cause and is kept verbatim. The generic stub's detail is
-    "handled: <the prompt echoed back>", which names nothing, so it becomes a
-    plain statement of what happened.
-    """
-    text = (response or "").strip()
-    if not text.startswith("["):
-        return "the provider returned no completion"
-    head, _, detail = text.partition("] ")
-    marker = head.lstrip("[")
-    kind, _, rest = marker.partition(":")
-    provider = rest.split(":", 1)[0] or "the provider"
-    detail = detail.strip()
-    if kind == "rejected":
-        return f"{provider} refused the request" + (f": {detail}" if detail else "")
-    if not detail or detail.startswith("handled:"):
-        return f"{provider} returned no completion"
-    return detail
-
-
 def build_verdict(
     *,
     task_id: str,
@@ -324,7 +301,7 @@ def build_verdict(
         outcome = "failed"
         outcome_reason = (
             "the model never answered — every reply was a stand-in, not a "
-            f"completion ({_stand_in_cause(response)}). Nothing was done, so "
+            f"completion ({stand_in_cause(response)}). Nothing was done, so "
             "nothing was verified; the tier scores below grade an empty run."
         )
     elif passed and mode == "converse":

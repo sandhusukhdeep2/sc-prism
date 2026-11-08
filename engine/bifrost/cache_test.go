@@ -72,8 +72,8 @@ func TestOfflineStubIsDeterministic(t *testing.T) {
 	if r1.TokensIn != r2.TokensIn || r1.TokensOut != r2.TokensOut {
 		t.Fatal("stub token counts not deterministic")
 	}
-	if r1.TokensOut <= 0 {
-		t.Fatal("stub tokens_out must be > 0")
+	if r1.TokensOut != 0 {
+		t.Fatalf("no reply came back, yet the stub reported %d output tokens", r1.TokensOut)
 	}
 	if !strings.HasPrefix(r1.Text, "[offline:") {
 		t.Fatalf("unexpected stub text: %q", r1.Text)

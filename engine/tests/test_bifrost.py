@@ -65,7 +65,9 @@ class TestBifrostGateway(unittest.TestCase):
             res = gw.model_call(msgs, route)
             self.assertEqual(res.cache, "miss")
             self.assertFalse(res.is_real)  # offline stub (dead endpoint)
-            self.assertGreater(res.tokens_out, 0)
+            # No reply came back, so no output tokens — the stub used to
+            # report 8–47 hash-derived ones (see standin_test.go).
+            self.assertEqual(res.tokens_out, 0)
             self.assertIn("offline", res.text)
         finally:
             gw.close()

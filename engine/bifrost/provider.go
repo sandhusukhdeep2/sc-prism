@@ -253,6 +253,14 @@ func (g *Gateway) invoke(messages []message, route RouteDecision) (string, int, 
 				estTokens(messagesText(messages)), 0, false, false
 		}
 	}
+	// A non-retryable 4xx is the server REFUSING what we sent — a bad key, an
+	// unknown model, a malformed request. Not an outage: the stub below would
+	// report it as one ("handled: <prompt>"), which is how thirteen 401s read
+	// as the local server being down. Same line as gateway.py: 429 is
+	// retryable there and stays an outage here; 5xx is the server failing.
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+		return g.rejected(messages, route, resp.StatusCode, string(raw))
+	}
 	var parsed struct {
 		Choices []struct {
 			Message struct {
@@ -326,20 +334,32 @@ func loadFailureReason(status int, body string) string {
 	return fmt.Sprintf("%s: %s (the server said, HTTP %d: %q)", loadFailedMark, detail, status, said)
 }
 
+// rejected is the honest stand-in when the server REFUSED our request (a
+// non-retryable 4xx): the Go twin of gateway.py's _rejected. Same marker, same
+// sentence, the server's own words, and no output tokens — nothing came back.
+func (g *Gateway) rejected(messages []message, route RouteDecision, status int, body string) (string, int, int, bool, bool) {
+	text := fmt.Sprintf("[rejected:%s:%s] provider refused the request (HTTP %d)",
+		route.Provider, route.Model, status)
+	if said := strings.TrimSpace(body); said != "" {
+		if len(said) > 300 {
+			said = said[:300]
+		}
+		text += ": " + said
+	}
+	return text, estTokens(messagesText(messages)), 0, false, false
+}
+
 // stub is the deterministic offline response, seeded by the message hash —
 // mirrors Gateway._stub so the engine always runs offline.
 func (g *Gateway) stub(messages []message, route RouteDecision) (string, int, int, bool, bool) {
 	h := promptHash(messages)
-	seed, _ := strconv.ParseInt(h[:8], 16, 64)
 	prompt := userText(messages)
 	text := fmt.Sprintf("[offline:%s:%s] handled: %s (%s)",
 		route.Provider, route.Model, prompt, h[:8])
 	tin := estTokens(messagesText(messages))
-	tout := int(seed%40) + 8 // stable, non-zero, hash-derived
-	if tout < 1 {
-		tout = 1
-	}
-	return text, tin, tout, false, false // the stub is always complete
+	// No reply came back, so no output tokens. This used to report 8–47,
+	// hash-derived — a fabricated spend on every stand-in (gateway.py agrees).
+	return text, tin, 0, false, false // the stub is always complete
 }
 
 func trimRightSlash(s string) string {

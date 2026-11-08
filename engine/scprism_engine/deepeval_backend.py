@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional
 from .verifier import Tier2Result
 from . import evals
 from .evals import Envelope, METRIC_NAMES, DEFAULT_THRESHOLD
+from .gateway import note_stand_in
 
 # Keep DeepEval offline-safe: opt out of its anonymous telemetry / error
 # reporting / update pings so importing it never phones home. Set BEFORE the
@@ -442,5 +443,6 @@ def run_deepeval(
                 tokens_out=result.tokens,
                 is_real=result.is_real,
             )
+            note_stand_in(sp, result)
             return result
     return _go()

@@ -25,7 +25,7 @@ from . import conductor
 from .dispatcher import dispatch, ModelCall, ModelResult
 from .verifier import tier1, tier2, CommandResult, Tier1Result, Tier2Result
 from .writeback import Verdict
-from .gateway import Gateway, guard_cloud_tool_result
+from .gateway import Gateway, guard_cloud_tool_result, note_stand_in
 from .companion import companion_messages
 from .bifrost_client import make_gateway
 from .telemetry import Telemetry
@@ -455,6 +455,7 @@ def _gateway_model(
                     # trace says so, and it rides out to the judge (below).
                     truncated=res.truncated,
                 )
+                note_stand_in(sp, res)
             return ModelResult(
                 text=res.text,
                 tokens=res.tokens,
@@ -524,6 +525,7 @@ def _gateway_model(
                     is_real=res.is_real,
                     truncated=res.truncated,  # HONESTY: cut off at the cap.
                 )
+                note_stand_in(sp, res)
             return res
 
         # F1: on a CLOUD route, gate every tool RESULT before it can egress back

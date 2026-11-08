@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .verifier import Tier2Result
+from .gateway import note_stand_in
 
 # The four trace-level metrics the judge scores (specs/06 §1, specs/02 §5).
 METRIC_NAMES = (
@@ -834,6 +835,7 @@ def evaluate(
                 is_real=res.is_real,
                 truncated=res.truncated,
             )
+            note_stand_in(sp, res)
     else:
         res = _call()
 

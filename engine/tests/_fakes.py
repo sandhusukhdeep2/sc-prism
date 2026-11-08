@@ -65,6 +65,7 @@ class _Handler(BaseHTTPRequestHandler):
     reply = "a real answer"
     score = 0.9
     require_key = ""  # when set, a request without this bearer gets 401 like oMLX
+    fail_status = 0  # when set, every authorised POST answers this status (an outage)
     seen = None  # list the server appends each request's Authorization header to
 
     def log_message(self, *_):  # keep test output clean
@@ -88,6 +89,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.require_key and auth != f"Bearer {self.require_key}":
             self._send(401, {"detail": "API key required"})
             return
+        if self.fail_status:
+            self._send(self.fail_status, {"error": "try later"})
+            return
         n = int(self.headers.get("Content-Length") or 0)
         try:
             req = json.loads(self.rfile.read(n) or b"{}")
@@ -109,14 +113,16 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 @contextlib.contextmanager
-def fake_openai_server(*, reply="a real answer", score=0.9, require_key=""):
+def fake_openai_server(*, reply="a real answer", score=0.9, require_key="", fail_status=0):
     """Serve the OpenAI chat shape on a free local port; yields the base URL.
 
     ``require_key`` makes it behave like oMLX: 401 without that exact bearer.
+    ``fail_status`` makes it an outage: every POST answers that status.
     The handler's ``seen`` list records every Authorization header received.
     """
     handler = type("Handler", (_Handler,), {
-        "reply": reply, "score": score, "require_key": require_key, "seen": [],
+        "reply": reply, "score": score, "require_key": require_key,
+        "fail_status": fail_status, "seen": [],
     })
     srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     t = threading.Thread(target=srv.serve_forever, daemon=True)

@@ -652,6 +652,46 @@ def _err_body(err) -> str:
     return body
 
 
+def stand_in_cause(text: str) -> str:
+    """The reason behind a gateway stand-in, for a human.
+
+    A stand-in is ``[offline:provider:model] <detail>`` (or ``[stub:`` /
+    ``[rejected:``). A NAMED detail — "the server rejected the API key (HTTP
+    401)" — is the cause and is kept verbatim. The generic stub's detail is
+    "handled: <the prompt echoed back>", which names nothing, so it becomes a
+    plain statement of what happened. A refusal's own sentence already says
+    "provider refused the request", so the provider is named once.
+    """
+    text = (text or "").strip()
+    if not text.startswith("["):
+        return "the provider returned no completion"
+    head, _, detail = text.partition("] ")
+    marker = head.lstrip("[")
+    kind, _, rest = marker.partition(":")
+    provider = rest.split(":", 1)[0] or "the provider"
+    detail = detail.strip()
+    if kind == "rejected":
+        detail = detail.removeprefix("provider refused the request").lstrip()
+        return f"{provider} refused the request" + (f" {detail}" if detail else "")
+    if not detail or detail.startswith("handled:"):
+        return f"{provider} returned no completion"
+    return detail
+
+
+def note_stand_in(span, res) -> None:
+    """A stand-in is not an ok call — say so on its ``model_call`` span.
+
+    Every emitter of a ``model_call`` span calls this after recording the
+    result. A real completion leaves the span ``ok``; a stand-in (``is_real``
+    False) marks it ``error`` with the cause, so the Console shows ✕ and the
+    reason where a tick used to be, and a ``model_call`` status means the same
+    thing on every path (tests/test_standin_honesty.py).
+    """
+    if getattr(res, "is_real", True):
+        return
+    span.set_status("error").set(error=stand_in_cause(getattr(res, "text", "") or ""))
+
+
 # ---------------------------------------------------------------------------
 # Multimodal message contract (image attach). A message ``content`` is EITHER a
 # plain ``str`` (unchanged, the text-only path) OR a list of provider-neutral
@@ -1871,12 +1911,12 @@ class Gateway:
     def _stub(messages, route):
         """Deterministic offline response seeded by the message hash."""
         h = _prompt_hash(messages)
-        seed = int(h[:8], 16)
         prompt = _user_text(messages)
         text = (
             f"[offline:{route.provider}:{route.model}] "
             f"handled: {prompt} ({h[:8]})"
         )
         tin = _est_tokens(_messages_text(messages))
-        tout = max(1, (seed % 40) + 8)  # stable, non-zero, hash-derived
-        return text, tin, tout, False, False  # the stub is always complete
+        # No reply came back, so no output tokens. This used to report 8–47,
+        # hash-derived, which put a fabricated spend on every stand-in span.
+        return text, tin, 0, False, False  # the stub is always complete

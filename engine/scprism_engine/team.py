@@ -54,7 +54,7 @@ from .contract import parse as parse_contract
 from .dispatcher import ModelCall, ModelResult
 from .evidence import EvidenceStore
 from .finalize import finalize_run, run_tier2
-from .gateway import Gateway, ModelCallResult
+from .gateway import Gateway, ModelCallResult, note_stand_in
 from .mcp import MCPError, MCPTool
 from .telemetry import Telemetry
 from .toolloop import run_tool_loop
@@ -542,6 +542,7 @@ def run_team(
                         cache=getattr(r, "cache", "miss"),
                         is_real=r.is_real,
                     )
+                    note_stand_in(sp, r)
                 return r
 
             if not turn_tools:
@@ -914,6 +915,7 @@ def run_role_board(
                     cache=getattr(res, "cache", "miss"),
                     is_real=res.is_real,
                 )
+                note_stand_in(sp, res)
         else:
             res = agent_gw.model_call(messages, rt)
         label = f"{rt.provider} · {rt.model}"
