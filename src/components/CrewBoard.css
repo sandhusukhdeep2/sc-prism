@@ -385,3 +385,14 @@
 @media (prefers-reduced-motion: reduce) {
   .crew__handoff i { animation: none; }
 }
+
+/* Both directions between one pair of seats stack: the forward arrow above
+   (label over the line), the return arrow beneath (label under the line, head
+   on the left). */
+.crew__handoffs { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; margin-top: 12px; }
+.crew__handoffs .crew__handoff { margin-top: 0; }
+.crew__handoff--back i { transform-origin: right center; }
+.crew__handoff--back i::after {
+  right: auto; left: -1px;
+  border-left: 0; border-right: 7px solid var(--v2-ink);
+}

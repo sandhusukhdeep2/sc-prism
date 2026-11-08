@@ -27,7 +27,7 @@ import { Fragment, useState, type ReactNode } from 'react'
 import { useNow } from '../lib/useNow'
 import { agentDossier } from '../lib/agentDossier'
 import { seatState } from '../lib/seatState'
-import { handoffs } from '../lib/handoffs'
+import { handoffs, type Handoff } from '../lib/handoffs'
 import AgentDossierPanel from './AgentDossierPanel'
 import { agentOrbs } from '../lib/orbs'
 import { IDLE_HUE } from '../lib/modelColor'
@@ -50,6 +50,15 @@ import type { EngineSpan } from '../lib/nativeEngine'
 import type { LiveRun } from '../lib/liveRuns'
 import './CrewBoard.css'
 import Icon from './Icon'
+
+/** The LAST handoff from `from` to `to`, so a repeated exchange shows its
+ *  latest stage rather than its first. */
+function lastHandoff(hands: readonly Handoff[], from: string, to: string): Handoff | undefined {
+  for (let i = hands.length - 1; i >= 0; i--) {
+    if (hands[i].from === from && hands[i].to === to) return hands[i]
+  }
+  return undefined
+}
 
 /** The one line saying what this coworker is doing RIGHT NOW — its real ask
  *  while the span is open, its real outcome once the engine closed it. */
@@ -183,7 +192,12 @@ export default function CrewBoard({
             {orbs.map((o, i) => {
               const st = states.get(o.agent)
               const next = orbs[i + 1]
-              const hand = next ? hands.find((h) => h.from === o.agent && h.to === next.agent) : undefined
+              // Both directions between this pair, each labelled by the LAST
+              // such handoff (a writer ↔ critic loop hands back and forth; the
+              // first label would be stale). Seats are ordered by first
+              // appearance, so a return handoff is drawn as a back arrow.
+              const fwd = next ? lastHandoff(hands, o.agent, next.agent) : undefined
+              const back = next ? lastHandoff(hands, next.agent, o.agent) : undefined
               return (
                 <Fragment key={o.agent}>
                   {/* EVERY SEAT IS A BUTTON. The deploy stagger is a CSS custom
@@ -223,13 +237,26 @@ export default function CrewBoard({
                   {/* A HANDOFF is drawn only when two consecutive work turns
                       belong to these two seats, labelled with the engine's own
                       word for the later turn. */}
-                  {hand && (
-                    <span
-                      className="crew__handoff"
-                      aria-label={`${hand.from} handed to ${hand.to}${hand.label ? ': ' + hand.label : ''}`}
-                    >
-                      <span className="crew__handofflabel">{hand.label}</span>
-                      <i aria-hidden="true" />
+                  {(fwd || back) && (
+                    <span className="crew__handoffs">
+                      {fwd && (
+                        <span
+                          className="crew__handoff"
+                          aria-label={`${fwd.from} handed to ${fwd.to}${fwd.label ? ': ' + fwd.label : ''}`}
+                        >
+                          <span className="crew__handofflabel">{fwd.label}</span>
+                          <i aria-hidden="true" />
+                        </span>
+                      )}
+                      {back && (
+                        <span
+                          className="crew__handoff crew__handoff--back"
+                          aria-label={`${back.from} handed to ${back.to}${back.label ? ': ' + back.label : ''}`}
+                        >
+                          <i aria-hidden="true" />
+                          <span className="crew__handofflabel">{back.label}</span>
+                        </span>
+                      )}
                     </span>
                   )}
                 </Fragment>

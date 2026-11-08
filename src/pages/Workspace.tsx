@@ -44,6 +44,7 @@ import { useInterview } from '../lib/interview'
 import { agentTaskBrief, agentTaskDisplay, useAgents } from '../lib/agents'
 import { agentOrbs } from '../lib/orbs'
 import { roomCountLine } from '../lib/roomCount'
+import { dedupeSpans } from '../lib/dedupeSpans'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
@@ -325,8 +326,10 @@ export default function Workspace() {
   // The live step is unioned on top so the column being worked RIGHT NOW is
   // there before its verdict lands; without it the board would always be one
   // step behind itself.
+  // Deduped by span_id: while a build runs, the live step's spans and the
+  // finished steps' spans overlap, and a seat's tokens doubled (review 2026-11-08).
   const projectSpans = activeProject
-    ? [...projectRunSpans(tail.spans, activeProject.verdictIds), ...(anyLive ? liveSpans : [])]
+    ? dedupeSpans([...projectRunSpans(tail.spans, activeProject.verdictIds), ...(anyLive ? liveSpans : [])])
     : []
   const boardSpans = activeProject
     ? projectSpans

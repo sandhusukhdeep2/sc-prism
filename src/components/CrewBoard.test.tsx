@@ -272,6 +272,19 @@ describe('the seats say what each agent is doing, from its own spans', () => {
     expect(cluster().getByText('draft')).toBeInTheDocument()
   })
 
+  it('A → B → A draws BOTH arrows between the two seats, each with its own label', () => {
+    draw(
+      [
+        call({ agent: 'writer', provider: 'local', model: 'gemma-3', round: 'draft' }, { start: 1, status: 'ok' }),
+        call({ agent: 'critic', provider: 'local', model: 'gemma-3', round: 'critique' }, { start: 2, status: 'ok' }),
+        call({ agent: 'writer', provider: 'local', model: 'gemma-3', round: 'revise' }, { start: 3, status: 'ok' }),
+      ],
+      false,
+    )
+    expect(cluster().getByLabelText('writer handed to critic: critique')).toBeInTheDocument()
+    expect(cluster().getByLabelText('critic handed to writer: revise')).toBeInTheDocument()
+  })
+
   it('a solo run draws no handoff and no state line beyond its own', () => {
     draw([call({ agent: 'researcher', provider: 'local', model: 'gemma-3' }, { start: 1, status: 'ok' })], false)
     expect(screen.queryByLabelText(/handed to/)).toBeNull()
