@@ -406,6 +406,52 @@ class TestRunTeamWithMCPClient(unittest.TestCase):
         first_agent = fake.turns.index(("agent", "lead"))
         self.assertEqual(fake.turns[first_agent + 1], ("narrow", None, ()))
 
+    def test_a_tool_call_made_during_a_seats_turn_is_attributed_to_that_seat(self):
+        """Seen in the installed app 2026-11-09: a team run's researcher made two
+        real web searches and both tool spans carried no agent, so the board
+        could not say WHO was searching. The seat's whole turn — model turns
+        and the tool calls the client spans itself — runs under
+        telemetry.acting_as(seat, round)."""
+        from scprism_engine.telemetry import Telemetry, read_spans
+
+        tel = Telemetry(os.path.join(self.vault, "spans.jsonl"))
+
+        class SpanWritingMCPClient(FakeMCPClient):
+            def call_tool(self, name, arguments):
+                # The real gate spans its own tool calls on the run's telemetry.
+                with tel.span("tool_exec", span_type="tool_exec", tool=name, server="fake"):
+                    return super().call_tool(name, arguments)
+
+        fake = SpanWritingMCPClient()
+        state = {"n": 0}
+
+        def scripted(messages, route):
+            state["n"] += 1
+            text = (
+                _tool_call_block("lookup", {"q": "refraction"})
+                if state["n"] == 1
+                else "team answer: refraction covered"
+            )
+            return ModelCallResult(
+                text=text, tokens_in=4, tokens_out=6, cache="miss",
+                provider=route.provider, model=route.model, is_real=False,
+            )
+
+        run_team(
+            "investigate refraction",
+            self.vault,
+            [AgentSpec("lead", "Lead and synthesize.", "local")],
+            rounds=1,
+            env={"PATH": "/nonexistent"},
+            model=scripted,
+            mcp_client=fake,
+            telemetry=tel,
+        )
+        tools = [s for s in read_spans(tel.spans_path) if s["type"] == "tool_exec" and s["attrs"].get("tool") == "lookup"]
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(tools[0]["attrs"].get("agent"), "lead")
+        self.assertEqual(str(tools[0]["attrs"].get("round")), "1")
+
     def test_team_cloud_route_withholds_sensitive_tool_result(self):
         # F1 (team path): a cloud agent's tool RESULT carrying a secret is
         # redacted before it is fed back — never reaches the next cloud POST.

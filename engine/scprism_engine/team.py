@@ -563,15 +563,20 @@ def run_team(
                 # the loop by this run's token budget. F8: tl.cache is honest —
                 # the tool-less degrade path (one call, zero tools) carries the
                 # real cache, a genuine multi-turn loop stays "miss".
-                tl = run_tool_loop(
-                    messages=messages,
-                    tools=turn_tools,
-                    model_fn=_one,
-                    tool_exec=floor.exec_tool,
-                    max_iters=mcp_max_iters,
-                    guard_observation=floor.guard(route),
-                    token_budget=budget if budget > 0 else None,
-                )
+                # The whole turn is THIS seat's: the tool calls are spanned by
+                # the gate / vault / web clients themselves, and only the seat
+                # context can put the agent's name on them (2026-11-09: a
+                # researcher's two web searches carried no agent at all).
+                with telemetry.acting_as(spec_name, str(rnd)):
+                    tl = run_tool_loop(
+                        messages=messages,
+                        tools=turn_tools,
+                        model_fn=_one,
+                        tool_exec=floor.exec_tool,
+                        max_iters=mcp_max_iters,
+                        guard_observation=floor.guard(route),
+                        token_budget=budget if budget > 0 else None,
+                    )
                 # M3: surface each F1 result-withhold as its own governance span
                 # (the tool CALL already spanned; this is the separate "result
                 # withheld from cloud" win the Manager View shows honestly).
