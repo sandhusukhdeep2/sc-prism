@@ -62,6 +62,30 @@ class Telemetry:
         self._lock = threading.Lock()
         directory = os.path.dirname(os.path.abspath(spans_path)) or "."
         os.makedirs(directory, exist_ok=True)
+        # The seat whose turn it is (see acting_as); empty = unnamed.
+        self._actor: Dict[str, Any] = {}
+
+    @contextmanager
+    def acting_as(self, agent: str, stage: str = "") -> Iterator[None]:
+        """The SEAT whose turn this is. Every span written inside the block —
+        the model turns and, above all, the tool calls the vault / web / MCP
+        clients write themselves — carries ``agent`` (and ``round`` for the
+        stage) unless it names one explicitly. Without this a tool span says
+        what ran but never WHO used it, so no board, live tail or dossier can
+        attribute it (spec 2026-11-08, engine gap 2). Blank names claim
+        nothing: an absent attr and an empty one are different statements.
+        Nests: the inner seat wins, the outer one is restored on exit."""
+        outer = self._actor
+        who: Dict[str, Any] = {}
+        if agent.strip():
+            who["agent"] = agent.strip()
+        if stage.strip():
+            who["round"] = stage.strip()
+        self._actor = who or outer
+        try:
+            yield
+        finally:
+            self._actor = outer
 
     @contextmanager
     def span(
@@ -75,6 +99,9 @@ class Telemetry:
             raise TelemetryError(
                 f"span_type must be one of {SPAN_TYPES}, got {span_type!r}"
             )
+        merged = dict(attrs)
+        for key, value in self._actor.items():
+            merged.setdefault(key, value)
         sp = Span(
             span_id=uuid.uuid4().hex,
             parent_id=parent,
@@ -82,7 +109,7 @@ class Telemetry:
             span_type=span_type,
             run_id=self.run_id,
             start=time.time(),
-            attrs=dict(attrs),
+            attrs=merged,
         )
         try:
             yield sp

@@ -244,6 +244,28 @@ class TestVaultToolsInTheRunCatalogue(_CLIMixin, unittest.TestCase):
         self.assertFalse(vault_execs[0]["attrs"]["is_error"])
         self.assertEqual(len({s["run_id"] for s in spans}), 1)
 
+    def test_a_named_seats_vault_read_is_attributed_to_that_seat(self):
+        """Seen in the installed app 2026-11-09: Reviewer / Verifier's proof made
+        a real vault_read, but the tool span carried no agent, so nothing in
+        the app could say WHO read the note. A tool span written during a
+        named seat's turn carries that seat and its stage."""
+        self._patch_first_call_requests("vault_read", {"path": "notes/retry.md"})
+        code, out, err = self._run_cli(
+            ["run", "read my retry note", "--vault", self.vault, "--tier1", "true",
+             "--agent", "scout", "--stage", "proof"]
+        )
+        self.assertEqual(code, 0)
+        vault_execs = [
+            s for s in self._spans()
+            if s["type"] == "tool_exec" and s["attrs"].get("provider") == "vault"
+        ]
+        self.assertTrue(vault_execs, "the vault tool really ran")
+        self.assertEqual(vault_execs[0]["attrs"].get("agent"), "scout")
+        self.assertEqual(vault_execs[0]["attrs"].get("round"), "proof")
+        # The model turns of the same run say the same seat.
+        calls = [s for s in self._spans() if s["type"] == "model_call" and s["name"] != "eval"]
+        self.assertTrue(calls and all(s["attrs"].get("agent") == "scout" for s in calls))
+
     def test_approval_posture_holds_a_vault_tool_through_the_cli(self):
         """--require-approval all must hold a vault call exactly like any other
         tool: a held=True span, and the note is NEVER read."""

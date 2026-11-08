@@ -532,18 +532,22 @@ def _gateway_model(
         # to the cloud model — a secret in a file the tool read must never reach
         # the next POST. A LOCAL route stays zero-egress, so the floor returns no
         # guard at all (byte-identical to the ungated feed-back).
-        tl = run_tool_loop(
-            # Prefix (skills + memory) reaches the model AFTER routing, so the
-            # tool loop still sees LF-1 memory + disclosed skills verbatim while
-            # the route was decided on the clean task (LF-fix B).
-            messages=companion_messages(_model_input(prompt), image=image),
-            tools=tools,
-            model_fn=_model_fn,
-            tool_exec=floor.exec_tool,
-            max_iters=mcp_max_iters,
-            guard_observation=floor.guard(decision),
-            token_budget=token_budget,
-        )
+        # The whole turn is THIS seat's: the tool calls below are spanned by the
+        # vault / web / MCP clients themselves, and only the seat context can
+        # put the agent's name on them (telemetry.acting_as).
+        with telemetry.acting_as(agent, stage):
+            tl = run_tool_loop(
+                # Prefix (skills + memory) reaches the model AFTER routing, so the
+                # tool loop still sees LF-1 memory + disclosed skills verbatim while
+                # the route was decided on the clean task (LF-fix B).
+                messages=companion_messages(_model_input(prompt), image=image),
+                tools=tools,
+                model_fn=_model_fn,
+                tool_exec=floor.exec_tool,
+                max_iters=mcp_max_iters,
+                guard_observation=floor.guard(decision),
+                token_budget=token_budget,
+            )
         # M3: the F1 egress gate fired — a tool RESULT carrying a secret was
         # withheld from the cloud POST. The tool CALL already emitted its own
         # tool_exec span; this records the separate governance WIN (result

@@ -59,6 +59,48 @@ class TestTelemetry(unittest.TestCase):
         self.assertEqual(len(roots), 1)
         self.assertEqual(children[0]["parent_id"], roots[0]["span_id"])
 
+    # The seat context (spec 2026-11-08, engine gap 2): a tool span written
+    # during a named seat's turn must say WHO used the tool, or the board,
+    # the ceremony's live tail and the dossier can never attribute it.
+    def test_spans_inside_acting_as_carry_the_seat(self):
+        tel = Telemetry(self.path, run_id="run-1")
+        with tel.acting_as("scout", "proof"):
+            with tel.span("tool_exec", span_type="tool_exec", tool="vault_read"):
+                pass
+        with tel.span("hook", span_type="hook"):
+            pass
+        spans = read_spans(self.path)
+        self.assertEqual(spans[0]["attrs"]["agent"], "scout")
+        self.assertEqual(spans[0]["attrs"]["round"], "proof")
+        self.assertEqual(spans[0]["attrs"]["tool"], "vault_read")
+        # Outside the block nothing is claimed — absent, not empty.
+        self.assertNotIn("agent", spans[1]["attrs"])
+        self.assertNotIn("round", spans[1]["attrs"])
+
+    def test_an_explicit_agent_wins_over_the_seat_context(self):
+        tel = Telemetry(self.path, run_id="run-1")
+        with tel.acting_as("scout", "proof"):
+            with tel.span("model_call", span_type="model_call", agent="judge", round="eval"):
+                pass
+        s = read_spans(self.path)[0]
+        self.assertEqual((s["attrs"]["agent"], s["attrs"]["round"]), ("judge", "eval"))
+
+    def test_acting_as_restores_the_outer_seat_and_ignores_blank_names(self):
+        tel = Telemetry(self.path, run_id="run-1")
+        with tel.acting_as("lead", "1"):
+            with tel.acting_as("scout", "2"):
+                with tel.span("tool_exec", span_type="tool_exec"):
+                    pass
+            with tel.span("tool_exec", span_type="tool_exec"):
+                pass
+        with tel.acting_as("", ""):
+            with tel.span("tool_exec", span_type="tool_exec"):
+                pass
+        a, b, c = read_spans(self.path)
+        self.assertEqual(a["attrs"]["agent"], "scout")
+        self.assertEqual(b["attrs"]["agent"], "lead")
+        self.assertNotIn("agent", c["attrs"])
+
     def test_concurrent_appends_are_not_corrupted(self):
         tel = Telemetry(self.path, run_id="run-4")
 
