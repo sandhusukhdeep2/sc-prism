@@ -66,7 +66,9 @@ export function seatState(spans: readonly EngineSpan[], agent: string, live: boo
 
   if (isTool(latest)) {
     const ending = toolEnding(a)
-    if (ending === 'blocked') return { kind: 'blocked', text: 'blocked', tokens }
+    // A capability refusal (capabilities.py writes `refused: true`) is a gate
+    // saying no — the same story as a blocked tool, never a failure.
+    if (ending === 'blocked' || a?.refused === true) return { kind: 'blocked', text: 'blocked', tokens }
     if (ending === 'withheld') return { kind: 'withheld', text: 'withheld', tokens }
     if (open) {
       const name = str(a, 'tool')
@@ -76,13 +78,23 @@ export function seatState(spans: readonly EngineSpan[], agent: string, live: boo
       const label = [server, name].filter(Boolean).join(' · ') || toolTarget(a) || 'a tool'
       return { kind: 'tool', text: `using ${label}`, tokens }
     }
+    if (latest.status === 'error' || ending === 'failed') {
+      const cause = str(a, 'error')
+      return cause ? { kind: 'no-answer', text: 'failed', cause, tokens } : { kind: 'no-answer', text: 'failed', tokens }
+    }
     return { kind: 'done', text: 'done', tokens }
   }
 
   if (open) return { kind: 'thinking', text: 'thinking', tokens }
-  if (a?.is_real === false) {
+  // No completion: the gateway's stand-in (`is_real: false`) OR a turn the
+  // engine closed with status=error (telemetry.py writes the exception into
+  // `error` with no is_real at all). Both are "no answer", never "done".
+  if (a?.is_real === false || latest.status === 'error') {
     const cause = str(a, 'error')
     return cause ? { kind: 'no-answer', text: 'no answer', cause, tokens } : { kind: 'no-answer', text: 'no answer', tokens }
   }
-  return { kind: 'done', text: 'done', tokens }
+  // The engine writes a span only when it closes, so on a LIVE run a closed
+  // turn means "this agent has answered", not that the work is done — "done"
+  // is for a finished run.
+  return { kind: 'done', text: live ? 'answered' : 'done', tokens }
 }

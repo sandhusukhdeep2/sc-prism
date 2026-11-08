@@ -27,7 +27,10 @@ function isWorkTurn(s: EngineSpan): boolean {
 function labelOf(s: EngineSpan): string {
   const stage = s.attrs?.stage
   if (typeof stage === 'string' && stage.trim()) return stage.trim()
+  // The engine writes the stage INTO `round` as a string (loop.py `_who`,
+  // team.py `round=stage or rnd`); a bare number is a team round.
   const round = s.attrs?.round
+  if (typeof round === 'string' && round.trim()) return round.trim()
   if (typeof round === 'number' && Number.isFinite(round)) return `round ${round}`
   return ''
 }

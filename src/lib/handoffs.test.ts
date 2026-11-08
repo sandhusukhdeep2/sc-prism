@@ -18,16 +18,16 @@ describe('handoffs — consecutive work turns by different agents', () => {
     expect(handoffs([turn('developer', 1), turn('developer', 2)])).toEqual([])
   })
 
-  it('A then B is one handoff, labelled with B’s stage', () => {
-    expect(handoffs([turn('researcher', 1, { stage: 'research' }), turn('developer', 2, { stage: 'draft' })]))
+  it('A then B is one handoff, labelled with B’s stage — which the engine writes into `round` as a string', () => {
+    expect(handoffs([turn('researcher', 1, { round: 'research' }), turn('developer', 2, { round: 'draft' })]))
       .toEqual([{ from: 'researcher', to: 'developer', label: 'draft' }])
   })
 
   it('A → B → A is two handoffs with their own labels, not one', () => {
     const out = handoffs([
-      turn('researcher', 1, { stage: 'research' }),
-      turn('developer', 2, { stage: 'draft' }),
-      turn('researcher', 3, { stage: 'check' }),
+      turn('researcher', 1, { round: 'research' }),
+      turn('developer', 2, { round: 'draft' }),
+      turn('researcher', 3, { round: 'check' }),
     ])
     expect(out).toEqual([
       { from: 'researcher', to: 'developer', label: 'draft' },
@@ -45,7 +45,7 @@ describe('handoffs — consecutive work turns by different agents', () => {
       .toEqual([{ from: 'a', to: 'b', label: 'review' }])
   })
 
-  it('without a stage, a numeric round labels the handoff', () => {
+  it('a numeric round (a team round, no stage) labels the handoff too', () => {
     expect(handoffs([turn('a', 1, { round: 1 }), turn('b', 2, { round: 2 })])).toEqual([{ from: 'a', to: 'b', label: 'round 2' }])
   })
 

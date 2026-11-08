@@ -84,6 +84,20 @@ describe('seatState — what one seat says, from its own spans', () => {
     expect(seatState([mc('developer')], 'developer', false).kind).toBe('done')
   })
 
+  it('a closed turn on a LIVE run reads answered — done is for a finished run', () => {
+    expect(seatState([mc('developer')], 'developer', true)).toEqual({ kind: 'done', text: 'answered', tokens: 15 })
+  })
+
+  it('a turn the engine closed with status error is no answer, with the error attr as cause', () => {
+    const s = seatState([mc('developer', { error: "ValueError('boom')" }, 'error')], 'developer', false)
+    expect(s.kind).toBe('no-answer')
+    expect(s.cause).toBe("ValueError('boom')")
+  })
+
+  it('a capability refusal reads blocked', () => {
+    expect(seatState([tool('developer', 'terminal', { refused: true }, 'error')], 'developer', true).kind).toBe('blocked')
+  })
+
   it("the judge's eval span is not this seat's work", () => {
     const s = seatState([judge('writer')], 'writer', true)
     expect(s.kind).toBe('idle')
