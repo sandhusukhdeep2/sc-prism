@@ -3,13 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const native = vi.hoisted(() => ({
   newRunId: vi.fn(() => 'run-x'),
   runNativeTask: vi.fn(),
-  readSpansTail: vi.fn(async () => []),
+  readSpansTail: vi.fn(async (..._args: unknown[]) => [] as unknown[]),
+  // The one seam that turns the user's `~/sc-vault` into a real directory.
+  resolveVaultDir: vi.fn(async (p?: string) => (p === '~/sc-vault' ? '/Users/me/sc-vault' : p || '/default/vault')),
 }))
 vi.mock('./nativeEngine', async (importActual) => {
   const actual = await importActual<typeof import('./nativeEngine')>()
   return { ...actual, ...native }
 })
-const { proveAgent, proofChipText } = await import('./proveAgent')
+const { proveAgent, proofChipText, proofLiveLines } = await import('./proveAgent')
 
 import { DEFAULT_SETTINGS, type Settings } from './settings'
 const settings: Settings = { ...DEFAULT_SETTINGS, vaultPath: '/vault', webResearch: true, providers: DEFAULT_SETTINGS.providers.map((p) => ({ ...p, enabled: p.id === 'local' || p.id === 'claude-cli' })) }
@@ -52,6 +54,31 @@ describe('proveAgent — one path for the ceremony and the card', () => {
     const r = await proveAgent({ name: 'W', role: 'w', model: 'local', tools: [] }, '/vault', settings)
     expect(r.proven).toBe(false)
     expect(r.reason).toBe('the engine did not finish')
+  })
+})
+
+describe('proveAgent — the vault path reaches the engine resolved', () => {
+  // Seen in the app 2026-11-08: the proof ran with the stored `~/sc-vault`
+  // verbatim, the engine joined it to its own cwd, and the run's spans, log
+  // and verdict landed in `<app bundle>/resources/engine/~/sc-vault/` — so the
+  // grade read a vault that had nothing in it.
+  it('expands `~` before the run and reads the tail from the same directory', async () => {
+    native.runNativeTask.mockResolvedValue({ taskId: 't3', response: 'Hello, I am Checker.', native: { models_used: ['local · gemma-3'] } })
+    await proveAgent({ name: 'Checker', role: 'checks', model: 'local', tools: [] }, '~/sc-vault', settings)
+    expect(native.runNativeTask.mock.calls[0][1]).toBe('/Users/me/sc-vault')
+    expect(native.readSpansTail).toHaveBeenCalledWith('/Users/me/sc-vault', 400)
+  })
+  it('the live tail the ceremony shows is read from the resolved vault and keeps only this proof’s tool calls', async () => {
+    native.readSpansTail.mockResolvedValue([
+      { type: 'tool_exec', attrs: { agent: 'checker', round: 'proof', tool: 'vault_list' } },
+      { type: 'model_call', attrs: { agent: 'checker', round: 'proof' } },
+      { type: 'tool_exec', attrs: { agent: 'other', round: 'proof', tool: 'vault_list' } },
+      { type: 'tool_exec', attrs: { agent: 'checker', round: '1', tool: 'vault_list' } },
+    ])
+    const lines = await proofLiveLines('~/sc-vault', 'Checker')
+    expect(native.readSpansTail).toHaveBeenCalledWith('/Users/me/sc-vault', 200)
+    expect(lines).toHaveLength(1)
+    expect(lines[0].attrs?.tool).toBe('vault_list')
   })
 })
 

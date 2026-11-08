@@ -11,9 +11,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { AgentModel, StoredAgent } from '../lib/agents'
 import { create, list, persistAgentToVault, update } from '../lib/agents'
 import type { EngineSpan } from '../lib/nativeEngine'
-import { cancelEngineRun, newRunId, readSpansTail } from '../lib/nativeEngine'
+import { cancelEngineRun, newRunId } from '../lib/nativeEngine'
 import type { Settings } from '../lib/settings'
-import { proveAgent, agentSlugForRun, proofButtonLabel } from '../lib/proveAgent'
+import { proveAgent, agentSlugForRun, proofButtonLabel, proofLiveLines } from '../lib/proveAgent'
 import { PROOF_MAX_TOKENS, type ProofResult } from '../lib/proofRun'
 import type { Project } from '../lib/projects'
 import './AgentCeremony.css'
@@ -80,10 +80,8 @@ export default function AgentCeremony({
     let stop = false
     const tick = async () => {
       try {
-        const tail = await readSpansTail(vaultPath, 200)
-        // The engine stamps its own run id; this run's spans carry the agent and the stage.
-        const slug = agentSlugForRun(name)
-        if (!stop) setLiveLines(tail.filter((s) => s.type === 'tool_exec' && s.attrs?.agent === slug && s.attrs?.round === 'proof'))
+        const lines = await proofLiveLines(vaultPath, name)
+        if (!stop) setLiveLines(lines)
       } catch {
         // the tail is a nicety; the grade comes from the verdict + spans after the run
       }

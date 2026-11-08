@@ -8,7 +8,8 @@
 // Graded from the verdict and that run's own spans; it never throws.
 import type { AgentModel, AgentProof } from './agents'
 import type { Settings } from './settings'
-import { newRunId, readSpansTail, runNativeTask } from './nativeEngine'
+import type { EngineSpan } from './nativeEngine'
+import { newRunId, readSpansTail, resolveVaultDir, runNativeTask } from './nativeEngine'
 import { resolveProviderToken } from './roster'
 import { appRunCapabilities } from './delegation'
 import { buildManagerProviders } from '../store/AppStore'
@@ -47,11 +48,20 @@ export async function proveAgent(
     webResearch: tools.includes('web') ? true : providers.webResearch,
     maxTokens: PROOF_MAX_TOKENS,
   }
+  // The stored path is the user's words (`~/sc-vault`); the engine joins a
+  // relative path to its OWN cwd — inside the app bundle — so resolve it here,
+  // as every store caller does, and read the tail from the same directory.
+  let vault: string
+  try {
+    vault = await resolveVaultDir(vaultPath)
+  } catch {
+    return { proven: false, at: Date.now(), lines: [], reason: 'the vault folder could not be found' }
+  }
   let verdict: Awaited<ReturnType<typeof runNativeTask>> = null
   try {
     verdict = await runNativeTask(
       proofIntent(agent.name.trim(), agent.role.trim(), tools),
-      vaultPath,
+      vault,
       provs,
       runId,
       agent.model === 'local' ? 'local' : 'auto',
@@ -65,11 +75,21 @@ export async function proveAgent(
   }
   let spans: Awaited<ReturnType<typeof readSpansTail>> = []
   try {
-    spans = await readSpansTail(vaultPath, 400)
+    spans = await readSpansTail(vault, 400)
   } catch {
     spans = []
   }
   return gradeProof(verdict, spans, tools, agent.model, Date.now())
+}
+
+/** The ceremony's live tail: this proof's tool calls so far, read from the
+ *  resolved vault. The engine stamps its own run id, so the proof's spans are
+ *  found by the agent and the stage it was attributed with. */
+export async function proofLiveLines(vaultPath: string, name: string): Promise<EngineSpan[]> {
+  const vault = await resolveVaultDir(vaultPath)
+  const tail = await readSpansTail(vault, 200)
+  const slug = agentSlugForRun(name)
+  return tail.filter((s) => s.type === 'tool_exec' && s.attrs?.agent === slug && s.attrs?.round === 'proof')
 }
 
 /** What a card or header says about an agent's proof. */
