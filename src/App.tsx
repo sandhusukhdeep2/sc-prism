@@ -28,6 +28,7 @@ import AgentDetail from './pages/AgentDetail'
 import Skills from './pages/Skills'
 import Memory from './pages/Memory'
 import Training from './pages/Training'
+import Library from './pages/Library'
 
 export default function App() {
   return (
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="skills" element={<Skills />} />
           <Route path="memory" element={<Memory />} />
           <Route path="training" element={<Training />} />
+          <Route path="library" element={<Library />} />
         </Route>
       </Route>
     </Routes>
