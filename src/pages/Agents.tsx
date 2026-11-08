@@ -1120,25 +1120,8 @@ function AgentTile({
           <div className="agent-tile__sub" title={a.role}>
             {a.role}
           </div>
-          {/* Whether this agent has been PROVEN — answered on its model and used
-              its tools — in the engine's words when it has not. */}
-          <div className={'agent-tile__proof mono' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')} title={a.proof?.reason || undefined}>
-            {proofChipText(a.proof)}
-          </div>
         </div>
         <span className="agent-tile__spacer" />
-        <button
-          type="button"
-          className="agent-tile__prove"
-          disabled={proving}
-          onClick={(e) => {
-            e.stopPropagation()
-            onProve()
-          }}
-          aria-label={`Prove ${a.name}`}
-        >
-          {proving ? 'proving…' : proofButtonLabel(a.model)}
-        </button>
         {a.system && <ModelBadge kind={a.model} />}
         {!a.system && (
           <button
@@ -1187,6 +1170,29 @@ function AgentTile({
             )}
           </div>
         )}
+      </div>
+
+      {/* Whether this agent has been PROVEN — answered on its model and used
+          its tools — in the engine's words when it has not. The proof and its
+          action sit together, OUTSIDE the head link: a button inside a link is
+          a nested interactive, and beside the name it squeezed "Researcher"
+          into "Research / er" at the default window (installed app, 2026-11-09). */}
+      <div className="agent-tile__proofrow">
+        <div className={'agent-tile__proof mono' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')} title={a.proof?.reason || undefined}>
+          {proofChipText(a.proof)}
+        </div>
+        <button
+          type="button"
+          className="agent-tile__prove"
+          disabled={proving}
+          onClick={(e) => {
+            e.stopPropagation()
+            onProve()
+          }}
+          aria-label={`Prove ${a.name}`}
+        >
+          {proving ? 'proving…' : proofButtonLabel(a.model)}
+        </button>
       </div>
 
       <div className="chip-row">

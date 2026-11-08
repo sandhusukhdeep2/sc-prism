@@ -63,7 +63,7 @@
 /* A project agent's role is often a whole charter sentence. Clamp it to three
    lines with a real ellipsis — it used to run 9 lines and cut mid-word, which
    read as broken (his screenshot, 2026-08-31). Full text on hover. */
-.agent-tile__idcol { min-width: 0; }
+.agent-tile__idcol { min-width: 0; flex: 1 1 auto; }
 .agent-tile__sub {
   font-size: 11px; color: var(--muted); font-family: var(--font-mono);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
@@ -468,8 +468,11 @@
 /* The chip wraps to two lines instead of cutting "not yet proven" to
    "not yet p…" beside the Prove button (seen in the app 2026-11-08); the full
    reason stays on hover via title. */
-.agent-tile__proof { font-size: 10.5px; color: var(--v2-muted); margin-top: 2px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+/* The proof row: chip left, action right; the button drops to its own line
+   when a long cause and a long cloud label cannot share one. */
+.agent-tile__proofrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 10px 0 12px; }
+.agent-tile__proof { font-size: 10.5px; color: var(--v2-muted); flex: 1 1 140px; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .agent-tile__proof.is-proven { color: var(--v2-local-ink); }
 .agent-tile__proof.is-unproven { color: var(--v2-coral-ink); }
-.agent-tile__prove { font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: var(--v2-r-pill); border: 1px solid var(--v2-line); background: var(--v2-card); color: var(--v2-ink); cursor: pointer; min-height: 28px; }
+.agent-tile__prove { font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: var(--v2-r-pill); border: 1px solid var(--v2-line); background: var(--v2-card); color: var(--v2-ink); cursor: pointer; min-height: 28px; flex: 0 0 auto; white-space: nowrap; }
 .agent-tile__prove:disabled { opacity: 0.5; cursor: default; }

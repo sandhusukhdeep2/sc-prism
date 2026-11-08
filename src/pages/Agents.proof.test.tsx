@@ -97,4 +97,21 @@ describe('the crew cards wear their proof', () => {
     // The proof is written to the agent's file, or the next vault sync erases it.
     await waitFor(() => expect(native.writeVaultNote).toHaveBeenCalledWith('/vault', 'agents/prove-me.md', expect.stringContaining('proven_at:')))
   })
+
+  it('the proof and its button form their own row under the name, outside the head link', async () => {
+    // Seen in the installed app 2026-11-09: beside the name, the button and the
+    // model badge squeezed the name column to ~75px and "Researcher" rendered
+    // as "Research / er". A button inside a role=link was also a nested
+    // interactive. The proof and its action sit together, in their own row.
+    const a = create({ name: 'Row One', role: 'r', model: 'local' })
+    await act(async () => {
+      renderAgents()
+    })
+    const btn = screen.getByRole('button', { name: `Prove ${a.name}` })
+    const head = screen.getByRole('link', { name: `Open ${a.name}` })
+    expect(head.contains(btn)).toBe(false)
+    const row = btn.parentElement as HTMLElement
+    expect(row).toHaveClass('agent-tile__proofrow')
+    expect(within(row).getByText('not yet proven')).toBeInTheDocument()
+  })
 })
