@@ -27,28 +27,18 @@ export type PageItem = { num: string; to: string; title: string }
  * work, the crew you work with, and the record of what happened.
  */
 export const sideNav: NavSection[] = [
+  // FIVE PLACES (design 2026-11-08 §D): Work · Agents · Console · Library, and
+  // Settings apart at the foot of the rail. No headings, nothing folded: what
+  // is listed is what you can click. Skills, Memory, Vault and Training live
+  // as tabs of Library; Automations and the companion pages are reached from
+  // Settings' own nav. Every old route still renders.
   {
-    heading: 'Work',
+    heading: '',
     items: [
       { to: '/', label: 'Work', icon: 'work' },
-      { to: '/vault', label: 'Vault', icon: 'vault' },
-    ],
-  },
-  {
-    heading: 'Crew',
-    items: [
       { to: '/agents', label: 'Agents', icon: 'agents' },
-      { to: '/skills', label: 'Skills', icon: 'skills' },
-      { to: '/automations', label: 'Automations', icon: 'automations' },
-      { to: '/training', label: 'Training', icon: 'training' },
-    ],
-  },
-  {
-    heading: 'Record',
-    items: [
-      { to: '/stats', label: 'Stats', icon: 'stats' },
-      { to: '/memory', label: 'Memory', icon: 'memory' },
       { to: '/console', label: 'Console', icon: 'console' },
+      { to: '/library', label: 'Library', icon: 'library' },
     ],
   },
 ]
@@ -81,4 +71,5 @@ export const pages: PageItem[] = [
   { num: '19', to: '/agents', title: 'Agent library' },
   { num: '20', to: '/skills', title: 'Skills library' },
   { num: '21', to: '/memory', title: 'Memory & learning' },
+  { num: '22', to: '/library', title: 'Library' },
 ]

@@ -37,6 +37,7 @@ function renderShell(initialPath = '/') {
                   <Route path="automations" element={<div>automations page</div>} />
                   <Route path="training" element={<div>training page</div>} />
                   <Route path="stats" element={<div>stats page</div>} />
+                  <Route path="library" element={<div>library page</div>} />
                   <Route path="memory" element={<div>memory page</div>} />
                   <Route path="console" element={<div>console page</div>} />
                 </Route>
@@ -49,18 +50,7 @@ function renderShell(initialPath = '/') {
   )
 }
 
-const DESTINATIONS = [
-  'Work',
-  'Vault',
-  'Agents',
-  'Skills',
-  'Automations',
-  'Training',
-  'Stats',
-  'Memory',
-  'Console',
-  'Settings',
-]
+const DESTINATIONS = ['Work', 'Agents', 'Console', 'Library', 'Settings']
 
 // Onboarding is seeded done for EVERY describe in this file — a shell that
 // redirects to /welcome renders no navigation at all, which would make every
@@ -79,12 +69,10 @@ afterEach(() => {
 
 describe('AppShell navigation — one rail, every destination, every page', () => {
 
-  it('every destination is a real link once its group is open — no dropdown menus', () => {
+  it('every destination is a real link, in view, with nothing to open first — no dropdowns, no folds', () => {
     renderShell()
-    // Sidebar rethink (2026-08-31): quieter groups fold behind their own
-    // headings — a visible, labeled toggle, not a dropdown. Open both.
-    fireEvent.click(screen.getByRole('button', { name: /crew/i }))
-    fireEvent.click(screen.getByRole('button', { name: /record/i }))
+    // Five places (design 2026-11-08 §D): the folding groups of 2026-08-31 are
+    // gone; what is listed is what you can click.
     for (const label of DESTINATIONS) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
@@ -94,14 +82,12 @@ describe('AppShell navigation — one rail, every destination, every page', () =
   // THE ACTUAL COMPLAINT: you could stand on Agents or Memory and have no
   // navigation on the page at all, because yours was inside a dropdown you had
   // to know about. Standing on each of them is the only way to prove it.
-  it.each(['/agents', '/skills', '/automations', '/training', '/stats', '/memory', '/console'])(
+  it.each(['/agents', '/console', '/library', '/settings'])(
     'gives %s the same rail as everywhere else',
     (path) => {
       renderShell(path)
       const rail = document.querySelector('nav.rail')
       expect(rail, `no rail on ${path}`).toBeTruthy()
-      // The group holding THIS page is auto-open (the active pill is never
-      // hidden); the other groups sit folded behind their headings.
       const label = DESTINATIONS.find((d) => path.includes(d.toLowerCase()))
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: 'Work' })).toBeInTheDocument()
@@ -109,8 +95,8 @@ describe('AppShell navigation — one rail, every destination, every page', () =
   )
 
   it('marks the page you are on, and only that one', () => {
-    renderShell('/skills')
-    expect(screen.getByRole('link', { name: 'Skills' })).toHaveClass('is-active')
+    renderShell('/agents')
+    expect(screen.getByRole('link', { name: 'Agents' })).toHaveClass('is-active')
     const active = document.querySelectorAll('.rail__link.is-active')
     expect(active).toHaveLength(1)
   })
@@ -118,16 +104,15 @@ describe('AppShell navigation — one rail, every destination, every page', () =
   it('Work is matched exactly, so it is not active on every route', () => {
     // `/` is a prefix of every path; without an exact match Work would light up
     // on all of them and the rail would never say where you are.
-    renderShell('/vault')
+    renderShell('/console')
     expect(screen.getByRole('link', { name: 'Work' })).not.toHaveClass('is-active')
-    expect(screen.getByRole('link', { name: 'Vault' })).toHaveClass('is-active')
+    expect(screen.getByRole('link', { name: 'Console' })).toHaveClass('is-active')
   })
 
   it('navigating swaps the page and moves the marker with it', () => {
     renderShell()
     expect(screen.getByText('work page')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /crew/i })) // unfold first
     fireEvent.click(screen.getByRole('link', { name: 'Agents' }))
 
     expect(screen.getByText('agents page')).toBeInTheDocument()
@@ -136,12 +121,19 @@ describe('AppShell navigation — one rail, every destination, every page', () =
     expect(document.querySelector('nav.rail')).toBeTruthy()
   })
 
-  it('groups the rail under headings rather than listing ten flat links', () => {
+  it('shows exactly five places and no group headings', () => {
     renderShell()
-    const headings = [...document.querySelectorAll('.rail__heading')].map((h) =>
-      (h.textContent ?? '').replace(/[▸▾]\s*$/, '').trim(),
-    )
-    expect(headings).toEqual(['Work', 'Crew', 'Record'])
+    const rail = document.querySelector('nav.rail') as HTMLElement
+    expect([...rail.querySelectorAll('a')].map((a) => a.textContent?.trim())).toEqual(DESTINATIONS)
+    expect(document.querySelector('.rail__heading')).toBeNull()
+    expect(rail.querySelector('button')).toBeNull()
+  })
+
+  it('a rail-groups memory left over from the old rail changes nothing and is cleared', () => {
+    localStorage.setItem('scprism.railGroups', JSON.stringify({ Crew: true }))
+    renderShell()
+    expect(document.querySelectorAll('nav.rail a')).toHaveLength(5)
+    expect(localStorage.getItem('scprism.railGroups')).toBeNull()
   })
 
   // P2 honesty: the hardcoded always-green "Gateway" / "vault" status pills were
@@ -163,8 +155,6 @@ describe('AppShell navigation — one rail, every destination, every page', () =
 describe('the rail is iconographic, and the icons are a system', () => {
   it('every destination carries an icon', () => {
     renderShell()
-    fireEvent.click(screen.getByRole('button', { name: /crew/i }))
-    fireEvent.click(screen.getByRole('button', { name: /record/i }))
     for (const label of DESTINATIONS) {
       const link = screen.getByRole('link', { name: label })
       expect(link.querySelector('svg.icon'), `${label} has no icon`).toBeTruthy()
@@ -183,8 +173,6 @@ describe('the rail is iconographic, and the icons are a system', () => {
 
   it('every glyph is drawn on the same grid at the same weight', () => {
     renderShell()
-    fireEvent.click(screen.getByRole('button', { name: /crew/i }))
-    fireEvent.click(screen.getByRole('button', { name: /record/i }))
     // One set, not ten one-offs: the thing that was actually missing.
     const svgs = [...document.querySelectorAll('nav.rail svg.icon')]
     expect(svgs.length).toBe(DESTINATIONS.length)
@@ -202,31 +190,5 @@ describe('the rail is iconographic, and the icons are a system', () => {
     renderShell()
     const shapes = [...document.querySelectorAll('nav.rail svg.icon')].map((s) => s.innerHTML)
     expect(new Set(shapes).size).toBe(shapes.length)
-  })
-})
-
-// Sidebar rethink (2026-08-31, his note: 'showing way more information than
-// needed'). Crew and Record fold behind their headings by default — Work
-// stays open; a folded group holding the ACTIVE page opens itself so the
-// current location is never hidden; the choice persists per group.
-describe('the rail folds its quieter groups', () => {
-
-  it('Crew and Record start folded; Work stays open', () => {
-    renderShell('/')
-    expect(screen.getByRole('link', { name: /vault/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /skills/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /console/i })).not.toBeInTheDocument()
-  })
-
-  it('clicking a heading opens the group and remembers it', () => {
-    renderShell('/')
-    fireEvent.click(screen.getByRole('button', { name: /crew/i }))
-    expect(screen.getByRole('link', { name: /skills/i })).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('scprism.railGroups') ?? '{}').Crew).toBe(true)
-  })
-
-  it('a folded group holding the active page opens itself', () => {
-    renderShell('/console')
-    expect(screen.getByRole('link', { name: /console/i })).toBeInTheDocument()
   })
 })

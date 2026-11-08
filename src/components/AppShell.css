@@ -224,5 +224,3 @@
 }
 
 /* Foldable rail groups. */
-.rail__heading--btn { background: none; border: 0; cursor: pointer; width: 100%; text-align: left; }
-.rail__heading--btn:hover { color: var(--ink); }

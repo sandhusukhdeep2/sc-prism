@@ -3,7 +3,6 @@ import { useSettings } from '../lib/settings'
 import { initialsOf } from '../lib/initials'
 import { syncVaultAgents } from '../lib/agents'
 import { syncVaultSkills } from '../lib/skills'
-import { useState } from 'react'
 import { NavLink, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { settingsNav, sideNav } from '../lib/nav'
 import { useOnboarding } from '../lib/onboarding'
@@ -58,16 +57,16 @@ export default function AppShell() {
   const dashRead = useLiveDashboard(shellSettings.vaultPath, anyLive)
   const share = dashRead.dash ? localShare(dashRead.dash.cost_by_model) : null
   const hasLocalProvider = shellSettings.providers.some((p) => p.id === 'local' && p.enabled)
-  const [railGroups, setRailGroups] = useState<Record<string, boolean>>(() => {
+  // The rail used to fold its groups and remember that in localStorage; the
+  // five-place rail (2026-11-08) has nothing to fold. Clear the old memory so
+  // it cannot surprise anyone later.
+  useEffect(() => {
     try {
-      return JSON.parse(localStorage.getItem('scprism.railGroups') ?? '{}') as Record<
-        string,
-        boolean
-      >
+      localStorage.removeItem('scprism.railGroups')
     } catch {
-      return {}
+      // storage unavailable — nothing to clear
     }
-  })
+  }, [])
 
   // ---- Always-on manager (2026-08-05 §Part 3) ----
   // Setup is complete, so the companion's heartbeat turns ON by itself — the
@@ -144,40 +143,13 @@ export default function AppShell() {
           it. */}
       <div className="shell__body">
         <nav className="rail" aria-label="Main">
-          {sideNav.map((section) => {
-            // Sidebar rethink (2026-08-31): quieter groups fold behind their
-            // headings — Work stays open; a folded group holding the ACTIVE
-            // page opens itself so the current location is never hidden.
-            const foldable = section.heading !== 'Work'
-            const holdsActive = section.items.some((i) =>
-              i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to),
-            )
-            const open = !foldable || holdsActive || railGroups[section.heading] === true
-            return (
-            <div className="rail__group" key={section.heading}>
-              {foldable ? (
-                <button
-                  type="button"
-                  className="rail__heading rail__heading--btn mono"
-                  aria-expanded={open}
-                  onClick={() =>
-                    setRailGroups((g) => {
-                      const next = { ...g, [section.heading]: !open }
-                      try {
-                        localStorage.setItem('scprism.railGroups', JSON.stringify(next))
-                      } catch {
-                        // storage full/unavailable — the fold just won't persist
-                      }
-                      return next
-                    })
-                  }
-                >
-                  {section.heading} {open ? '▾' : '▸'}
-                </button>
-              ) : (
-                <div className="rail__heading mono">{section.heading}</div>
-              )}
-              {open && section.items.map((item) => (
+          {sideNav.map((section) => (
+            // FIVE PLACES (design 2026-11-08 §D). The folding groups of
+            // 2026-08-31 are gone: what is listed is what you can click, and
+            // nothing sits behind a heading.
+            <div className="rail__group" key={section.heading || 'places'}>
+              {section.heading && <div className="rail__heading mono">{section.heading}</div>}
+              {section.items.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -191,8 +163,7 @@ export default function AppShell() {
                 </NavLink>
               ))}
             </div>
-            )
-          })}
+          ))}
           {/* Settings is where you change the app, not one of the places you
               work in it — so it sits apart, at the foot of the rail. */}
           <div className="rail__foot">

@@ -28,6 +28,7 @@ export type IconName =
   | 'stats'
   | 'memory'
   | 'console'
+  | 'library'
   | 'settings'
   | 'search'
   | 'bell'
@@ -110,6 +111,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     </>
   ),
   // Console — the engine's own voice: a prompt.
+  library: (
+    <>
+      <path d="M4.5 5.5h4v14h-4z" />
+      <path d="M10 5.5h4v14h-4z" />
+      <path d="m15.6 6.4 3.7.9-3.1 12.2-3.7-.9z" />
+    </>
+  ),
   console: (
     <>
       <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
