@@ -26,7 +26,8 @@ import RosterPicker from '../components/RosterPicker'
 import AgentMonogram from '../components/AgentMonogram'
 import { useConnectivity } from '../lib/connectivity'
 import { primaryDisplayName, useSettings } from '../lib/settings'
-import { revealPath, isNative, type TeamResult } from '../lib/nativeEngine'
+import { readSpansTail, resolveVaultDir, revealPath, isNative, type EngineSpan, type TeamResult } from '../lib/nativeEngine'
+import { ownActivity } from '../lib/ownActivity'
 import { useInterview } from '../lib/interview'
 import { renderChatMarkdown } from '../lib/chatMarkdown'
 import {
@@ -712,6 +713,28 @@ export default function Agents() {
   const { projects } = useProjects()
   const { state } = useApp()
   const { settings } = useSettings()
+  // The span log, so each card can speak for ITS OWN turns (ownActivity):
+  // read once, then every few seconds while a project is running.
+  const [spans, setSpans] = useState<readonly EngineSpan[]>([])
+  const anyRunning = projects.some((p) => p.status === 'running')
+  useEffect(() => {
+    let stop = false
+    const load = async () => {
+      try {
+        const vault = await resolveVaultDir(settings.vaultPath)
+        const tail = await readSpansTail(vault, 400)
+        if (!stop) setSpans(tail)
+      } catch {
+        /* no log yet — the cards keep the model-wide line */
+      }
+    }
+    void load()
+    const h = anyRunning ? window.setInterval(() => void load(), 8_000) : undefined
+    return () => {
+      stop = true
+      if (h) window.clearInterval(h)
+    }
+  }, [settings.vaultPath, anyRunning])
   const { health } = useConnectivity()
   const { interview } = useInterview()
   const { ensure } = useManagerActions()
@@ -886,6 +909,7 @@ export default function Agents() {
       onProve={() => void proveExisting(a)}
       projects={projects}
       verdicts={state.verdicts}
+      spans={spans}
       sitsOut={seatGate(a.model)}
       skillStats={skillStatsByName}
       menuOpen={menuId === a.id}
@@ -1049,6 +1073,7 @@ function AgentTile({
   onProve,
   projects,
   verdicts,
+  spans,
   sitsOut,
   skillStats,
   menuOpen,
@@ -1061,6 +1086,8 @@ function AgentTile({
   a: StoredAgent
   projects: Project[]
   verdicts: Verdict[]
+  /** The span log tail — the card speaks for its OWN turns when it has any. */
+  spans: readonly EngineSpan[]
   /** '' when this agent's model can really run; else why it will sit out. */
   sitsOut: string
   proving: boolean
@@ -1081,6 +1108,10 @@ function AgentTile({
   const runningProjectId =
     assignedProject && assignedProject.status === 'running' ? assignedProject.id : undefined
   const activity = agentActivity(a, verdicts, runningProjectId)
+  // Its OWN turns when the log carries its name; else the model-wide line,
+  // which says what it counts (2026-11-09: five tiles, one global number).
+  const own = ownActivity(spans, a.name, Boolean(runningProjectId))
+  const shown = own ?? activity
 
   // P9 (safety): agent delete is permanent, so arm-then-confirm (mirrors
   // SkillCard). One click on "Delete agent" only ARMS it — a second explicit
@@ -1248,8 +1279,8 @@ function AgentTile({
       )}
 
       <div className="agent-usage">
-        <span className={`agent-usage__dot agent-usage__dot--${activity.state}`} />
-        <span className="agent-usage__label mono">{activity.label}</span>
+        <span className={`agent-usage__dot agent-usage__dot--${shown.state}`} />
+        <span className="agent-usage__label mono">{shown.label}</span>
         <span className="agent-usage__spacer" />
         <button
           type="button"
