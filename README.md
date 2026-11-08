@@ -428,7 +428,13 @@ record.
 
 1. Download `SC.Prism.dmg` from the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest).
 2. Open it, drag **SC Prism** to Applications, launch.
-3. The setup wizard walks you through providers (your own Claude/Gemini
+3. **First launch only:** v0.1.1 is signed with a Developer ID but not yet
+   notarised by Apple, so macOS will say it can't verify the app. Open
+   **System Settings → Privacy & Security**, scroll to *Security*, and click
+   **Open Anyway** next to SC Prism. (Or run
+   `xattr -dr com.apple.quarantine "/Applications/SC Prism.app"`.) A notarised
+   build replaces this one as soon as it's ready.
+4. The setup wizard walks you through providers (your own Claude/Gemini
    accounts or API keys, and/or a local model server), your vault folder, and
    the grants you choose to give.
 
