@@ -7,6 +7,7 @@ import { fmtMoney } from '../lib/money'
 import { bucketProviders, localShare, type ProviderBurn } from '../lib/engineStats'
 import { staleNote, useLiveDashboard } from '../lib/liveDashboard'
 import { activeRuns } from '../lib/liveRuns'
+import { Link } from 'react-router-dom'
 import './Console.css'
 import PageHead from '../components/PageHead'
 
@@ -245,8 +246,14 @@ export default function Console() {
         hint="the leadership view · burn, drift and enforcement at a glance"
         actions={
           /* A dropped engine read is STATED, not hidden behind numbers that
-             quietly reverted to the session fallback. */
-          dashNote ? <span className="console__note mono">{dashNote}</span> : undefined
+             quietly reverted to the session fallback. Stats left the rail
+             (five places, 2026-11-08 §D); the truth page points at it. */
+          <>
+            {dashNote ? <span className="console__note mono">{dashNote}</span> : null}
+            <Link to="/stats" className="console__statslink mono">
+              Stats ›
+            </Link>
+          </>
         }
       />
 

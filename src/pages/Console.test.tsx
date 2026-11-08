@@ -26,6 +26,15 @@ function renderConsole() {
   )
 }
 
+// Five places (2026-11-08 §D): Stats left the rail; the Console — the truth
+// page — points at it from its header.
+describe('the Console points at Stats', () => {
+  it('carries a Stats link in its header', () => {
+    renderConsole()
+    expect(screen.getByRole('link', { name: 'Stats ›' })).toHaveAttribute('href', '/stats')
+  })
+})
+
 // P2 honesty: the hook-latency card used to ship a hardcoded green "EKG"
 // sparkline and a "healthy" badge that rendered even with NO real hook data —
 // a fabricated healthy claim. With no engine hook data the badge must read a

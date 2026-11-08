@@ -76,3 +76,7 @@
 /* The engine-read note, in the header's actions slot. Quiet: it is a caveat
    about the numbers below, not a headline. */
 .console__note { font-size: 11px; color: var(--v2-muted); }
+
+/* The header's pointer to Stats — the same quiet link Work uses. */
+.console__statslink { font-size: 11px; color: var(--v2-ink-2); text-decoration: none; white-space: nowrap; margin-left: 10px; }
+.console__statslink:hover { color: var(--v2-ink); text-decoration: underline; }
