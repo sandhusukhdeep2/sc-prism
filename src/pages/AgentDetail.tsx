@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { proofChipText } from '../lib/proveAgent'
 import './AgentDetail.css'
 import {
   agentActivity,
@@ -126,6 +127,7 @@ function AgentEditor({ a }: { a: StoredAgent }) {
             />
           )}
           <div className="adetail__meta mono">
+            <span className={'adetail__proof' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')}>{proofChipText(a.proof)}</span> ·{' '}
             {a.system ? 'built-in · read-only definition' : 'your agent'}
             {' · '}
             {activity.label}

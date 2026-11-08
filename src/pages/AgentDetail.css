@@ -41,3 +41,6 @@
 .adetail__confirm { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
 .adetail__delyes { color: var(--danger, #a93f3b); font-weight: 600; }
 .adetail__delno { color: var(--muted); }
+
+.adetail__proof.is-proven { color: var(--v2-local-ink); }
+.adetail__proof.is-unproven { color: var(--v2-coral-ink); }

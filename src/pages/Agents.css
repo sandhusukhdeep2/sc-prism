@@ -463,3 +463,10 @@
 /* Audit fix: saved-path lines are reveal buttons, not dead text. */
 .team__path--btn { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: var(--ink-3); }
 .team__path--btn:hover { color: var(--ink); text-decoration: underline; }
+
+/* The proof chip + Prove (design 2026-11-08 §B). */
+.agent-tile__proof { font-size: 10.5px; color: var(--v2-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent-tile__proof.is-proven { color: var(--v2-local-ink); }
+.agent-tile__proof.is-unproven { color: var(--v2-coral-ink); }
+.agent-tile__prove { font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: var(--v2-r-pill); border: 1px solid var(--v2-line); background: var(--v2-card); color: var(--v2-ink); cursor: pointer; min-height: 28px; }
+.agent-tile__prove:disabled { opacity: 0.5; cursor: default; }
