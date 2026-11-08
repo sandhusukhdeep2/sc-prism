@@ -17,6 +17,8 @@ const calls = vi.hoisted(() => ({
   failWith: null as string | null,
   /** when set, resolve the Nth read only after this many ticks (out-of-order) */
   delay: null as ((n: number) => Promise<void>) | null,
+  /** when set, the next read THROWS (a path lookup / bridge failure) */
+  throwWith: null as Error | null,
 }))
 
 vi.mock('./nativeEngine', async (importOriginal) => {
@@ -29,6 +31,7 @@ vi.mock('./nativeEngine', async (importOriginal) => {
       calls.n += 1
       const mine = calls.n
       if (calls.delay) await calls.delay(mine)
+      if (calls.throwWith) throw calls.throwWith
       if (calls.failWith) return { kind: 'error' as const, error: calls.failWith }
       return {
         kind: 'ok' as const,
@@ -44,6 +47,7 @@ describe('useLiveDashboard', () => {
   beforeEach(() => {
     calls.n = 0
     calls.failWith = null
+    calls.throwWith = null
     calls.delay = null
     vi.useFakeTimers()
   })
@@ -55,6 +59,28 @@ describe('useLiveDashboard', () => {
       await Promise.resolve()
     })
   }
+
+  it('a read that THROWS (a path lookup or bridge failure) settles as failed — never an unhandled rejection', async () => {
+    // Found 2026-11-08: AppShell mounted this hook under a partial native stub,
+    // resolveVaultDir → homeDir() threw, and the rejection escaped the effect.
+    calls.throwWith = new Error('no tauri internals')
+    const { result } = renderHook(() => useLiveDashboard('/vault', false, 0))
+    await flush()
+    expect(result.current.status).toBe('failed')
+    expect(result.current.error).toContain('no tauri internals')
+    expect(result.current.dash).toBeNull()
+  })
+
+  it('a throw after a real measurement keeps that measurement and reads stale', async () => {
+    const { result, rerender } = renderHook(({ key }) => useLiveDashboard('/vault', false, key), { initialProps: { key: 0 } })
+    await flush()
+    expect(result.current.status).toBe('ok')
+    calls.throwWith = new Error('bridge gone')
+    rerender({ key: 1 })
+    await flush()
+    expect(result.current.status).toBe('stale')
+    expect(result.current.dash).not.toBeNull()
+  })
 
   it('fetches once on mount and then does NOT poll while idle', async () => {
     renderHook(() => useLiveDashboard('/vault', false, 0))

@@ -83,8 +83,16 @@ export function useLiveDashboard(
     let cancelled = false
     const fetchDash = async () => {
       const mine = ++seq.current
-      const vault = await resolveVaultDir(vaultPath)
-      const read = await readNativeDashboard(vault)
+      // A THROW on the way to a read (a path lookup, the bridge itself) is a
+      // failed read — recorded like one, never an unhandled rejection out of
+      // a polling effect. Found 2026-11-08 when AppShell mounted this hook.
+      let read: Awaited<ReturnType<typeof readNativeDashboard>>
+      try {
+        const vault = await resolveVaultDir(vaultPath)
+        read = await readNativeDashboard(vault)
+      } catch (err) {
+        read = { kind: 'error', error: err instanceof Error ? err.message : String(err) }
+      }
       if (cancelled || mine <= latest.current) return
       latest.current = mine
       setResult((prev) => {
