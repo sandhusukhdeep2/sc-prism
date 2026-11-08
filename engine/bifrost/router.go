@@ -144,6 +144,8 @@ func (g *Gateway) pickPrimary() string {
 
 func (g *Gateway) keyFor(provider string) string {
 	switch provider {
+	case "local":
+		return g.localKey
 	case "openai":
 		return g.openaiKey
 	case "claude":

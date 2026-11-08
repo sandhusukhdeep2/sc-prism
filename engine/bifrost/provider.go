@@ -191,8 +191,13 @@ func chatURL(route RouteDecision) string {
 // _invoke_anthropic) is the primary, complete implementation; a Claude route
 // reaching the Go daemon falls through to the deterministic offline stub.
 func (g *Gateway) invoke(messages []message, route RouteDecision) (string, int, int, bool, bool) {
+	// The route arrives over the socket with no key: RouteDecision.APIKey is
+	// json:"-" (a key must never cross the wire), so EVERY production route
+	// reaches here empty. Re-derive it from the daemon's own env for any
+	// provider — local included. This used to skip local, and a key-protected
+	// local server (oMLX) answered every call with 401 "API key required".
 	key := route.APIKey
-	if key == "" && !route.IsLocal {
+	if key == "" {
 		key = g.keyFor(route.Provider)
 	}
 	// A cloud route without a key can't authenticate — go straight to stub.
