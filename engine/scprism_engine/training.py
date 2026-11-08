@@ -36,7 +36,7 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 # Canonical relative location of the training log inside a vault.
 TRAINING_RELPATH = os.path.join("training", "records.jsonl")
@@ -289,11 +289,44 @@ def emit_record(record: Dict[str, Any], vault: str, *, path: Optional[str] = Non
     return out_path
 
 
-def read_records(vault: str, *, path: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Read accumulated training records back (empty list if none yet)."""
-    in_path = path or os.path.join(vault, TRAINING_RELPATH)
-    if not os.path.exists(in_path):
-        return []
+SET_ASIDE_RELPATH = os.path.join("training", "records.set-aside.jsonl")
+_STAND_IN_PREFIXES = ("[offline:", "[stub:", "[rejected:")
+SET_ASIDE_REASON = (
+    "the model never answered — the verdict's response was a gateway stand-in, "
+    "not a completion, so nothing here was verified"
+)
+
+
+def unanswered_task_ids(vault: str) -> Set[str]:
+    """Task ids whose verdict on file holds a STAND-IN response.
+
+    A training record carries no response and no ``is_real``; it cannot say
+    whether its run was ever answered. Its verdict (``verdicts/<task_id>.json``)
+    can: a response starting ``[offline:`` / ``[stub:`` / ``[rejected:`` is the
+    gateway's own marker for "this is not model output". Before 2026-11-08 such
+    runs were filed as passed and recorded here — in one real vault, 113 of 199
+    records. A verdict that cannot be read is skipped: we do not guess.
+    """
+    verdicts_dir = os.path.join(vault, "verdicts")
+    out: Set[str] = set()
+    if not os.path.isdir(verdicts_dir):
+        return out
+    for name in os.listdir(verdicts_dir):
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(verdicts_dir, name), "r", encoding="utf-8") as fh:
+                v = json.load(fh)
+        except Exception:
+            continue
+        if not isinstance(v, dict):
+            continue
+        if str(v.get("response") or "").lstrip().startswith(_STAND_IN_PREFIXES):
+            out.add(str(v.get("task_id") or name[:-5]))
+    return out
+
+
+def _read_lines(in_path: str) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     with open(in_path, "r", encoding="utf-8") as fh:
         for raw in fh:
@@ -301,6 +334,59 @@ def read_records(vault: str, *, path: Optional[str] = None) -> List[Dict[str, An
             if raw:
                 out.append(json.loads(raw))
     return out
+
+
+def read_records(vault: str, *, path: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Read accumulated training records back (empty list if none yet).
+
+    Never returns a record whose verdict was a stand-in (``unanswered_task_ids``),
+    whether or not ``set_aside_unanswered`` has run on this vault: the trainer
+    must not learn from a run the model never answered. A record with no
+    verdict on file is kept.
+    """
+    in_path = path or os.path.join(vault, TRAINING_RELPATH)
+    if not os.path.exists(in_path):
+        return []
+    rows = _read_lines(in_path)
+    unanswered = unanswered_task_ids(vault)
+    if not unanswered:
+        return rows
+    return [r for r in rows if str(r.get("task_id", "")) not in unanswered]
+
+
+def set_aside_unanswered(vault: str, *, path: Optional[str] = None) -> int:
+    """Move legacy no-answer records out of ``records.jsonl``; return how many.
+
+    Each moved record is appended, intact, to ``records.set-aside.jsonl`` with
+    ``set_aside_reason`` and ``set_aside_at`` — nothing is deleted, and the
+    move is idempotent. Why move at all when ``read_records`` already filters:
+    the app shows the record count as a plain line count of ``records.jsonl``,
+    and that number must tell the same truth.
+    """
+    in_path = path or os.path.join(vault, TRAINING_RELPATH)
+    if not os.path.exists(in_path):
+        return 0
+    unanswered = unanswered_task_ids(vault)
+    if not unanswered:
+        return 0
+    keep: List[Dict[str, Any]] = []
+    moved: List[Dict[str, Any]] = []
+    for r in _read_lines(in_path):
+        (moved if str(r.get("task_id", "")) in unanswered else keep).append(r)
+    if not moved:
+        return 0
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    aside_path = os.path.join(os.path.dirname(in_path), os.path.basename(SET_ASIDE_RELPATH))
+    with open(aside_path, "a", encoding="utf-8") as fh:
+        for r in moved:
+            fh.write(json.dumps(dict(r, set_aside_reason=SET_ASIDE_REASON, set_aside_at=stamp),
+                                ensure_ascii=False) + "\n")
+    tmp = in_path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        for r in keep:
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    os.replace(tmp, in_path)
+    return len(moved)
 
 
 def record_pass(

@@ -364,6 +364,10 @@ def cache_stats(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
+# The Tier-2 judge's model_call spans (evals.py, deepeval_backend.py), by name.
+_JUDGE_SPAN_NAMES = frozenset(('eval',))
+
+
 @dataclass
 class RunSummary:
     """One task run distilled from its spans (the session is the unit)."""
@@ -383,6 +387,11 @@ class RunSummary:
     # real files and passed while the LLM reviewer dissented; counting those as
     # failures is what poisoned this product's pass rates.
     outcome: Optional[str] = None
+    # Did the model ever answer? True when any model_call span is a real
+    # completion; False when every model_call carries ``is_real`` and none is
+    # True (every reply was a gateway stand-in); None when the run made no
+    # model calls or its spans predate ``is_real`` — unknown, never guessed.
+    answered: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -394,6 +403,7 @@ class RunSummary:
             "eval_score": self.eval_score,
             "passed": self.passed,
             "outcome": self.outcome,
+            "answered": self.answered,
             "cache_hit_rate": self.cache_hit_rate,
             "model_calls": self.model_calls,
         }
@@ -434,6 +444,15 @@ def run_series(spans: List[Dict[str, Any]]) -> List[RunSummary]:
             if a.get("cache", "miss") != "miss":
                 hits += 1
         hit_rate = round(hits / len(model_calls), 4) if model_calls else 0.0
+        # "Did the model answer" is about the WORK turns. The Tier-2 judge's own
+        # call is a model_call span too, and it can stand in (heuristic
+        # scoring) while the work itself was answered — a project step whose
+        # doer emits no span of its own would otherwise read as unanswered.
+        work = [s for s in model_calls if s.get("name") not in _JUDGE_SPAN_NAMES]
+        flagged = [s for s in work if "is_real" in (s.get("attrs") or {})]
+        answered: Optional[bool] = None
+        if flagged:
+            answered = any((s.get("attrs") or {}).get("is_real") is True for s in flagged)
 
         # Eval score + pass come from the verdict-type spans (tier2 / verdict).
         eval_score: Optional[float] = None
@@ -462,6 +481,7 @@ def run_series(spans: List[Dict[str, Any]]) -> List[RunSummary]:
                 cache_hit_rate=hit_rate,
                 model_calls=len(model_calls),
                 outcome=outcome,
+                answered=answered,
             )
         )
 
@@ -487,10 +507,18 @@ def outcome_stats(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
     is what made 32 chat turns read as a 3% pass rate.
 
     ``unknown`` is runs recorded before ``outcome`` existed. We do not guess.
+
+    ``unanswered`` (2026-11-08) is a run filed as passed / replied / attention
+    whose every model call was a gateway stand-in — the model never answered,
+    so nothing was verified. The engine no longer files such runs as passes;
+    this bucket is where the ones filed before that go, instead of ``passed``.
+    A run whose spans predate ``is_real`` keeps its recorded outcome.
     """
-    counts = {"passed": 0, "replied": 0, "attention": 0, "failed": 0, "unknown": 0}
+    counts = {"passed": 0, "replied": 0, "attention": 0, "failed": 0, "unanswered": 0, "unknown": 0}
     for r in run_series(spans):
-        if r.outcome in counts:
+        if r.answered is False and r.outcome in ("passed", "replied", "attention"):
+            counts["unanswered"] += 1
+        elif r.outcome in counts:
             counts[r.outcome] += 1
         elif r.outcome is None and r.passed is None:
             continue  # a run with no verdict span at all is not an outcome
@@ -506,7 +534,7 @@ def outcome_stats(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
     )
     counts["judge_contradicted"] = contradicted
     counts["total"] = sum(
-        counts[k] for k in ("passed", "replied", "attention", "failed", "unknown")
+        counts[k] for k in ("passed", "replied", "attention", "failed", "unanswered", "unknown")
     )
     return counts
 
