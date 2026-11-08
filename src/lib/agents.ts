@@ -161,6 +161,9 @@ export const SEED: StoredAgent[] = [
     role: 'emits the YAML plan',
     model: 'claude',
     skills: ['task-contract', 'decompose'],
+    // The grant each charter needs (2026-11-09): a planner reads the goal's
+    // notes; without a provable grant its proof could only show it speaks.
+    tools: ['vault'],
     enabled: true,
     usage: 128,
     evalScore: 0.95,
@@ -176,6 +179,7 @@ export const SEED: StoredAgent[] = [
     role: 'writes code + tests',
     model: 'local',
     skills: ['diff-context', 'test-first'],
+    tools: ['vault'],
     enabled: true,
     usage: 214,
     evalScore: 0.91,
@@ -191,6 +195,7 @@ export const SEED: StoredAgent[] = [
     role: 'judges trajectories',
     model: 'claude',
     skills: ['code-review', 'eval-rubric'],
+    tools: ['vault'],
     enabled: true,
     usage: 197,
     evalScore: 0.94,
@@ -226,6 +231,9 @@ export const SEED: StoredAgent[] = [
     role: 'vault sub-agent',
     model: 'local',
     skills: ['vault-search', 'backlinks'],
+    // Its whole job is the vault — seen 2026-11-09: it was proven on local
+    // without ever being allowed to touch a note.
+    tools: ['vault'],
     enabled: true,
     usage: 302,
     evalScore: 0.92,
@@ -1487,6 +1495,19 @@ export async function syncVaultAgents(vaultPath?: string): Promise<number> {
       await writeVaultNote(vault, repaired.sourcePath, serializeAgentMd(repaired))
     }
   }
+
+  // REPAIR (2026-11-09): the seeded files predate `tools:`, and discovery
+  // takes a silent file as the truth — so Retrieval held no vault grant and
+  // Researcher's seeded `web` was lost on the first sync, and no system agent
+  // could prove a tool call. A system file that says NOTHING about tools
+  // means the seed's grants: the row adopts them, the file is NOT rewritten
+  // (a user's file survives byte-for-byte; the next edit in the app writes
+  // the line). A file that declares `tools:` is the user's word and wins.
+  next = next.map((a) => {
+    if (!a.system || a.tools?.length) return a
+    const seedTools = SEED.find((sd) => sd.id === a.id)?.tools
+    return seedTools?.length ? { ...a, tools: [...seedTools] } : a
+  })
 
   // MIGRATION. Iterated by id against the LIVE `next` (never a stale
   // snapshot): each stamp changes which paths are taken, and two rows with

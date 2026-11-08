@@ -232,3 +232,51 @@ describe('system agents always have a charter on disk', () => {
     expect(native.files.get('agents/planner.md')).toContain('My own planner rules.')
   })
 })
+
+// GENUINE TOOLS (installed app, 2026-11-09): all five system agents proved
+// they could SPEAK on local, but none of them could prove a tool call — the
+// seeded vault files predate `tools:` and the sync takes a silent file as the
+// truth, so Retrieval ("answer from the vault") held no vault grant and
+// Researcher's seeded `web` grant was lost on the first sync. The seed names
+// the grant each charter needs, and a system file that says NOTHING about
+// tools means the seed's grants (the row adopts them; the file is never
+// rewritten behind the user's back); a file that declares `tools:` wins.
+describe('system agents hold the grants their charters need', () => {
+  beforeEach(() => {
+    native.files.clear()
+    native.tree = []
+    native.isNative.mockReturnValue(true)
+    localStorage.clear()
+  })
+  afterEach(() => {
+    localStorage.clear()
+  })
+
+  it('every system seed carries at least one provable grant, and the two whose job IS a tool carry that tool', () => {
+    for (const a of SEED.filter((x) => x.system)) {
+      expect((a.tools ?? []).some((t) => t === 'vault' || t === 'web'), a.name).toBe(true)
+    }
+    expect(SEED.find((a) => a.id === 'sys-retrieval')?.tools).toContain('vault')
+    expect(SEED.find((a) => a.id === 'sys-researcher')?.tools).toContain('web')
+  })
+
+  it('a seeded file that says nothing about tools means the seed grants — the row adopts them, the file is untouched', async () => {
+    const theirs = '---\nname: Retrieval\ndescription: vault sub-agent\nmodel: local\nskills: [vault-search, backlinks]\n---\n\nAnswer from the vault.\n'
+    native.files.set('agents/retrieval.md', theirs)
+    native.tree = ['agents/retrieval.md']
+    await syncVaultAgents()
+    const row = list().find((a) => a.id === 'sys-retrieval')
+    expect(row?.tools).toEqual(SEED.find((a) => a.id === 'sys-retrieval')!.tools)
+    expect(native.files.get('agents/retrieval.md')).toBe(theirs)
+  })
+
+  it('a file that declares its own tools keeps them — the user\'s word wins', async () => {
+    native.files.set('agents/retrieval.md',
+      '---\nname: Retrieval\ndescription: vault sub-agent\nmodel: local\ntools: [web]\nskills: [vault-search]\n---\n\nAnswer from the web.\n')
+    native.tree = ['agents/retrieval.md']
+    await syncVaultAgents()
+    const row = list().find((a) => a.id === 'sys-retrieval')
+    expect(row?.tools).toEqual(['web'])
+    expect(native.files.get('agents/retrieval.md')).not.toMatch(/^tools: .*vault/m)
+  })
+})
