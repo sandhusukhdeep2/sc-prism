@@ -80,3 +80,26 @@ export function teamSalvageLine(spans: readonly EngineSpan[], runId: string): st
 
   return `Before we stopped it: ${parts.join(' · ')}. The full trail is in Console.`
 }
+
+/**
+ * The engine's OWN words for a team run that FAILED, from the run span it
+ * closed with `status: error` — "the engine stopped before any seat answered —
+ * NameError(...)". Seen 2026-11-09: a run died in the engine before any seat
+ * spoke and the chat said only "check the agents list and try again", hiding
+ * the cause the engine had already written. '' when the tail holds no failed
+ * run span, so the caller appends nothing rather than a guess.
+ */
+export function teamFailureCause(spans: readonly EngineSpan[], runId: string): string {
+  // Same selection as teamSalvageLine: the caller's id is a cancel handle the
+  // engine never sees, so fall back to the last run in the tail.
+  const matches = runId ? spans.filter((s) => s.run_id === runId) : []
+  const lastRun = [...spans].reverse().find((s) => s.run_id)?.run_id
+  const mine =
+    matches.length > 0 ? matches : spans.filter((s) => !s.run_id || !lastRun || s.run_id === lastRun)
+  const failed = [...mine].reverse().find((s) => s.type === 'run' && s.status === 'error')
+  const error = typeof failed?.attrs?.error === 'string' ? failed.attrs.error.trim() : ''
+  if (!error) return ''
+  const turns = mine.filter((s) => s.name === 'model_call' && (s.type === undefined || s.type === 'model_call')).length
+  const when = turns === 0 ? 'before any seat answered' : `after ${turns} turn${turns === 1 ? '' : 's'}`
+  return `the engine stopped ${when} — ${error}`
+}

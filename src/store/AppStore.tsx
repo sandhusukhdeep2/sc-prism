@@ -32,7 +32,7 @@ import {
   storeGet,
   listenNative,
 } from '../lib/nativeEngine'
-import { teamSalvageLine } from '../lib/teamSalvage'
+import { teamFailureCause, teamSalvageLine } from '../lib/teamSalvage'
 import { isDown, useConnectivity } from '../lib/connectivity'
 // THE shared tool_call guard. Every surface in this file that shows a raw
 // model completion runs its text through it — see answerText.ts for why.
@@ -1242,7 +1242,7 @@ export type TeamLaunch =
   | { status: 'busy' }
   | { status: 'ok'; result: TeamResult; sitOut: SitOut[]; reassigned: Reassigned[] }
   | { status: 'timeout'; salvage: string }
-  | { status: 'failed' }
+  | { status: 'failed'; cause: string }
   | { status: 'refused'; reason: string; sitOut: SitOut[]; reassigned: Reassigned[] }
 /**
  * The honest one-line notice a FINISHED team run posts into the Work chat.
@@ -2500,7 +2500,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mode?: string
     }): Promise<TeamLaunch> => {
       const task = opts.task.trim()
-      if (!task) return { status: 'failed' }
+      if (!task) return { status: 'failed', cause: '' }
       const s = settingsRef.current
       const asked = (opts.roster ?? '').trim() || teamRosterFromSettings(s)
       // THE GATE (2026-08-12). Every seat is checked against the provider it
@@ -2603,7 +2603,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         outcome = 'failed'
         detail = 'the team run returned nothing'
-        return { status: 'failed' }
+        // The engine's own words for WHY, from the run span it closed with
+        // status=error — never "check the agents list" when the cause is known.
+        let cause = ''
+        try {
+          cause = teamFailureCause(await readSpansTail(vault, 400), teamRunId)
+        } catch {
+          /* no spans readable -> no claim made */
+        }
+        return { status: 'failed', cause }
       } catch (err) {
         outcome = 'failed'
         detail = 'the team run failed to start'
@@ -2656,7 +2664,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           mode: 'converse',
         })
       } catch {
-        launch = { status: 'failed' }
+        launch = { status: 'failed', cause: '' }
       }
       if (launch.status === 'busy') {
         notice(TEAM_BUSY_TEXT)
@@ -2669,7 +2677,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return
       }
       if (launch.status === 'failed') {
-        notice(TEAM_FAILED_TEXT)
+        notice(launch.cause ? `Team run failed — ${launch.cause}` : TEAM_FAILED_TEXT)
         return
       }
       // Nobody could run: say so, in the reason's own words, and stop. Never

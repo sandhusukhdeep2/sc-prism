@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { teamSalvageLine } from './teamSalvage'
+import { teamFailureCause, teamSalvageLine } from './teamSalvage'
 import type { EngineSpan } from './nativeEngine'
 
 // Sukhdeep, watching a real run in the app on 2026-08-31: a three-AI board
@@ -128,4 +128,27 @@ it('shortens a long local model id so the line stays readable', () => {
   expect(line).toContain('Qwen3.6-35B')
   expect(line).not.toContain(long)
   expect(line).toContain('…')
+})
+
+// Seen in the installed app 2026-11-09: a team run died in the engine before
+// any seat spoke (NameError) and the chat said only "Team run failed — check
+// the agents list and try again" — a cause the user could not act on, hiding
+// the one the engine had already written into the run span's `error`.
+describe('teamFailureCause — the engine’s own words for a run that failed', () => {
+  const runSpan = (error: string | undefined, run = 'R9'): EngineSpan => ({
+    name: 'run:say-hello-abc', type: 'run', status: error ? 'error' : 'ok', attrs: error ? { error } : {}, run_id: run,
+  })
+  it('names the engine error when the run span closed with one and no seat had answered', () => {
+    const line = teamFailureCause([runSpan("NameError(\"name 'skill_narrowing_for' is not defined\")")], 'R9')
+    expect(line).toBe("the engine stopped before any seat answered — NameError(\"name 'skill_narrowing_for' is not defined\")")
+  })
+  it('says how many turns had happened when the engine stopped mid-run', () => {
+    const spans = [span('model_call', { agent: 'lead', model: 'qwen' }, 'R9'), span('model_call', { agent: 'critic', model: 'qwen' }, 'R9'), runSpan('RuntimeError(\'boom\')')]
+    expect(teamFailureCause(spans, 'R9')).toBe("the engine stopped after 2 turns — RuntimeError('boom')")
+  })
+  it('falls back to the last run in the tail when the caller’s id matches nothing, and says nothing when there is no error', () => {
+    expect(teamFailureCause([runSpan('ValueError(\'x\')', 'ENGINE-ID')], 'cancel-handle')).toBe("the engine stopped before any seat answered — ValueError('x')")
+    expect(teamFailureCause([runSpan(undefined)], 'R9')).toBe('')
+    expect(teamFailureCause([], 'R9')).toBe('')
+  })
 })
