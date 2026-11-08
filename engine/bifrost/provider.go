@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -19,7 +21,11 @@ import (
 // is read from the environment at startup (the Python supervisor passes it when
 // it spawns the daemon), so route/model_call need no config on the wire.
 
-const defaultTimeout = 2 * time.Second
+// Per-call bound when the supervisor passes none (SCPRISM_BIFROST_TIMEOUT):
+// gateway.py's HTTP_TIMEOUT_DEFAULT. A cold local model takes 5-30s+ to load;
+// the old 2s closed the call while oMLX was still loading and the stand-in
+// read "no completion" (2026-11-08).
+const defaultTimeout = 120 * time.Second
 
 // Output budget for every real provider call — the Go twin of
 // DEFAULT_MAX_TOKENS in gateway.py. Without an explicit max_tokens the
@@ -233,7 +239,7 @@ func (g *Gateway) invoke(messages []message, route RouteDecision) (string, int, 
 
 	resp, err := g.client.Do(req)
 	if err != nil {
-		return g.stub(messages, route)
+		return g.unreachable(messages, route, err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(resp.Body)
@@ -360,6 +366,28 @@ func (g *Gateway) stub(messages []message, route RouteDecision) (string, int, in
 	// No reply came back, so no output tokens. This used to report 8–47,
 	// hash-derived — a fabricated spend on every stand-in (gateway.py agrees).
 	return text, tin, 0, false, false // the stub is always complete
+}
+
+// unreachable names the two endings a user can act on — the bound we
+// enforced ran out, or nothing is listening — and leaves the rest to the
+// generic stub. Same words as gateway.py's _offline_cause, so the seat on the
+// crew board can say WHY there was no answer instead of "handled: <prompt>".
+func (g *Gateway) unreachable(messages []message, route RouteDecision, err error) (string, int, int, bool, bool) {
+	var detail string
+	switch {
+	case os.IsTimeout(err):
+		bound := g.client.Timeout
+		if bound <= 0 {
+			bound = g.timeout
+		}
+		detail = fmt.Sprintf("the server did not answer within %gs", bound.Seconds())
+	case errors.Is(err, syscall.ECONNREFUSED):
+		detail = "the server refused the connection — is it running?"
+	default:
+		return g.stub(messages, route)
+	}
+	return fmt.Sprintf("[offline:%s:%s] %s", route.Provider, route.Model, detail),
+		estTokens(messagesText(messages)), 0, false, false
 }
 
 func trimRightSlash(s string) string {

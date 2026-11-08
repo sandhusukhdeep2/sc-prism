@@ -55,6 +55,39 @@ DEFAULT_LOCAL_URL = "http://localhost:1234"
 # to the client, so a bigger number belongs on the CLIENT's cancel first.
 CLI_TIMEOUT_DEFAULT = 180.0
 
+# How long ONE HTTP model call may take, for BOTH gateways (override:
+# SCPRISM_HTTP_TIMEOUT). Under the client's 240s cancel, like the CLI bound.
+HTTP_TIMEOUT_DEFAULT = 120.0
+
+
+def http_timeout(env, explicit: Optional[float] = None) -> float:
+    """The per-call HTTP bound — one rule for the Python gateway AND Bifrost.
+
+    Real inference needs real time: a local server loads the model into RAM
+    on first call (5-30s+) and cloud completions stream for seconds. A 2.0s
+    default starved every real HTTP provider into the honest stub — first in
+    the Python gateway (fixed long ago), then again on the Bifrost path, whose
+    supervisor kept its own 2.0s and forwarded it to the daemon (2026-11-08:
+    an agent's proof closed at 2003 ms while oMLX was still loading the model).
+
+    Explicit arg wins (tests pass tiny values for fast-fail); else
+    SCPRISM_HTTP_TIMEOUT; else 120s. Garbage / non-finite / <= 0 -> the
+    default, the same clamp discipline as the approval timeout.
+    """
+    value = explicit
+    if value is None:
+        try:
+            value = float(env.get("SCPRISM_HTTP_TIMEOUT", "") or HTTP_TIMEOUT_DEFAULT)
+        except (TypeError, ValueError):
+            value = HTTP_TIMEOUT_DEFAULT
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        value = HTTP_TIMEOUT_DEFAULT
+    if not math.isfinite(value) or value <= 0:
+        value = HTTP_TIMEOUT_DEFAULT
+    return value
+
 # A LOCAL model that could not be LOADED (2026-08-17).
 #
 # oMLX answers a chat POST for a model that does not fit with HTTP 507 and a
@@ -1120,21 +1153,8 @@ class Gateway:
         self.gemini_api_key = (
             gemini_api_key or env.get("GEMINI_API_KEY") or env.get("GOOGLE_API_KEY")
         )
-        # Real inference needs real time: a local server loads the model into
-        # RAM on first call (5-30s+) and cloud completions stream for seconds.
-        # The old 2.0s default starved EVERY real HTTP provider into the
-        # honest stub (while looking healthy on the fast test stubs). Explicit
-        # arg wins (tests pass tiny values for fast-fail); else
-        # SCPRISM_HTTP_TIMEOUT; else 120s. Same clamp discipline as the
-        # approval timeout: garbage / non-finite / <= 0 -> the default.
-        if timeout is None:
-            try:
-                timeout = float(env.get("SCPRISM_HTTP_TIMEOUT", "") or 120.0)
-            except (TypeError, ValueError):
-                timeout = 120.0
-            if not math.isfinite(timeout) or timeout <= 0:
-                timeout = 120.0
-        self.timeout = float(timeout)
+        # One rule for both gateways — see http_timeout.
+        self.timeout = http_timeout(env, timeout)
         # Per-call bound for the subscription-CLI bridge (see
         # CLI_TIMEOUT_DEFAULT for why it sits under the app's 240s cancel).
         # Same clamp discipline as the HTTP timeout: garbage / non-finite /

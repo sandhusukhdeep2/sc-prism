@@ -36,6 +36,7 @@ from .gateway import (
     RouteDecision,
     _PROVIDERS,
     _extract_text,
+    http_timeout,
 )
 
 # engine/scprism_engine/bifrost_client.py -> engine/scprism_engine -> engine
@@ -106,7 +107,7 @@ class BifrostGateway:
         claude_api_key: Optional[str] = None,
         gemini_api_key: Optional[str] = None,
         primary: Optional[str] = None,
-        timeout: float = 2.0,
+        timeout: Optional[float] = None,
         max_tokens: Optional[int] = None,
         env: Optional[Dict[str, str]] = None,
         socket_path: Optional[str] = None,
@@ -169,7 +170,7 @@ class BifrostGateway:
         claude_api_key: Optional[str],
         gemini_api_key: Optional[str],
         primary: Optional[str],
-        timeout: float,
+        timeout: Optional[float],
         max_tokens: Optional[int] = None,
     ) -> Dict[str, str]:
         env = dict(base_env)
@@ -188,7 +189,10 @@ class BifrostGateway:
         # precedence the Python Gateway applies.
         if max_tokens is not None:
             env["SCPRISM_BIFROST_MAX_TOKENS"] = str(int(max_tokens))
-        env["SCPRISM_BIFROST_TIMEOUT"] = str(float(timeout))
+        # The daemon's per-call bound: the SAME rule as the Python gateway
+        # (explicit > SCPRISM_HTTP_TIMEOUT > 120s) — never a 2s default that
+        # closes a local call while the model is still loading.
+        env["SCPRISM_BIFROST_TIMEOUT"] = str(http_timeout(base_env, timeout))
         return env
 
     # -- lifecycle ------------------------------------------------------
