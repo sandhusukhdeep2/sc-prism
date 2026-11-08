@@ -55,10 +55,31 @@ else
   report "compiled bytecode (.pyc)" 0
 fi
 
-# --- shipped source: the engine ships as plaintext, so comments ship too ---
-names=$( { grep -rlEi "sukhdeep|sandhu" "$APP/Contents/Resources/resources/engine" 2>/dev/null || true; } | wc -l | tr -d ' ')
-first=$( { grep -rlEi "sukhdeep|sandhu" "$APP/Contents/Resources/resources/engine" 2>/dev/null || true; } | head -1)
-report "personal names in shipped source" "${names:-0}" "$first"
+# --- the shipped engine: it ships as plaintext source, so comments ship too ---
+# A Developer ID signature embeds the signing certificate — the signer's legal
+# name and team ID — in every binary it signs. That is public by design (macOS
+# shows it to everyone who opens the app) and every notarised Mac app carries
+# one, so this scan used to pass before signing and fail after it, every time.
+# A binary is therefore checked with its code signature removed — on a scratch
+# copy, never the shipped file — and everything else in it is still checked.
+ENGINE="$APP/Contents/Resources/resources/engine"
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "$SCRATCH"' EXIT
+names=0
+first=""
+while IFS= read -r -d '' f; do
+  target="$f"
+  if file -b "$f" | grep -q 'Mach-O'; then
+    target="$SCRATCH/$(basename "$f")"
+    cp "$f" "$target"
+    codesign --remove-signature "$target" 2>/dev/null || true
+  fi
+  if grep -qEi "sukhdeep|sandhu" "$target"; then
+    names=$((names + 1))
+    [ -n "$first" ] || first="$f"
+  fi
+done < <(find "$ENGINE" -type f -print0 2>/dev/null)
+report "personal names in the shipped engine" "$names" "$first"
 
 echo
 if [ "$fail" -eq 1 ]; then
