@@ -148,7 +148,8 @@ def token_burn_by_time(
     Buckets are integer offsets of ``bucket_s`` seconds from the earliest
     model_call, so the series is stable regardless of absolute clock.
     """
-    calls = [s for s in spans if _is_model_call(s)]
+    # Stand-ins bought nothing: the same rule as per_model_cost.
+    calls = [s for s in spans if _is_model_call(s) and s.get("attrs", {}).get("is_real") is not False]
     if not calls:
         return {}
     t0 = min(s.get("start", 0.0) for s in calls)
@@ -447,6 +448,8 @@ def run_series(spans: List[Dict[str, Any]]) -> List[RunSummary]:
         hits = 0
         for s in model_calls:
             a = s.get("attrs", {})
+            if a.get("is_real") is False:
+                continue  # a stand-in's estimated prompt bought nothing (see per_model_cost)
             tin = int(a.get("tokens_in", 0) or 0)
             tout = int(a.get("tokens_out", 0) or 0)
             tokens += tin + tout

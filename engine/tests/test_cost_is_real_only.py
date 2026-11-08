@@ -35,6 +35,17 @@ class TestSpendCountsRealCompletionsOnly(unittest.TestCase):
     def test_per_operation_cost_skips_a_stand_in(self):
         self.assertEqual(sum(v["tokens"] for v in obs.per_operation_cost(SPANS).values()), 165)
 
+    def test_run_series_tokens_and_cost_skip_a_stand_in(self):
+        # Stats' cost trend reads run_series.cost; a refused cloud key must not
+        # push it up while the total (per_model_cost) says 0.
+        r = obs.run_series(SPANS)[0]
+        self.assertEqual(r.tokens, 165)
+        self.assertEqual(r.cost, round(obs._cost("local", 100, 50) + obs._cost("local", 10, 5), 6))
+
+    def test_token_burn_by_time_skips_a_stand_in(self):
+        total = sum(v for v in obs.token_burn_by_time(SPANS).values())
+        self.assertEqual(total, 165)
+
     def test_the_dashboard_total_follows(self):
         with tempfile.TemporaryDirectory() as vault:
             with open(os.path.join(vault, "spans.jsonl"), "w", encoding="utf-8") as fh:
