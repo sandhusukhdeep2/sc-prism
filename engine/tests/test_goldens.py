@@ -3,13 +3,12 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.gateway import Gateway
 from scprism_engine import goldens
 
 
-def _offline_gateway():
-    return Gateway(openai_base_url="http://127.0.0.1:9", env={}, timeout=0.2)
 
 
 class TestGoldenLoading(unittest.TestCase):
@@ -42,7 +41,7 @@ class TestGoldenRunner(unittest.TestCase):
 
     def test_golden_runs_end_to_end_and_scores(self):
         g = next(x for x in goldens.load_goldens() if x.id == "add-rate-limit-guard")
-        r = goldens.run_golden(g, vault=self.vault, gateway=_offline_gateway())
+        r = goldens.run_golden(g, vault=self.vault, gateway=RealGateway())
         self.assertTrue(r.tier1_passed)
         self.assertTrue(r.tier2_ran)
         self.assertTrue(r.envelope_ok)
@@ -56,7 +55,7 @@ class TestGoldenRunner(unittest.TestCase):
 
     def test_runaway_golden_fails_on_envelope_breach(self):
         g = next(x for x in goldens.load_goldens() if x.id == "tight-envelope-runaway")
-        r = goldens.run_golden(g, vault=self.vault, gateway=_offline_gateway())
+        r = goldens.run_golden(g, vault=self.vault, gateway=RealGateway())
         # The score itself clears threshold, but the tight step envelope breaks.
         self.assertGreaterEqual(r.eval_score, g.threshold)
         self.assertFalse(r.envelope_ok)
@@ -69,16 +68,16 @@ class TestGoldenRunner(unittest.TestCase):
         # Re-running the same goldens yields identical scores (regression base).
         first = {
             r.golden_id: r.eval_score
-            for r in goldens.run_all_goldens(vault=self.vault, gateway=_offline_gateway())
+            for r in goldens.run_all_goldens(vault=self.vault, gateway=RealGateway())
         }
         second = {
             r.golden_id: r.eval_score
-            for r in goldens.run_all_goldens(vault=self.vault, gateway=_offline_gateway())
+            for r in goldens.run_all_goldens(vault=self.vault, gateway=RealGateway())
         }
         self.assertEqual(first, second, "goldens must be re-runnable & deterministic")
 
     def test_full_suite_matches_expectations(self):
-        results = goldens.run_all_goldens(vault=self.vault, gateway=_offline_gateway())
+        results = goldens.run_all_goldens(vault=self.vault, gateway=RealGateway())
         self.assertGreaterEqual(len(results), 3)
         for r in results:
             self.assertTrue(

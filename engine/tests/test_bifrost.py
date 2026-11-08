@@ -10,6 +10,8 @@ import os
 import unittest
 
 import _bootstrap  # noqa: F401
+from unittest import mock
+from _fakes import fake_openai_server
 
 from scprism_engine.bifrost_client import (
     BifrostGateway,
@@ -171,7 +173,10 @@ class TestBifrostGateway(unittest.TestCase):
     def test_loop_runs_end_to_end_through_go_gateway(self):
         import tempfile
 
-        with tempfile.TemporaryDirectory() as vault:
+        # The daemon inherits OPENAI_BASE_URL from the environment: give it a
+        # provider that actually answers, so "passed" means the model did.
+        with tempfile.TemporaryDirectory() as vault, fake_openai_server() as (url, _), \
+                mock.patch.dict(os.environ, {"OPENAI_BASE_URL": url}):
             contract = parse("add a rate-limit guard", task_id="t-bifrost-e2e")
             verdict = run(
                 contract,

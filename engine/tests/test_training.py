@@ -13,6 +13,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
@@ -79,7 +80,7 @@ class TestSeamViaLoop(unittest.TestCase):
 
     def test_passing_task_emits_exactly_one_complete_record(self):
         contract = parse("add a rate-limit guard", task_id="t-pass-1")
-        verdict = run(contract, vault=self.vault, tier1_commands=["true"])
+        verdict = run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
         self.assertTrue(verdict.passed)
 
         records = read_records(self.vault)
@@ -118,8 +119,8 @@ class TestSeamViaLoop(unittest.TestCase):
         self.assertAlmostEqual(rec["reward"]["value"], expected.value)
 
     def test_two_passing_tasks_emit_two_records_appended(self):
-        run(parse("task one", task_id="t-a"), vault=self.vault, tier1_commands=["true"])
-        run(parse("task two", task_id="t-b"), vault=self.vault, tier1_commands=["true"])
+        run(parse("task one", task_id="t-a"), vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
+        run(parse("task two", task_id="t-b"), vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
         records = read_records(self.vault)
         self.assertEqual(len(records), 2)
         self.assertEqual([r["task_id"] for r in records], ["t-a", "t-b"])
@@ -152,13 +153,13 @@ class TestSeamViaLoop(unittest.TestCase):
 
     def test_record_training_flag_disables_emission(self):
         contract = parse("no seam please", task_id="t-noseam")
-        run(contract, vault=self.vault, tier1_commands=["true"], record_training=False)
+        run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"], record_training=False)
         self.assertEqual(read_records(self.vault), [])
 
     def test_record_provable_from_verdict_object(self):
         # build_record over a real Verdict reproduces what the loop wrote.
         contract = parse("provable", task_id="t-prov")
-        verdict = run(contract, vault=self.vault, tier1_commands=["true"])
+        verdict = run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
         rebuilt = build_record(contract, verdict, stop_compliant=True, steps=2)
         written = read_records(self.vault)[0]
         self.assertEqual(rebuilt["task_id"], written["task_id"])

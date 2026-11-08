@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
@@ -20,8 +21,6 @@ from scprism_engine.telemetry import read_spans
 from scprism_engine.hooks import ToolRequest, Approval, now_iso
 
 
-def _offline_gateway():
-    return Gateway(openai_base_url="http://127.0.0.1:9", env={}, timeout=0.2)
 
 
 class TestGovernanceLoop(unittest.TestCase):
@@ -36,7 +35,7 @@ class TestGovernanceLoop(unittest.TestCase):
         contract = parse("add a rate-limit guard", task_id=task_id, scope=["engine/**"])
         return run(
             contract, vault=self.vault, tier1_commands=["true"],
-            gateway=_offline_gateway(), **kw,
+            gateway=RealGateway(), **kw,
         )
 
     def _load(self, task_id):

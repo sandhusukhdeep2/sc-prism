@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run, _who
@@ -19,7 +20,7 @@ class TestFullLoop(unittest.TestCase):
 
     def test_full_loop_emits_exactly_one_persisted_verdict(self):
         contract = parse("add a rate-limit guard", task_id="t-loop-1")
-        verdict = run(contract, vault=self.vault, tier1_commands=["true"])
+        verdict = run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
 
         verdicts_dir = os.path.join(self.vault, "verdicts")
         files = os.listdir(verdicts_dir)
@@ -54,7 +55,7 @@ class TestFullLoop(unittest.TestCase):
 
     def test_writeback_is_atomic_single_file(self):
         contract = parse("add another guard", task_id="t-atomic")
-        run(contract, vault=self.vault, tier1_commands=["true"])
+        run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
         # No leftover .tmp files from the atomic write.
         leftovers = [
             f
@@ -90,7 +91,7 @@ class TestTier1IsAProjectGate(unittest.TestCase):
 
     def test_a_chat_shaped_run_skips_the_gate_honestly_and_can_pass(self):
         contract = parse("hello, are you real?", task_id="t-chat-1")
-        verdict = run(contract, vault=self.vault, tier1_commands=["npm test"], tier1_cwd="")
+        verdict = run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["npm test"], tier1_cwd="")
 
         self.assertTrue(verdict.tier1["skipped"], "nothing to verify -> the gate skips")
         self.assertTrue(verdict.passed, "a chat message must not FAIL for having no tests")

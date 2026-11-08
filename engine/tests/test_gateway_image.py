@@ -20,6 +20,8 @@ import unittest
 from unittest import mock
 
 import _bootstrap  # noqa: F401
+from unittest import mock
+from _fakes import fake_openai_server
 
 from scprism_engine import gateway as gwmod
 from scprism_engine.gateway import (
@@ -347,6 +349,20 @@ class CompanionMessagesImageTests(unittest.TestCase):
 class CliImageFlagTests(unittest.TestCase):
     """`run --image` end-to-end (offline stub, no network): a good image runs
     clean; a bad/oversize/missing image is an honest exit-1 error."""
+
+    # The CLI builds its gateway from the environment: serve a provider that
+    # actually answers, so a passing run means the model answered.
+    @classmethod
+    def setUpClass(cls):
+        cls._provider = fake_openai_server()
+        url, _ = cls._provider.__enter__()
+        cls._provider_env = mock.patch.dict(os.environ, {"OPENAI_BASE_URL": url})
+        cls._provider_env.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._provider_env.stop()
+        cls._provider.__exit__(None, None, None)
 
     def _run_cli(self, argv):
         import io

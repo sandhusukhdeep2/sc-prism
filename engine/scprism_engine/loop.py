@@ -1265,6 +1265,9 @@ def run(
             workflow_path=workflow_path,
             project_result=project_result,
             extras=verdict_extras,
+            # Every step output was a stand-in → the model never answered, and
+            # the verdict cannot be a pass whatever the tiers scored.
+            completion_real=bool(real_outputs),
         )
 
         run_span.set(

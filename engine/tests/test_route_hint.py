@@ -19,6 +19,8 @@ import unittest
 from contextlib import redirect_stdout, redirect_stderr
 
 import _bootstrap  # noqa: F401
+from unittest import mock
+from _fakes import fake_openai_server
 
 from scprism_engine.__main__ import main
 from scprism_engine.gateway import Gateway
@@ -98,6 +100,20 @@ class TestRunRouteCLI(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.vault = self._tmp.name
+
+    # The CLI builds its gateway from the environment: serve a provider that
+    # actually answers, so a passing run means the model answered.
+    @classmethod
+    def setUpClass(cls):
+        cls._provider = fake_openai_server()
+        url, _ = cls._provider.__enter__()
+        cls._provider_env = mock.patch.dict(os.environ, {"OPENAI_BASE_URL": url})
+        cls._provider_env.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._provider_env.stop()
+        cls._provider.__exit__(None, None, None)
 
     def tearDown(self):
         self._tmp.cleanup()

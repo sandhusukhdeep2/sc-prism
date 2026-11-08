@@ -206,6 +206,30 @@ def _tier2_summary(t2: Optional[Tier2Result]) -> Dict[str, Any]:
     }
 
 
+def _stand_in_cause(response: str) -> str:
+    """The reason behind a gateway stand-in, for a human.
+
+    A stand-in is ``[offline:provider:model] <detail>`` (or ``[stub:`` /
+    ``[rejected:``). A NAMED detail — "the server rejected the API key (HTTP
+    401)" — is the cause and is kept verbatim. The generic stub's detail is
+    "handled: <the prompt echoed back>", which names nothing, so it becomes a
+    plain statement of what happened.
+    """
+    text = (response or "").strip()
+    if not text.startswith("["):
+        return "the provider returned no completion"
+    head, _, detail = text.partition("] ")
+    marker = head.lstrip("[")
+    kind, _, rest = marker.partition(":")
+    provider = rest.split(":", 1)[0] or "the provider"
+    detail = detail.strip()
+    if kind == "rejected":
+        return f"{provider} refused the request" + (f": {detail}" if detail else "")
+    if not detail or detail.startswith("handled:"):
+        return f"{provider} returned no completion"
+    return detail
+
+
 def build_verdict(
     *,
     task_id: str,
@@ -230,10 +254,22 @@ def build_verdict(
     model_route_reasons: Optional[List[str]] = None,
     produced_files: Optional[List[str]] = None,
     mode: str = "",
+    completion_real: bool = True,
 ) -> Verdict:
-    """Assemble a Verdict. Overall pass = tier1 passed AND tier2 passed AND no
-    governance block went unresolved AND no vault write was rejected by the
-    validation gate (ADR-014 — a rejected write fails the task closed).
+    """Assemble a Verdict. Overall pass = the model actually answered AND tier1
+    passed AND tier2 passed AND no governance block went unresolved AND no
+    vault write was rejected by the validation gate (ADR-014 — a rejected write
+    fails the task closed).
+
+    ``completion_real`` is whether any step got a real completion. The loop
+    passes ``False`` when every output was a gateway stand-in (``[offline:``,
+    ``[stub:``, ``[rejected:``) — the provider was unreachable, refused the
+    call, or was never configured. Such a run can clear tier-1 (a skip passes
+    vacuously) and clear tier-2 (the judge's own call stands in too, and the
+    deterministic fallback scores the trace), and before this flag it was filed
+    as ``passed`` and fed to training: in one real vault, 111 of 200 passes.
+    Nothing was done, so nothing can have been verified. Defaults ``True`` for
+    callers that assemble a verdict from parts they already know are real.
 
     ``mode`` is the contract's mode, and only "converse" changes anything: a
     chat turn that clears the judge is recorded ``outcome="replied"`` (its
@@ -266,7 +302,7 @@ def build_verdict(
     t1_ok = bool(tier1_result and tier1_result.passed)
     t2_ok = bool(tier2_result and getattr(tier2_result, "passed", False))
     gov_ok = not blocks and not rejected_writes
-    passed = t1_ok and t2_ok and gov_ok
+    passed = completion_real and t1_ok and t2_ok and gov_ok
 
     # Did Tier-1 genuinely execute checks? `Tier1Result.passed` is True on a
     # SKIP too (nothing to disprove), so `passed` alone can never stand as
@@ -281,7 +317,17 @@ def build_verdict(
     t2_envelope_ok = bool(tier2_result is None or getattr(tier2_result, "envelope_ok", True))
     files = list(produced_files or [])
 
-    if passed and mode == "converse":
+    if not completion_real:
+        # Nothing to grade: the model never answered. Say so first and say why,
+        # in the stand-in's own words — a 401, a refused load, an unreachable
+        # server — so the record points at the fix instead of at a 0.96.
+        outcome = "failed"
+        outcome_reason = (
+            "the model never answered — every reply was a stand-in, not a "
+            f"completion ({_stand_in_cause(response)}). Nothing was done, so "
+            "nothing was verified; the tier scores below grade an empty run."
+        )
+    elif passed and mode == "converse":
         # A chat turn's pass, in a chat turn's words. No gate line: tier-1 is
         # not applicable to a reply (the criteria say so), so "was skipped"
         # would report a non-event as if it were a caveat.

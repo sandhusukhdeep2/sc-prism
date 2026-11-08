@@ -22,6 +22,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine import grpo
 from scprism_engine.grpo import (
@@ -315,7 +316,7 @@ class TestFullPipelineCLI(unittest.TestCase):
             ["add a test for the parser", "refactor the auth login module",
              "summarize the config files", "generate tests for the handler"]
         ):
-            run(parse(intent, task_id=f"t{i}"), vault=self.vault, tier1_commands=["true"])
+            run(parse(intent, task_id=f"t{i}"), vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
 
         report = run_training_pipeline(self.vault, dry_run=True)
         self.assertEqual(report["records"], 4)

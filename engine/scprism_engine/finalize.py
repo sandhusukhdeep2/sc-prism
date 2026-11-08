@@ -135,6 +135,7 @@ def finalize_run(
     project_result: Optional[Dict[str, Any]] = None,
     model_route_reasons: Optional[List[str]] = None,
     extras: Optional[Dict[str, Any]] = None,
+    completion_real: bool = True,
 ) -> Verdict:
     """Build + persist the Verdict and emit the training record.
 
@@ -192,6 +193,9 @@ def finalize_run(
             # conversation's words ("replied", or a reply-worded failure)
             # instead of a build's ("no files were produced").
             mode=str(getattr(contract, "mode", "") or ""),
+            # Whether the model answered at all. False → the verdict is a
+            # failure whatever the tiers say, and no training record is cut.
+            completion_real=completion_real,
         )
         for key, value in (extras or {}).items():
             if key != "project":

@@ -10,6 +10,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
@@ -21,20 +22,18 @@ from scprism_engine.ci_gate import (
 )
 
 
-def _offline_gateway():
-    return Gateway(openai_base_url="http://127.0.0.1:9", env={}, timeout=0.2)
 
 
 class TestRunGate(unittest.TestCase):
     def test_seed_suite_passes_at_default_threshold(self):
-        gr = run_gate(gateway=_offline_gateway())
+        gr = run_gate(gateway=RealGateway())
         self.assertFalse(gr.blocked, gr.reason)
         self.assertTrue(gr.passed)
         self.assertTrue(gr.scores, "the gate reports a score per golden")
 
     def test_regression_below_threshold_is_blocked_not_raised(self):
         # An impossibly high threshold turns every golden into a regression.
-        gr = run_gate(threshold=0.999, gateway=_offline_gateway())
+        gr = run_gate(threshold=0.999, gateway=RealGateway())
         self.assertTrue(gr.blocked, "below-threshold goldens must block the gate")
         self.assertFalse(gr.passed)
         self.assertTrue(gr.blockers)
@@ -45,12 +44,12 @@ class TestRunGate(unittest.TestCase):
         goldens = load_goldens()
         # Clamp every envelope to 1 token → guaranteed runaway breach.
         envelopes = {g.id: Envelope(token_budget=1, max_steps=1) for g in goldens}
-        gr = run_gate(goldens, envelopes=envelopes, gateway=_offline_gateway())
+        gr = run_gate(goldens, envelopes=envelopes, gateway=RealGateway())
         self.assertTrue(gr.blocked, "an envelope breach is a blockable regression")
 
     def test_scores_are_deterministic_across_runs(self):
-        a = run_gate(gateway=_offline_gateway())
-        b = run_gate(gateway=_offline_gateway())
+        a = run_gate(gateway=RealGateway())
+        b = run_gate(gateway=RealGateway())
         self.assertEqual(a.scores, b.scores)
 
 
@@ -63,30 +62,30 @@ class TestStopHookWiring(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_gate_passes_stop_ratchet_lets_the_task_finish(self):
-        gate = CIGate(threshold=0.5, gateway=_offline_gateway())
+        gate = CIGate(threshold=0.5, gateway=RealGateway())
         c = parse("add a guard", task_id="gate-ok", scope=["engine/**"])
         v = run(c, vault=self.vault, tier1_commands=["true"],
-                gateway=_offline_gateway(), ci_gate=gate)
+                gateway=RealGateway(), ci_gate=gate)
         self.assertTrue(v.passed, "a passing gate must not block the task")
         self.assertIsNotNone(gate.last_result)
         self.assertFalse(gate.last_result.blocked)
 
     def test_gate_below_threshold_blocks_the_write_via_stop_hook(self):
         # The gate can never clear 0.999, so the Stop ratchet blocks the task.
-        gate = CIGate(threshold=0.999, gateway=_offline_gateway())
+        gate = CIGate(threshold=0.999, gateway=RealGateway())
         c = parse("add a guard", task_id="gate-block", scope=["engine/**"])
         v = run(c, vault=self.vault, tier1_commands=["true"],
-                gateway=_offline_gateway(), ci_gate=gate)
+                gateway=RealGateway(), ci_gate=gate)
         self.assertFalse(v.passed, "a below-threshold gate must block the write")
         stop_blocks = [b for b in v.blocks if b.get("hook") == "Stop"]
         self.assertTrue(stop_blocks, "the Stop hook records the block")
         self.assertTrue(gate.last_result.blocked)
 
     def test_stop_ratchet_still_runs_exactly_once_with_a_gate(self):
-        gate = CIGate(threshold=0.5, gateway=_offline_gateway())
+        gate = CIGate(threshold=0.5, gateway=RealGateway())
         c = parse("add a guard", task_id="gate-once", scope=["engine/**"])
         v = run(c, vault=self.vault, tier1_commands=["true"],
-                gateway=_offline_gateway(), ci_gate=gate)
+                gateway=RealGateway(), ci_gate=gate)
         self.assertEqual(len([h for h in v.hooks_fired if h == "stop"]), 1)
 
 

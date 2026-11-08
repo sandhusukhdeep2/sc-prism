@@ -19,6 +19,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.finalize import run_tier2, finalize_run
@@ -30,10 +31,6 @@ from scprism_engine.evidence import EvidenceStore
 from scprism_engine.writeback import Verdict
 
 
-def _offline_gateway():
-    # Unreachable endpoint + empty env -> deterministic offline stub only
-    # (exactly as test_spans_and_verdict / test_evals build theirs).
-    return Gateway(openai_base_url="http://127.0.0.1:9", env={}, timeout=0.2)
 
 
 class _FakeStep:
@@ -90,7 +87,7 @@ class FinalizeRunTest(unittest.TestCase):
                 contract,
                 trace,
                 tier1_passed=t1.passed,
-                gateway=_offline_gateway(),
+                gateway=RealGateway(),
                 telemetry=self.telemetry,
                 parent_id=run_id,
                 threshold=threshold,
@@ -225,7 +222,7 @@ class ConverseFinalizeTest(unittest.TestCase):
                 contract,
                 trace,
                 tier1_passed=t1.passed,
-                gateway=_offline_gateway(),
+                gateway=RealGateway(),
                 telemetry=self.telemetry,
                 parent_id=run_id,
                 threshold=0.0,
@@ -288,7 +285,7 @@ class GoldenLoopOrderTest(unittest.TestCase):
             contract,
             vault=self.vault,
             tier1_commands=["true"],
-            gateway=_offline_gateway(),
+            gateway=RealGateway(),
         )
 
         # GOLDEN: the exact order the inline loop always produced. Tier-2 is

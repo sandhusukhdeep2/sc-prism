@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
@@ -55,7 +56,7 @@ class TestKnowledgeLoopWiring(unittest.TestCase):
         contract = parse("summarize the token budget ceiling", task_id="t-know")
         verdict = run(
             contract,
-            vault=self.vault,
+            vault=self.vault, gateway=RealGateway(),
             tier1_commands=["true"],
             retriever=agent,
         )
@@ -73,7 +74,7 @@ class TestKnowledgeLoopWiring(unittest.TestCase):
 
     def test_loop_without_retriever_is_unchanged(self):
         contract = parse("summarize the config", task_id="t-none")
-        verdict = run(contract, vault=self.vault, tier1_commands=["true"])
+        verdict = run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
         self.assertTrue(verdict.passed)
         spans = self._spans()
         self.assertEqual([s for s in spans if s["name"] == "retrieval"], [])
@@ -83,7 +84,7 @@ class TestKnowledgeLoopWiring(unittest.TestCase):
         contract = parse(
             "explain how adr-004 relates to graphrag and the cascade", task_id="t-rel"
         )
-        run(contract, vault=self.vault, tier1_commands=["true"], retriever=agent)
+        run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"], retriever=agent)
         retr = [s for s in self._spans() if s["name"] == "retrieval"]
         self.assertEqual(retr[0]["attrs"]["stage_reached"], STAGE_GRAPH)
         self.assertTrue(retr[0]["attrs"]["reached_graph"])
@@ -94,7 +95,7 @@ class TestKnowledgeLoopWiring(unittest.TestCase):
         # A tiny budget must still never be exceeded (assert lives in the loop).
         verdict = run(
             contract,
-            vault=self.vault,
+            vault=self.vault, gateway=RealGateway(),
             tier1_commands=["true"],
             retriever=agent,
             memory_budget=5,

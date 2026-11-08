@@ -12,11 +12,33 @@ import unittest
 from contextlib import redirect_stdout, redirect_stderr
 
 import _bootstrap  # noqa: F401
+from unittest import mock
+from _fakes import fake_openai_server
 
 from scprism_engine.__main__ import main
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
 
+
+
+# The CLI builds its gateway from the environment. Serve a provider that
+# actually answers for the whole module, so "passed" means the model answered —
+# an exit code of 0 used to be earned by the offline stand-in.
+_provider = None
+_provider_env = None
+
+
+def setUpModule():
+    global _provider, _provider_env
+    _provider = fake_openai_server()
+    url, _ = _provider.__enter__()
+    _provider_env = mock.patch.dict(os.environ, {"OPENAI_BASE_URL": url})
+    _provider_env.start()
+
+
+def tearDownModule():
+    _provider_env.stop()
+    _provider.__exit__(None, None, None)
 
 def _run_cli(argv):
     """Invoke the CLI, capturing (exit_code, parsed_stdout_json)."""

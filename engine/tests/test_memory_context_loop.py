@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 import _bootstrap  # noqa: F401
+from _fakes import RealGateway  # a provider that actually answers
 
 from scprism_engine.contract import parse
 from scprism_engine.loop import run
@@ -54,7 +55,7 @@ class TestLoopWiring(unittest.TestCase):
         contract = parse("add a token budget policy", task_id="t-accept")
         verdict = run(
             contract,
-            vault=self.vault,
+            vault=self.vault, gateway=RealGateway(),
             tier1_commands=["true"],
             vault_writes=[good],
         )
@@ -96,7 +97,7 @@ class TestLoopWiring(unittest.TestCase):
 
     def test_memory_span_emitted(self):
         contract = parse("do a thing", task_id="t-span")
-        run(contract, vault=self.vault, tier1_commands=["true"])
+        run(contract, vault=self.vault, gateway=RealGateway(), tier1_commands=["true"])
         spans = read_spans(os.path.join(self.vault, "spans.jsonl"))
         mem = [s for s in spans if s["name"] == "memory"]
         self.assertEqual(len(mem), 1)
