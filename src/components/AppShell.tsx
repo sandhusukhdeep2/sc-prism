@@ -15,6 +15,11 @@ import Icon from './Icon'
 import ConnectivityDot from './ConnectivityDot'
 import FloatingPulse from './FloatingPulse'
 import HeartbeatNotice from './HeartbeatNotice'
+import LocalMeter from './LocalMeter'
+import { useApp } from '../store/AppStore'
+import { activeRuns } from '../lib/liveRuns'
+import { useLiveDashboard } from '../lib/liveDashboard'
+import { localShare } from '../lib/engineStats'
 import './AppShell.css'
 
 // Global app chrome shared by every post-setup page: top nav + connection
@@ -45,6 +50,14 @@ export default function AppShell() {
   // rules of hooks — this component must call the same hooks on every render
   // regardless of onboarding state.
   const location = useLocation()
+  // THE LOCAL SHARE, always in view (design 2026-11-08 §C): the one split Stats,
+  // Memory and Console already read, over real completions only, refreshed
+  // while a run is live. Hooks sit above the onboarding redirect below.
+  const { state: appState } = useApp()
+  const anyLive = activeRuns(appState.liveRuns).length > 0
+  const dashRead = useLiveDashboard(shellSettings.vaultPath, anyLive)
+  const share = dashRead.dash ? localShare(dashRead.dash.cost_by_model) : null
+  const hasLocalProvider = shellSettings.providers.some((p) => p.id === 'local' && p.enabled)
   const [railGroups, setRailGroups] = useState<Record<string, boolean>>(() => {
     try {
       return JSON.parse(localStorage.getItem('scprism.railGroups') ?? '{}') as Record<
@@ -183,6 +196,7 @@ export default function AppShell() {
           {/* Settings is where you change the app, not one of the places you
               work in it — so it sits apart, at the foot of the rail. */}
           <div className="rail__foot">
+            <LocalMeter share={share} status={dashRead.status} hasLocalProvider={hasLocalProvider} />
             <NavLink
               to={settingsNav.to}
               className={({ isActive }) => 'rail__link' + (isActive ? ' is-active' : '')}
