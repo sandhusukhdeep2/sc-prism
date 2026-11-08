@@ -164,7 +164,11 @@
    ~1680px the columns stop growing and the page centers, so a full-screen
    window on a wide display reads as a document, not a left-hugging strip
    with a dead right half. */
-.content > * { max-width: 1680px; margin-inline: auto; width: 100%; }
+/* Arriving at a page feels like arriving: the page settles in once (fade +
+   rise) through the motion tokens. A route change mounts a new page element,
+   so the animation plays exactly when the page changes and never loops. */
+.content > * { max-width: 1680px; margin-inline: auto; width: 100%; animation: pageIn var(--dur) var(--ease-out) both; }
+@keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 /* FIT THE WINDOW (2026-08-18). Most pages are documents and scroll here. Work
    is an APP SCREEN: it owns its own regions and each of them scrolls
    internally, so the shell must not put a second scroll container (or 96px of

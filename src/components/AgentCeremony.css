@@ -2,7 +2,7 @@
    the proof. Tokens only; motion is one snap per confirmed part. */
 .ceremony { display: flex; flex-direction: column; gap: 10px; background: var(--v2-card); border-radius: var(--v2-r-card); padding: 16px 18px 18px; min-width: 0; }
 .ceremony__card { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; border-radius: var(--v2-r-inner); background: var(--v2-fill); }
-.ceremony__mono { width: 40px; height: 40px; border-radius: var(--v2-r-pill); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; background: var(--v2-card); border: 3px solid var(--v2-idle); box-sizing: border-box; }
+.ceremony__mono { transition: border-color var(--dur) var(--ease-out); width: 40px; height: 40px; border-radius: var(--v2-r-pill); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; background: var(--v2-card); border: 3px solid var(--v2-idle); box-sizing: border-box; }
 .ceremony__mono.is-proven { border-color: var(--v2-local); }
 .ceremony__mono.is-unproven { border-color: var(--v2-coral); color: var(--v2-coral-ink); }
 .ceremony__who { flex: 1 1 160px; min-width: 0; }
@@ -36,6 +36,8 @@
 .ceremony__proof { border-top: 1px solid var(--v2-line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .ceremony__proofhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
 .ceremony__lines { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.ceremony__line { animation: lineIn var(--dur) var(--ease-out) both; }
+@keyframes lineIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
 .ceremony__line.is-ok { color: var(--v2-local-ink); }
 .ceremony__line.is-no { color: var(--v2-coral-ink); }
 .ceremony__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

@@ -282,3 +282,40 @@ describe('the radius scale did not flatten the capsules', () => {
     )
   })
 })
+
+// ONE MOTION LANGUAGE (premium pass, 2026-11-09). The app had the right
+// instincts scattered: a 380ms settle for arrivals, a slow breathe for live
+// seats, reduced-motion guards per file. These pins make it one system: the
+// durations and easings are tokens, every surface below animates through
+// them, and reduced-motion is honoured globally rather than file by file.
+describe('motion is one system', () => {
+  const globalCss = read('src/theme/global.css')
+  const shell = read('src/components/AppShell.css')
+  const agents = read('src/pages/Agents.css')
+  const meter = read('src/components/LocalMeter.css')
+  const ceremony = read('src/components/AgentCeremony.css')
+
+  it('defines the motion tokens once, in tokens.css', () => {
+    for (const t of ['--ease-out', '--ease-inout', '--dur-fast', '--dur', '--dur-slow']) {
+      expect(tokens, t).toMatch(new RegExp(`^\\s*${t}:`, 'm'))
+    }
+  })
+  it('honours prefers-reduced-motion for every animation and transition, globally', () => {
+    expect(globalCss).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-duration: 0\.01ms !important/)
+    expect(globalCss).toMatch(/transition-duration: 0\.01ms !important/)
+  })
+  it('a page arrives (fade + rise) through the tokens', () => {
+    expect(shell).toMatch(/\.content > \*[\s\S]*animation: [a-zA-Z]+ var\(--dur\) var\(--ease-out\)/)
+  })
+  it('agent tiles stagger in, lift on hover, and the working dot breathes — all through the tokens', () => {
+    expect(agents).toMatch(/\.agent-tile \{[\s\S]*animation: [a-zA-Z]+ var\(--dur\) var\(--ease-out\) both/)
+    expect(agents).toMatch(/animation-delay: calc\(var\(--i, 0\) \* \d+ms\)/)
+    expect(agents).toMatch(/\.agent-tile:hover \{[^}]*transform: translateY\(-2px\)/)
+    expect(agents).toMatch(/\.agent-usage__dot--working \{[^}]*animation: [a-zA-Z]+ var\(--dur-slow\)/)
+    expect(agents).toMatch(/\.agent-tile__proof\.is-proven \{[^}]*animation: [a-zA-Z]+ var\(--dur\)/)
+  })
+  it('the local meter fills smoothly and the ceremony’s live lines arrive one by one', () => {
+    expect(meter).toMatch(/\.meter__fill \{[^}]*transition: width var\(--dur-slow\)/)
+    expect(ceremony).toMatch(/\.ceremony__line \{[^}]*animation: [a-zA-Z]+ var\(--dur\) var\(--ease-out\) both/)
+  })
+})

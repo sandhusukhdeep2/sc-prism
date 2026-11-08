@@ -901,9 +901,10 @@ export default function Agents() {
       setProvingId(null)
     }
   }
-  const renderTile = (a: StoredAgent) => (
+  const renderTile = (a: StoredAgent, i = 0) => (
     <AgentTile
       key={a.id}
+      index={i}
       a={a}
       proving={provingId === a.id}
       onProve={() => void proveExisting(a)}
@@ -1069,6 +1070,7 @@ function ModelBadge({ kind }: { kind: BadgeKind }) {
 
 function AgentTile({
   a,
+  index = 0,
   proving,
   onProve,
   projects,
@@ -1088,6 +1090,8 @@ function AgentTile({
   verdicts: Verdict[]
   /** The span log tail — the card speaks for its OWN turns when it has any. */
   spans: readonly EngineSpan[]
+  /** Position in its grid, for the landing stagger. */
+  index?: number
   /** '' when this agent's model can really run; else why it will sit out. */
   sitsOut: string
   proving: boolean
@@ -1128,6 +1132,7 @@ function AgentTile({
         (a.system ? '' : ' agent-tile--biz') +
         (a.enabled ? '' : ' agent-tile--off')
       }
+      style={{ ['--i' as string]: String(index) }}
       onClick={(e) => e.stopPropagation()}
     >
       <div

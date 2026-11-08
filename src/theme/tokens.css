@@ -265,6 +265,16 @@
      palette in a dozen different shapes. This is the fourth step those
      surfaces snap to. */
   --v2-r-chip: 10px;
+  /* MOTION — one language (2026-11-09). Arrivals settle (--ease-out, --dur);
+     state changes answer at once (--dur-fast); anything alive breathes slowly
+     (--dur-slow, --ease-inout) — a coworker thinking, not an alarm. Theme-
+     constant like the radii, so these live only here; every animated surface
+     reads them. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 140ms;
+  --dur: 380ms;
+  --dur-slow: 2.4s;
   --v2-shadow: 0 4px 16px rgba(16, 20, 26, 0.06);
   --v2-shadow-soft: 0 2px 7px rgba(16, 20, 26, 0.05);
   /* the live-pulse ring, in the working-blue. Two tokens (opaque -> clear) so a

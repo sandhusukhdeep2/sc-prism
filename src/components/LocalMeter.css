@@ -13,5 +13,5 @@
 .meter--none .meter__num { color: var(--v2-coral-ink); }
 .meter__add { color: var(--v2-blue-ink); text-decoration: underline; }
 .meter__bar { display: block; height: 6px; border-radius: var(--v2-r-pill); background: var(--v2-track); overflow: hidden; }
-.meter__fill { display: block; height: 100%; background: var(--v2-local); }
+.meter__fill { display: block; height: 100%; background: var(--v2-local); transition: width var(--dur-slow) var(--ease-inout); }
 .meter__sub { font-size: 11.5px; color: var(--v2-muted); }
