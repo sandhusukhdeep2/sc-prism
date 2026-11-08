@@ -23,9 +23,11 @@
 //   · no crew → this component renders NOTHING, rather than an empty pipeline
 //   · the 🔒 badge appears only when a vault read really happened
 //   · the count is real span states, never a plan
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useNow } from '../lib/useNow'
 import { agentDossier } from '../lib/agentDossier'
+import { seatState } from '../lib/seatState'
+import { handoffs } from '../lib/handoffs'
 import AgentDossierPanel from './AgentDossierPanel'
 import { agentOrbs } from '../lib/orbs'
 import { IDLE_HUE } from '../lib/modelColor'
@@ -146,6 +148,12 @@ export default function CrewBoard({
   const counts = crewCounts(orbs, live)
   const countLine = crewCountLabel(counts)
   const badge = vaultBadge(spans)
+  // WHAT EACH SEAT SAYS (design 2026-11-08 §A): the agent's latest span, in
+  // narrate.ts's words, with the engine's own cause when a turn was refused;
+  // and WHO HANDED TO WHOM, from consecutive work turns by different agents.
+  // Both are pure reads of `spans` — nothing here is inferred from time.
+  const states = new Map(orbs.map((o) => [o.agent, seatState(spans, o.agent, live)] as const))
+  const hands = handoffs(spans)
   // HOW LONG SINCE ANYTHING HAPPENED. The clock ticks only while the run is
   // live (useNow's own rule), so an idle board animates nothing. Spans carry
   // engine-clock SECONDS, so the conversion happens once, here.
@@ -172,29 +180,61 @@ export default function CrewBoard({
         <span className="crew__title">Who&rsquo;s on it</span>
         {orbs.length > 0 && (
           <span className="crew__cluster">
-            {orbs.map((o, i) => (
-              // EVERY SEAT IS A BUTTON. The deploy stagger is a CSS custom
-              // property rather than N keyframes, so a crew of any size lands
-              // one after another in the order the engine really reported them.
-              <button
-                type="button"
-                key={o.agent}
-                className="crew__seat"
-                style={{ ['--seat' as string]: String(i) }}
-                aria-label={`What ${o.agent} is doing`}
-                onClick={() => setOpenAgent(o.agent)}
-              >
-                <Mono
-                  letter={monogram(o.agent)}
-                  color={agentTint(o.provider, o.model)}
-                  pulse={live && o.outcome === 'running'}
-                  size="lg"
-                />
-                {i === 0 && badgeCount > 0 && (
-                  <span className="crew__badge mono">{badgeCount}</span>
-                )}
-              </button>
-            ))}
+            {orbs.map((o, i) => {
+              const st = states.get(o.agent)
+              const next = orbs[i + 1]
+              const hand = next ? hands.find((h) => h.from === o.agent && h.to === next.agent) : undefined
+              return (
+                <Fragment key={o.agent}>
+                  {/* EVERY SEAT IS A BUTTON. The deploy stagger is a CSS custom
+                      property rather than N keyframes, so a crew of any size
+                      lands one after another in the order the engine really
+                      reported them. Under the monogram: what this agent is
+                      doing, in the span's own terms, and its tokens so far. */}
+                  <button
+                    type="button"
+                    className="crew__seat"
+                    style={{ ['--seat' as string]: String(i) }}
+                    aria-label={`What ${o.agent} is doing`}
+                    onClick={() => setOpenAgent(o.agent)}
+                  >
+                    <Mono
+                      letter={monogram(o.agent)}
+                      color={agentTint(o.provider, o.model)}
+                      pulse={live && o.outcome === 'running'}
+                      size="lg"
+                    />
+                    {i === 0 && badgeCount > 0 && (
+                      <span className="crew__badge mono">{badgeCount}</span>
+                    )}
+                    {st && st.kind !== 'idle' && (
+                      <span
+                        className={'crew__seatstate' + (st.kind === 'no-answer' ? ' crew__seatstate--no' : '')}
+                        title={st.cause}
+                      >
+                        {st.kind === 'no-answer' ? '✕ ' : ''}
+                        {st.text}
+                      </span>
+                    )}
+                    {st && st.tokens > 0 && (
+                      <span className="crew__seattokens mono">{st.tokens.toLocaleString()} tokens</span>
+                    )}
+                  </button>
+                  {/* A HANDOFF is drawn only when two consecutive work turns
+                      belong to these two seats, labelled with the engine's own
+                      word for the later turn. */}
+                  {hand && (
+                    <span
+                      className="crew__handoff"
+                      aria-label={`${hand.from} handed to ${hand.to}${hand.label ? ': ' + hand.label : ''}`}
+                    >
+                      <span className="crew__handofflabel">{hand.label}</span>
+                      <i aria-hidden="true" />
+                    </span>
+                  )}
+                </Fragment>
+              )
+            })}
           </span>
         )}
         {countLine && <span className="crew__count mono">{countLine}</span>}

@@ -2,7 +2,7 @@
 // proves the PIXELS obey them — that what reaches the DOM claims nothing more
 // than the spans did.
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import CrewBoard, { shortAi } from './CrewBoard'
 import { modelColor } from '../lib/modelColor'
 import type { EngineSpan } from '../lib/nativeEngine'
@@ -225,5 +225,60 @@ describe('shortAi — the model name fits the card, and hides nothing', () => {
 
   it('a provider with no model is left alone', () => {
     expect(shortAi('an AI')).toBe('an AI')
+  })
+})
+
+// ── The seats speak (design 2026-11-08 §A) ───────────────────────────
+describe('the seats say what each agent is doing, from its own spans', () => {
+  const cluster = () => within(document.querySelector('.crew__cluster') as HTMLElement)
+
+  it('each seat says what it is doing, in the span’s own terms', () => {
+    draw(
+      [
+        call({ agent: 'researcher', provider: 'local', model: 'gemma-3' }, { start: 1, status: 'ok' }),
+        tool({ agent: 'researcher', tool: 'vault_read', server: 'vault', path: 'notes/a.md' }, { start: 2, status: 'running' }),
+        call({ agent: 'developer', provider: 'claude-cli', model: 'opus' }, { start: 3, status: 'running' }),
+      ],
+      true,
+    )
+    expect(cluster().getByText('reading your notes')).toBeInTheDocument()
+    expect(cluster().getByText('thinking')).toBeInTheDocument()
+  })
+
+  it('a refused turn shows ✕ and carries the engine’s cause', () => {
+    const cause = 'local refused the request (HTTP 401): API key required'
+    draw(
+      [
+        call({ agent: 'researcher', provider: 'local', model: 'gemma-3', is_real: true }, { start: 1, status: 'ok' }),
+        call({ agent: 'writer', provider: 'local', model: 'gemma-3', is_real: false, error: cause, tokens_in: 2683, tokens_out: 0 }, { start: 2, status: 'error' }),
+      ],
+      false,
+    )
+    const state = cluster().getByText(/no answer/)
+    expect(state.className).toContain('crew__seatstate--no')
+    expect(state).toHaveAttribute('title', cause)
+    expect(state.textContent).toContain('✕')
+  })
+
+  it('a handoff is drawn between the two seats and labelled with the stage', () => {
+    draw(
+      [
+        call({ agent: 'researcher', provider: 'local', model: 'gemma-3', stage: 'research' }, { start: 1, status: 'ok' }),
+        call({ agent: 'developer', provider: 'claude-cli', model: 'opus', stage: 'draft' }, { start: 2, status: 'ok' }),
+      ],
+      false,
+    )
+    expect(cluster().getByLabelText('researcher handed to developer: draft')).toBeInTheDocument()
+    expect(cluster().getByText('draft')).toBeInTheDocument()
+  })
+
+  it('a solo run draws no handoff and no state line beyond its own', () => {
+    draw([call({ agent: 'researcher', provider: 'local', model: 'gemma-3' }, { start: 1, status: 'ok' })], false)
+    expect(screen.queryByLabelText(/handed to/)).toBeNull()
+  })
+
+  it('tokens so far ride the seat when the spans carry them', () => {
+    draw([call({ agent: 'researcher', provider: 'local', model: 'gemma-3', tokens_in: 1200, tokens_out: 40 }, { start: 1, status: 'ok' })], false)
+    expect(cluster().getByText('1,240 tokens')).toBeInTheDocument()
   })
 })

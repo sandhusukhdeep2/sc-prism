@@ -24,14 +24,15 @@
 .crew__count { font-size: 11px; color: var(--v2-muted); }
 
 /* the overlapping cluster — coworkers, drawn as monograms */
-.crew__cluster { display: flex; margin-left: 4px; }
+.crew__cluster { display: flex; align-items: flex-start; gap: 14px; margin-left: 4px; flex-wrap: wrap; row-gap: 10px; }
 
 /* EVERY SEAT IS A BUTTON — click it to open what that coworker is doing.
    Reset to a bare button so it keeps the cluster's overlap geometry. */
 .crew__seat {
-  position: relative; display: flex;
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  max-width: 108px;
   padding: 0; border: none; background: none; cursor: pointer;
-  border-radius: 50%;
+  border-radius: 12px;
   /* THE DEPLOY. Each seat lands a beat after the one before it, in the order
      the engine really reported them, so a crew assembling reads as arrival
      rather than as a row that was always there. The stagger is driven by the
@@ -61,7 +62,7 @@
 .crew__mono--lg {
   width: 34px; height: 34px; font-size: 12px;
   border: 2.5px solid var(--v2-card);
-  margin-left: -9px;
+  margin-left: 0; /* seats no longer overlap: each carries its state line */
   box-shadow: var(--v2-shadow-soft);
 }
 .crew__cluster .crew__seat:first-child .crew__mono--lg { margin-left: 0; }
@@ -352,4 +353,35 @@
   color: var(--v2-muted);
   margin-top: 3px;
   letter-spacing: 0.01em;
+}
+
+/* THE SEAT SPEAKS (design 2026-11-08 §A). Under each monogram: what this agent
+   is doing right now in the span's own words, and its tokens so far. A refused
+   turn reads ✕ in the coral ink and carries the engine's cause as its title. */
+.crew__seatstate {
+  font-size: 11px; line-height: 1.2; color: var(--v2-muted);
+  text-align: center; max-width: 108px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crew__seatstate--no { color: var(--v2-coral-ink); font-weight: 600; }
+.crew__seattokens { font-size: 10px; color: var(--v2-muted); }
+
+/* A HANDOFF: a line with a head from one seat to the next, labelled with the
+   stage. Drawn once when it appears; it never pulses. */
+.crew__handoff {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  align-self: flex-start; margin-top: 12px; width: 40px; flex: 0 0 auto;
+}
+.crew__handofflabel { font-size: 10px; color: var(--v2-muted); min-height: 12px; white-space: nowrap; }
+.crew__handoff i {
+  position: relative; display: block; width: 100%; height: 2px; background: var(--v2-ink);
+  transform-origin: left center; animation: crewHand 360ms ease-out both;
+}
+.crew__handoff i::after {
+  content: ''; position: absolute; right: -1px; top: -4px;
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid var(--v2-ink);
+}
+@keyframes crewHand { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .crew__handoff i { animation: none; }
 }

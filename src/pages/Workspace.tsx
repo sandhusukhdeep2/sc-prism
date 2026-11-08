@@ -42,6 +42,8 @@ import RunLedger from '../components/RunLedger'
 import { availableTeam, decideRouting, managerToken, routingLine } from '../lib/delegation'
 import { useInterview } from '../lib/interview'
 import { agentTaskBrief, agentTaskDisplay, useAgents } from '../lib/agents'
+import { agentOrbs } from '../lib/orbs'
+import { roomCountLine } from '../lib/roomCount'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
@@ -691,7 +693,14 @@ export default function Workspace() {
             {activeProject ? activeProject.name || '(untitled project)' : 'Manager'}
           </h1>
           <div className="ws__subtitle">
-            {status || `${greeting(Date.now(), settings.yourName)} — nothing running right now`}
+            {/* With a room open, the honest head count (design 2026-11-08 §A):
+                the project's agents from the store, who is working from the
+                board's spans, only while a run is genuinely live. */}
+            {status ||
+              (activeProject
+                ? roomCountLine(agents, activeProject.id, agentOrbs(boardSpans), anyLive)
+                : '') ||
+              `${greeting(Date.now(), settings.yourName)} — nothing running right now`}
           </div>
         </div>
         <div className="ws__spacer" />
