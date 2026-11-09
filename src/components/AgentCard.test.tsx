@@ -114,8 +114,7 @@ describe('Live agent surface — real runs only', () => {
     })
 
     const live = liveCard()!.textContent ?? ''
-    expect(live).toContain('implementer') // the span's agent, not a role we invented
-    expect(live).toContain('gpt-4o') // the model that really answered
+    // Beside the board the card is the task and the clock; the seat names the agent and its model (clear-room §A3).
     expect(live).toContain('add a rate-limit guard to the uploader')
     expect(live).toMatch(/\d+:\d\d/) // elapsed, a real clock over a real start
     // …and the board says the same two facts in the v2 language.

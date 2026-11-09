@@ -47,7 +47,7 @@ function board(spans: EngineSpan[], live = false) {
 }
 
 describe('clicking a coworker opens what THAT coworker is doing', () => {
-  it('every coworker is openable from BOTH places they appear', () => {
+  it('every coworker is drawn once and openable from its seat (clear-room 2026-11-09 §A3)', () => {
     board(CREW)
     // An agent shows up twice on this board — once as a seat in the cluster,
     // once as a card in its pipeline column. Both name the same coworker, so
@@ -55,7 +55,7 @@ describe('clicking a coworker opens what THAT coworker is doing', () => {
     // the whole point.
     for (const agent of ['lead', 'researcher', 'critic']) {
       const ways = screen.getAllByRole('button', { name: new RegExp(`What ${agent} is doing`, 'i') })
-      expect(ways.length, `${agent} should be openable from the cluster AND its card`).toBe(2)
+      expect(ways.length, `${agent} is drawn once — the seat is the one place it appears`).toBe(1)
     }
   })
 

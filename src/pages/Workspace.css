@@ -543,7 +543,7 @@
 .ws__console {
   flex: 0 0 auto;
   border-radius: var(--v2-r-inner);
-  background: #17161c;
+  background: var(--v2-fill);
   box-shadow: var(--v2-shadow);
   overflow: hidden;
 }
@@ -555,14 +555,14 @@
   font-size: 10.5px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #5f6570;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--v2-muted);
+  border-bottom: 1px solid var(--v2-line);
 }
 .ws__consoledot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #55525f;
+  background: var(--v2-idle);
 }
 .ws__consoledot--live {
   background: var(--ok);
@@ -584,18 +584,18 @@
 .ws__consoleline {
   font-size: 11px;
   line-height: 1.5;
-  color: #c9cdd6;
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ws__consoleline--err { color: #ce6969; }
-.ws__consoleline--wait { color: #5f6570; font-style: italic; }
+.ws__consoleline--wait { color: var(--v2-muted); font-style: italic; }
 
 /* the Manager's calm one-line status atop the run stream (narrate.ts) */
 .ws__narrate {
-  font-size: 11.5px; color: #cfc8e8; padding: 2px 2px 8px; line-height: 1.5;
-  border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px;
+  font-size: 11.5px; color: var(--ink-2); padding: 2px 2px 8px; line-height: 1.5;
+  border-bottom: 1px solid var(--v2-line); margin-bottom: 8px;
 }
 
 /* honest empty states */

@@ -150,9 +150,10 @@ describe('Work page — the v2 board', () => {
     // rule 5 — the count is the real state of those spans.
     expect(board().getByText('3 working · 1 answered')).toBeInTheDocument()
     // rule 4 — a vault read really happened, so the badge is earned.
-    expect(board().getByText(/read 1 vault note — stayed on this Mac/)).toBeInTheDocument()
+    // The per-seat work line left the board with the rows; the dossier and the chat carry it.
     // rule 1 — the three OPEN spans pulse; the closed one does not.
-    expect(document.querySelectorAll('.crew__cols .crew__mono--pulse')).toHaveLength(3)
+    // Each seat is drawn once (clear-room 2026-11-09 §A3): the live coworkers pulse on their SEATS.
+    expect(document.querySelectorAll('.crew__cluster .crew__mono--pulse')).toHaveLength(3)
   })
 
   // rule 1 — the park (the regression fixed in 16182f2, restated for the board).

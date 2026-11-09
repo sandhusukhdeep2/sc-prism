@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { agentsInRun } from '../lib/agentDossier'
 import { Link } from 'react-router-dom'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
 import ConnectivityBanner from '../components/ConnectivityBanner'
@@ -805,7 +806,7 @@ export default function Workspace() {
                 recent outcome rows of THIS SESSION (which is what
                 state.finishedRuns is; the durable record is the ledger in the
                 rail). A card glows ONLY because its run is in state.liveRuns. */}
-            <LiveRunCards live={liveRuns} finished={state.finishedRuns} spans={tail.spans} />
+            <LiveRunCards live={liveRuns} finished={state.finishedRuns} spans={tail.spans} compact={agentsInRun(boardSpans).length > 0} />
             {/* THE BOARD (visual system v2): the crew cluster, the 🔒 badge and
                 the pipeline of column stacks. It is handed `liveSpans` — i.e.
                 `currentRunSpans`, which is [] whenever 2+ runs are in flight —

@@ -331,3 +331,16 @@ describe('the meter fits the icon rail', () => {
     expect(narrow).toMatch(/\.meter \{[^}]*padding: [^;]+;/)
   })
 })
+
+
+// The engine steps in the room sat on a hard-coded #17161c with light grey
+// text — the one black block on a light page (his screenshot, 2026-11-09).
+// In the room it sits on the token surfaces like everything else.
+describe('the engine console uses the room’s surfaces', () => {
+  it('no hard-coded dark literals in the console rules', () => {
+    const ws = read('src/pages/Workspace.css')
+    const console = ws.slice(ws.indexOf('.ws__console {'), ws.indexOf('.ws__console {') + 2600)
+    expect(console).not.toMatch(/#17161c|#c9cdd6|#cfc8e8|#55525f/)
+    expect(console).toMatch(/\.ws__console \{[^}]*background: var\(--/)
+  })
+})

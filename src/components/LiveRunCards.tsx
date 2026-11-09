@@ -44,11 +44,15 @@ function LiveCard({
   spans,
   liveCount,
   now,
+  compact = false,
 }: {
   run: LiveRun
   spans: EngineSpan[]
   liveCount: number
   now: number
+  /** Beside the crew board the card is the task and the clock only: the
+   *  board draws the seats, so the chips here would be the same seats twice. */
+  compact?: boolean
 }) {
   // REAL per-agent models for THIS run, or [] when they cannot honestly be
   // attributed to it (see runSpans). No spans → no chips, never a placeholder.
@@ -66,7 +70,7 @@ function LiveCard({
         {paused && <span className="lrun__waiting mono">waiting on you</span>}
         <span className="lrun__elapsed mono">{elapsedLabel(run.startedAt, now)}</span>
       </div>
-      {orbs.length > 0 && (
+      {!compact && orbs.length > 0 && (
         <div className="lrun__models">
           {/* "on it now" only while something really is: a parked run has no
               model working on anything. */}
@@ -80,7 +84,7 @@ function LiveCard({
           ))}
         </div>
       )}
-      {orbs.length === 0 && run.models.length > 0 && (
+      {!compact && orbs.length === 0 && run.models.length > 0 && (
         <div className="lrun__models">
           {/* "asked for" — the roster the app requested. NOT a claim about who
               actually answered; that only appears once real spans say so. */}
@@ -120,12 +124,15 @@ export default function LiveRunCards({
   finished,
   spans,
   now: fixedNow,
+  compact = false,
 }: {
   live: readonly LiveRun[]
   finished: readonly FinishedRun[]
   spans: EngineSpan[]
   /** Injected wall clock (tests). Omitted → a 1s tick while anything is live. */
   now?: number
+  /** True while the crew board below draws this run's seats. */
+  compact?: boolean
 }) {
   const now = useNow(live.length > 0, fixedNow)
   // Honest empty: nothing running and nothing finished this session → render
@@ -135,7 +142,7 @@ export default function LiveRunCards({
   return (
     <section className="lrun" aria-label="Live tasks">
       {live.map((run) => (
-        <LiveCard key={run.id} run={run} spans={spans} liveCount={live.length} now={now} />
+        <LiveCard key={run.id} run={run} spans={spans} liveCount={live.length} now={now} compact={compact} />
       ))}
       {finished.map((run) => (
         <FinishedRow key={`${run.id}-${run.endedAt}`} run={run} />

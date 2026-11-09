@@ -31,21 +31,7 @@ import { handoffs, type Handoff } from '../lib/handoffs'
 import AgentDossierPanel from './AgentDossierPanel'
 import { agentOrbs } from '../lib/orbs'
 import { IDLE_HUE } from '../lib/modelColor'
-import {
-  agentTint,
-  crewCountLabel,
-  crewCounts,
-  monogram,
-  pendingDecisions,
-  agentWork,
-  pipelineStages,
-  silenceIsLong,
-  silenceLine,
-  silenceSeconds,
-  vaultBadge,
-  type PipelineMember,
-  type PipelineStage,
-} from '../lib/pipeline'
+import { agentTint, crewCountLabel, crewCounts, monogram, pendingDecisions, pipelineStages, silenceIsLong, silenceLine, silenceSeconds, vaultBadge, type PipelineStage } from '../lib/pipeline'
 import type { EngineSpan } from '../lib/nativeEngine'
 import type { LiveRun } from '../lib/liveRuns'
 import './CrewBoard.css'
@@ -58,13 +44,6 @@ function lastHandoff(hands: readonly Handoff[], from: string, to: string): Hando
     if (hands[i].from === from && hands[i].to === to) return hands[i]
   }
   return undefined
-}
-
-/** The one line saying what this coworker is doing RIGHT NOW — its real ask
- *  while the span is open, its real outcome once the engine closed it. */
-function nowLine(m: PipelineMember): string {
-  if (m.step.state === 'working') return `asked to ${m.step.asked}`
-  return m.step.outcome || m.step.asked
 }
 
 function Mono({
@@ -218,6 +197,13 @@ export default function CrewBoard({
                       pulse={live && o.outcome === 'running'}
                       size="lg"
                     />
+                    {/* Three-part attribution ON the seat (project-room rule 3,
+                        clear-room §A3): the agent's name, then the AI that
+                        really answered, in the span's own words. */}
+                    <span className="crew__seatname">{o.agent}</span>
+                    <span className="crew__seatai mono" title={[o.provider, o.model].filter(Boolean).join(' · ') || 'an AI'}>
+                      {shortAi([o.provider, o.model].filter(Boolean).join(' · ') || 'an AI')}
+                    </span>
                     {i === 0 && badgeCount > 0 && (
                       <span className="crew__badge mono">{badgeCount}</span>
                     )}
@@ -296,66 +282,11 @@ export default function CrewBoard({
       <div className={'crew__cols' + (live ? ' is-live' : '')}>
         {stages.map((stage) => (
           <div className="crew__col" key={stage.key}>
-            <div className="crew__stack">
-              {stage.members.map((m, i) => (
-                <button
-                  type="button"
-                  className="crew__item"
-                  key={`${m.step.agent}-${m.step.at}-${i}`}
-                  // `--seat` staggers the landing; `--tint` gives the working
-                  // bar inside this card the same model colour as the monogram,
-                  // so one coworker is one colour wherever it is drawn.
-                  style={{ ['--seat' as string]: String(i), ['--tint' as string]: m.color }}
-                  aria-label={`What ${m.step.agent} is doing`}
-                  onClick={() => setOpenAgent(m.step.agent)}
-                >
-                  <Mono letter={m.monogram} color={m.color} pulse={m.live} size="sm" />
-                  <div className="crew__body">
-                    <div className="crew__name">
-                      {m.step.agent}
-                      {/* A tool-using agent takes several model turns in one
-                          round. They are ONE card; this states how many rather
-                          than drawing the same coworker N times. */}
-                      {m.turns > 1 && (
-                        <span className="crew__turns mono" title={`${m.turns} model turns`}>
-                          ×{m.turns}
-                        </span>
-                      )}
-                    </div>
-                    <div className="crew__ai mono" title={m.step.ai}>
-                      {shortAi(m.step.ai)}
-                    </div>
-                    <div className="crew__now">{nowLine(m)}</div>
-                    {/* WHAT IT HAS TO SHOW FOR IT — real tool_exec counts, and
-                        nothing when there are none. Never a progress estimate:
-                        the engine has no notion of "section 2 of 4", so a bar
-                        claiming one would be the most confident thing on the
-                        card and the least true. */}
-                    {(() => {
-                      const work = agentWork(spans, m.step.agent)
-                      return work ? <div className="crew__work mono">{work}</div> : null
-                    })()}
-                    {/* A progress line exists only while the span is open AND
-                        the run is live — it is the pulse in another shape. */}
-                    {m.live && (
-                      <div className="crew__bar" role="img" aria-label={`${m.step.agent} is working`}>
-                        <i />
-                      </div>
-                    )}
-                  </div>
-                  {m.step.state === 'done' && (
-                    <span className="crew__tick crew__tick--ok" title="answered">
-                      ✓
-                    </span>
-                  )}
-                  {(m.step.state === 'unreachable' || m.step.state === 'refused') && (
-                    <span className="crew__tick crew__tick--bad" title={m.step.outcome}>
-                      ✕
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+            {/* EACH SEAT IS DRAWN ONCE (clear-room spec 2026-11-09 §A3): the
+                cluster above says who is on it and what each is doing; the
+                rows that used to repeat name · model · state under it are
+                gone. The stage label below still opens this step's real engine
+                spans, and a parked run still raises its "Your call" column. */}
             {/* The label sits BENEATH the stack — the reference's form
                 language — and, when a caller can show this step's engine
                 detail, it IS the `▸` control that opens it. */}

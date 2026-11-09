@@ -47,6 +47,7 @@ function renderCards(props: {
   live?: LiveRun[]
   finished?: FinishedRun[]
   spans?: EngineSpan[]
+  compact?: boolean
   now?: number
 }) {
   return render(
@@ -55,6 +56,7 @@ function renderCards(props: {
         live={props.live ?? []}
         finished={props.finished ?? []}
         spans={props.spans ?? []}
+        compact={props.compact}
         now={props.now ?? T0 + 12_000}
       />
     </MemoryRouter>,
@@ -319,5 +321,23 @@ describe('liveRuns helpers (pure)', () => {
     expect(activeRuns([parked, going]).map((r) => r.id)).toEqual(['going'])
     expect(activeRuns([parked])).toEqual([])
     expect(activeRuns([going])).toEqual([going])
+  })
+})
+
+
+// While the board below draws the seats, the card is the TASK and the CLOCK
+// only — its "on it now" chips were the same seats a second time (clear-room
+// spec 2026-11-09 §A3).
+describe('LiveRunCards — compact beside the board', () => {
+  it('compact keeps the badge, the intent and the clock and drops the models row', () => {
+    renderCards({
+      live: [{ id: 'r1', kind: 'team', intent: 'say hello', startedAt: Date.now() - 5_000, models: ['local'] }],
+      finished: [],
+      spans: [],
+      compact: true,
+    })
+    expect(screen.getByText('say hello')).toBeInTheDocument()
+    expect(document.querySelector('.lrun__elapsed')).not.toBeNull()
+    expect(document.querySelector('.lrun__models')).toBeNull()
   })
 })

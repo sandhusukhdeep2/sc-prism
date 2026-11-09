@@ -70,14 +70,16 @@ describe('rule 1 — a paused run does not glow (the 16182f2 regression, in v2 f
 
   it('an open span under a LIVE run pulses and shows a progress line', () => {
     draw(open, true)
+    // The pulse on the seat IS the progress signal (the per-seat rows and
+    // their bar are gone — each seat is drawn once, clear-room §A3).
     expect(document.querySelectorAll('.crew__mono--pulse').length).toBeGreaterThan(0)
-    expect(document.querySelector('.crew__bar')).not.toBeNull()
+    expect(screen.getByText('thinking')).toBeInTheDocument()
   })
 
   it('the SAME span pulses nothing when nothing is executing — and no progress line', () => {
     draw(open, false)
     expect(document.querySelector('.crew__mono--pulse')).toBeNull()
-    expect(document.querySelector('.crew__bar')).toBeNull()
+    expect(screen.queryByText('thinking')).toBeNull()
   })
 
   it('a PARKED run: its "Your call" column shows, and not one monogram glows', () => {
@@ -92,7 +94,7 @@ describe('rule 1 — a paused run does not glow (the 16182f2 regression, in v2 f
   it('a CLOSED span never pulses, even mid-run', () => {
     draw([call({ agent: 'Scout', provider: 'local', model: 'q', is_real: true }, { status: 'ok' })], true)
     expect(document.querySelector('.crew__mono--pulse')).toBeNull()
-    expect(screen.getByTitle('answered')).toBeInTheDocument()
+    expect(screen.getByText('answered')).toBeInTheDocument()
   })
 })
 
@@ -108,7 +110,7 @@ describe('rule 2 — the name and the AI are the span’s own words', () => {
   it('a span with no provider/model reads the honest generic and goes GREY', () => {
     draw([call({ agent: 'someone' })], true)
     expect(screen.getByText('an AI')).toBeInTheDocument()
-    const mono = document.querySelector('.crew__mono--sm') as HTMLElement
+    const mono = document.querySelector('.crew__mono--lg') as HTMLElement
     expect(mono.className).toContain('crew__mono--idle')
     expect(mono.style.background).toBeTruthy()
   })
@@ -116,7 +118,7 @@ describe('rule 2 — the name and the AI are the span’s own words', () => {
   it('the monogram is a LETTER tinted by its model — never a face or an image', () => {
     const { container } = draw([call({ agent: 'Writer', provider: 'claude-cli', model: 'opus' })], true)
     expect(container.querySelector('img')).toBeNull()
-    const mono = container.querySelector('.crew__mono--sm') as HTMLElement
+    const mono = container.querySelector('.crew__mono--lg') as HTMLElement
     expect(mono.textContent).toBe('W')
     // the app-wide model hue, so a monogram, an orb and a run-stream chip all
     // name the same model in the same colour
@@ -134,8 +136,12 @@ describe('rule 2 — the name and the AI are the span’s own words', () => {
       ],
       true,
     )
-    expect(screen.getByText('asked to contribute to the board (round 1)')).toBeInTheDocument()
-    expect(screen.getByText('answered (40 tokens back)')).toBeInTheDocument()
+    // Each seat is drawn ONCE (clear-room spec 2026-11-09 §A3): the cluster
+    // says what each coworker is doing; there is no second list of rows
+    // under it repeating the name, the model and the state.
+    expect(screen.getByText('thinking')).toBeInTheDocument()
+    expect(screen.getByText('answered')).toBeInTheDocument()
+    expect(document.querySelectorAll('.crew__item')).toHaveLength(0)
   })
 })
 
