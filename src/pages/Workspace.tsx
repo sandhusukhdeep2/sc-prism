@@ -49,7 +49,7 @@ import { runsPill } from '../lib/runsPill'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
-import { useProjects, useProjectsHydrated, nextSendMode, removeProject } from '../lib/projects'
+import { useProjects, useProjectsHydrated, nextSendMode } from '../lib/projects'
 import { NewProjectForm, ProjectContextPanel, StatusChip } from './Projects'
 import './Projects.css'
 import './Workspace.css'
@@ -144,7 +144,6 @@ export default function Workspace() {
   const [showNewForm, setShowNewForm] = useState(false)
   // In-app confirms (replace the old native window.confirm dialogs).
   const [confirmNewSession, setConfirmNewSession] = useState(false)
-  const [confirmDeleteProject, setConfirmDeleteProject] = useState(false)
   // THE RAIL FOLDS DURING A RUN (Sukhdeep, watching the first live build:
   // "remove these two things on the sidebar and put sidebar stuff somewhere
   // else, so we have enough space for the chat and can see the live feed").
@@ -355,7 +354,6 @@ export default function Workspace() {
 
   // Switching threads/projects disarms any pending in-app confirm.
   useEffect(() => {
-    setConfirmDeleteProject(false)
     setConfirmNewSession(false)
   }, [state.activeProjectId])
 
@@ -1512,45 +1510,8 @@ export default function Workspace() {
               <div className="ws__railhead">
                 <div className="ws__railname">{activeProject.name || '(untitled)'}</div>
                 <StatusChip status={activeProject.status} />
-                {confirmDeleteProject ? (
-                  <span className="ws__raildelconfirm">
-                    <span className="ws__raildelq mono" title="This cannot be undone.">
-                      Delete “{activeProject.name}”?
-                    </span>
-                    <button
-                      type="button"
-                      className="ws__raildelyes"
-                      aria-label={`Confirm delete ${activeProject.name}`}
-                      onClick={() => {
-                        removeProject(activeProject.id)
-                        setActiveProject('')
-                        setConfirmDeleteProject(false)
-                      }}
-                    >
-                      confirm
-                    </button>
-                    <button
-                      type="button"
-                      className="ws__raildelno"
-                      aria-label="Cancel deleting project"
-                      onClick={() => setConfirmDeleteProject(false)}
-                    >
-                      cancel
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="ws__raildelete"
-                    aria-label={`Delete ${activeProject.name}`}
-                    title="Delete this project"
-                    onClick={() => setConfirmDeleteProject(true)}
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
-              {activeProject.goal && <div className="ws__railgoal mono">{activeProject.goal}</div>}
+              {activeProject.goal && <div className="ws__railgoal">{activeProject.goal}</div>}
               {/* NO TEAM ORBS HERE (2026-08-30 — Sukhdeep, comparing his two
                   screenshots: "the information you show on the sidebar is kind
                   of similar to Who's on it — remove that and utilize the

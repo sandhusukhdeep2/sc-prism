@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { renderChatMarkdown } from '../lib/chatMarkdown'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import './Projects.css'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
@@ -219,11 +220,39 @@ export function renderRoster(roster: string): string {
  * Reveal folder + Finder to trash files). Two-step inline confirm; no native
  * dialog, so the copy can say exactly what happens.
  */
+/** The last result the room produced, as MARKDOWN (it is markdown), clamped to
+ *  a few lines with a way to see all of it — not a raw dump in monospace at
+ *  the end of the panel (clear-room spec 2026-11-09 §A5). */
+function LastResult({ note }: { note: string }) {
+  const [open, setOpen] = useState(false)
+  const long = note.split('\n').length > 5 || note.length > 360
+  return (
+    <section className={'proj__lastresult' + (long && !open ? ' is-clamped' : '')} aria-label="Last result">
+      <div className="proj__sectionhead">
+        <span className="proj__sectionkicker">Last result</span>
+      </div>
+      <div className="proj__lastresult__body">{renderChatMarkdown(note)}</div>
+      {long && (
+        <button type="button" className="proj__lastresult__more" onClick={() => setOpen((v) => !v)}>
+          {open ? 'show less' : 'show all'}
+        </button>
+      )}
+    </section>
+  )
+}
+
 function DeleteProjectControl({ projectId }: { projectId: string }) {
   const [arming, setArming] = useState(false)
+  const { state, setActiveProject } = useApp()
+  const remove = () => {
+    removeProject(projectId)
+    // Deleting the room you are standing in returns you to the Manager —
+    // never a ghost thread with no project behind it.
+    if (state.activeProjectId === projectId) setActiveProject('')
+  }
   if (!arming) {
     return (
-      <button type="button" className="proj__startbtn proj__deletebtn" onClick={() => setArming(true)}>
+      <button type="button" className="proj__deletelink" onClick={() => setArming(true)}>
         Delete project
       </button>
     )
@@ -234,7 +263,7 @@ function DeleteProjectControl({ projectId }: { projectId: string }) {
       <button
         type="button"
         className="proj__startbtn proj__deletebtn proj__deletebtn--armed"
-        onClick={() => removeProject(projectId)}
+        onClick={remove}
       >
         Really delete
       </button>
@@ -739,11 +768,10 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             </div>
           )}
           {Boolean(project.path) && (
-            <button type="button" className="proj__startbtn" onClick={() => void revealProjectFolder()}>
+            <button type="button" className="proj__quietbtn" onClick={() => void revealProjectFolder()}>
               Reveal folder
             </button>
           )}
-          <DeleteProjectControl projectId={project.id} />
 
           {project.status === 'awaiting' && (
             <div className="proj__askbanner">
@@ -762,9 +790,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             </div>
           )}
 
-          {project.lastNote && project.status !== 'awaiting' && (
-            <div className="proj__lastnote mono">{project.lastNote}</div>
-          )}
+          {project.lastNote && project.status !== 'awaiting' && <LastResult note={project.lastNote} />}
 
           <ProjectRunStage project={project} />
 
@@ -778,8 +804,12 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               </div>
             </div>
           )}
+
         </section>
       )}
+      {/* The one delete, small, at the very end — whatever the project's
+          state, and never beside Reveal. */}
+      <DeleteProjectControl projectId={project.id} />
     </>
   )
 }

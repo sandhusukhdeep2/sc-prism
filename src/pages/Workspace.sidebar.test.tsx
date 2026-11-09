@@ -175,7 +175,7 @@ describe('Workspace rail: delete a project + heal a dangling active id (P3-3)', 
     localStorage.clear()
   })
 
-  it('deletes the active project from the rail (two-step in-app confirm) and falls back to Manager', () => {
+  it('deletes the active project from the rail (two-step in-app confirm) and falls back to Manager', async () => {
     const project = addProject('Sidebar Epsilon', 'ship it', '', '/tmp/sidebar-epsilon')
     localStorage.setItem(
       'scprism.session',
@@ -191,19 +191,21 @@ describe('Workspace rail: delete a project + heal a dangling active id (P3-3)', 
     const nav = screen.getByRole('navigation', { name: /chats and projects/i })
     expect(within(nav).getByRole('button', { name: /sidebar epsilon/i })).toBeInTheDocument()
 
-    // Arm the confirm — one click on ✕ must NOT delete anything (no native dialog).
-    fireEvent.click(screen.getByRole('button', { name: /delete sidebar epsilon/i }))
+    // Arm the confirm — one click on "Delete project" (the small text button at
+    // the end of the Details drawer; the header ✕ is gone, clear-room 2026-11-09)
+    // must NOT delete anything (no native dialog).
+    fireEvent.click(await screen.findByRole('button', { name: /^delete project$/i }))
     expect(within(nav).getByRole('button', { name: /sidebar epsilon/i })).toBeInTheDocument()
 
     // The explicit confirm performs the durable removal.
-    fireEvent.click(screen.getByRole('button', { name: /confirm delete sidebar epsilon/i }))
+    fireEvent.click(screen.getByRole('button', { name: /really delete/i }))
     // Gone from the sidebar — its nav item is no longer a button there.
     expect(within(nav).queryByRole('button', { name: /sidebar epsilon/i })).not.toBeInTheDocument()
     // And the active session fell back to Universal, not a ghost thread.
     expect(within(nav).getByRole('button', { name: /^manager$/i }).className).toMatch(/is-active/)
   })
 
-  it('does not delete when the in-app confirm is cancelled', () => {
+  it('does not delete when the in-app confirm is cancelled', async () => {
     const project = addProject('Sidebar Zeta', 'ship it', '', '/tmp/sidebar-zeta')
     localStorage.setItem(
       'scprism.session',
@@ -217,8 +219,8 @@ describe('Workspace rail: delete a project + heal a dangling active id (P3-3)', 
     renderWorkspace()
 
     const nav = screen.getByRole('navigation', { name: /chats and projects/i })
-    fireEvent.click(screen.getByRole('button', { name: /delete sidebar zeta/i }))
-    fireEvent.click(screen.getByRole('button', { name: /cancel deleting project/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /^delete project$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /keep it/i }))
 
     // Still there — cancelling the confirm must not remove it.
     expect(within(nav).getByRole('button', { name: /sidebar zeta/i })).toBeInTheDocument()

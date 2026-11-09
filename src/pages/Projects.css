@@ -230,3 +230,16 @@
 /* Folded Files header — a button, count visible, one click to open. */
 .proj__fileshead--btn { background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; width: 100%; }
 .proj__fileshead--btn:hover { color: var(--ink); }
+
+/* THE DRAWER READS (clear-room spec 2026-11-09 §A5). One primary per screen:
+   Reveal is a quiet pill, Delete a small text button at the very end, and
+   the last result is markdown clamped to a few lines — body type, not a
+   monospace dump. */
+.proj__quietbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: var(--v2-r-pill); border: 1px solid var(--v2-line); background: var(--v2-card); color: var(--v2-ink); cursor: pointer; min-height: 32px; align-self: flex-start; }
+.proj__quietbtn:hover { background: var(--v2-fill); }
+.proj__deletelink { font: inherit; font-size: 12px; color: var(--v2-coral-ink); background: none; border: 0; padding: 6px 0; cursor: pointer; align-self: flex-start; opacity: 0.85; margin-top: 8px; }
+.proj__deletelink:hover { opacity: 1; text-decoration: underline; }
+.proj__lastresult { display: flex; flex-direction: column; gap: 6px; }
+.proj__lastresult__body { font-size: 13px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.proj__lastresult.is-clamped .proj__lastresult__body { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; }
+.proj__lastresult__more { font: inherit; font-size: 12px; color: var(--v2-blue-ink); background: none; border: 0; padding: 0; cursor: pointer; align-self: flex-start; text-decoration: underline; text-underline-offset: 2px; }
