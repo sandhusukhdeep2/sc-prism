@@ -15,9 +15,9 @@ import ConnectivityDot from './ConnectivityDot'
 import FloatingPulse from './FloatingPulse'
 import HeartbeatNotice from './HeartbeatNotice'
 import LocalMeter from './LocalMeter'
+import { LiveDashboardContext, useLiveDashboard } from '../lib/liveDashboard'
 import { useApp } from '../store/AppStore'
 import { activeRuns } from '../lib/liveRuns'
-import { useLiveDashboard } from '../lib/liveDashboard'
 import { localShare } from '../lib/engineStats'
 import './AppShell.css'
 
@@ -179,7 +179,11 @@ export default function AppShell() {
         </nav>
 
         <main className={'content' + (location.pathname === '/' ? ' content--fit' : '')}>
-          <Outlet />
+          {/* The shell's one dashboard reading, shared with every page below:
+              a page's own useLiveDashboard reuses it instead of polling again. */}
+          <LiveDashboardContext.Provider value={dashRead}>
+            <Outlet />
+          </LiveDashboardContext.Provider>
         </main>
       </div>
 

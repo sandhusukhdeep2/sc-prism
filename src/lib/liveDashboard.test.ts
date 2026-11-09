@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import { createElement, type ReactNode } from 'react'
 import type { Dashboard } from '../engine/types'
 import statsSrc from '../pages/Stats.tsx?raw'
 import consoleSrc from '../pages/Console.tsx?raw'
@@ -41,7 +42,7 @@ vi.mock('./nativeEngine', async (importOriginal) => {
   }
 })
 
-const { DASH_POLL_MS, staleNote, useLiveDashboard } = await import('./liveDashboard')
+const { DASH_POLL_MS, LiveDashboardProvider, staleNote, useLiveDashboard } = await import('./liveDashboard')
 
 describe('useLiveDashboard', () => {
   beforeEach(() => {
@@ -248,5 +249,49 @@ describe('the data pages are wired to the shared hook', () => {
 
   it('Automations drives its live rows off the same registry', () => {
     expect(automationsSrc).toMatch(/activeRuns\(state\.liveRuns\)/)
+  })
+})
+
+// ONE POLL, however many readers. The shell mounts this hook for the rail's
+// meter, and Stats / Console / Memory mount it again for their own numbers —
+// so on those pages the engine's dashboard was read twice per tick. Inside the
+// shell's provider a page's hook reuses the shell's reading instead.
+describe('inside LiveDashboardProvider the hook shares one poll', () => {
+  beforeEach(() => {
+    calls.n = 0
+    calls.failWith = null
+    calls.throwWith = null
+    calls.delay = null
+    vi.useFakeTimers()
+  })
+  afterEach(() => vi.useRealTimers())
+  const flush = async () => {
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+  }
+  it('the shell provides its reading to every page below it', async () => {
+    const shellSrc = (await import('../components/AppShell.tsx?raw')).default
+    expect(shellSrc).toContain('LiveDashboardContext.Provider value={dashRead}')
+  })
+  it('two readers under one provider cost one read per tick, and read the same dashboard', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(LiveDashboardProvider, { vaultPath: '/vault', live: true, refetchKey: 0 }, children)
+    // Two readers under ONE provider.
+    const both = renderHook(
+      () => [useLiveDashboard('/vault', true, 0), useLiveDashboard('/vault', true, 0)] as const,
+      { wrapper },
+    )
+    await flush()
+    expect(calls.n).toBe(1)
+    await act(async () => {
+      vi.advanceTimersByTime(DASH_POLL_MS)
+    })
+    await flush()
+    expect(calls.n).toBe(2)
+    const [a, b] = both.result.current
+    expect(a.status).toBe('ok')
+    expect(b).toBe(a)
   })
 })

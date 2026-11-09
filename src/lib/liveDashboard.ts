@@ -28,7 +28,8 @@
 //               rewrite a measured number to zero.
 //  - 'failed'   a read failed and nothing was ever measured.
 
-import { useEffect, useRef, useState } from 'react'
+import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { Dashboard } from '../engine/types'
 import { isNative, readNativeDashboard, resolveVaultDir } from './nativeEngine'
 
@@ -59,11 +60,43 @@ export function staleNote(live: LiveDashboard): string | null {
     : `engine read failed at ${at} — nothing measured yet`
 }
 
+/** ONE POLL, however many readers (2026-11-09). The shell polls once for the
+ *  rail's meter and provides the reading; a page's own `useLiveDashboard`
+ *  under that provider reuses it instead of starting a second poll. */
+export const LiveDashboardContext = createContext<LiveDashboard | null>(null)
+
+export function LiveDashboardProvider({
+  vaultPath,
+  live,
+  refetchKey = 0,
+  children,
+}: {
+  vaultPath: string
+  live: boolean
+  refetchKey?: unknown
+  children?: ReactNode
+}) {
+  const value = useOwnDashboardPoll(vaultPath, live, refetchKey, true)
+  return createElement(LiveDashboardContext.Provider, { value }, children)
+}
+
 export function useLiveDashboard(
   vaultPath: string,
   live: boolean,
   /** Any value that should force an immediate refetch (e.g. verdicts.length). */
   refetchKey: unknown = 0,
+): LiveDashboard {
+  const shared = useContext(LiveDashboardContext)
+  const own = useOwnDashboardPoll(vaultPath, live, refetchKey, shared === null)
+  return shared ?? own
+}
+
+function useOwnDashboardPoll(
+  vaultPath: string,
+  live: boolean,
+  refetchKey: unknown,
+  /** False when a provider above already polls — then this hook does nothing. */
+  enabled: boolean,
 ): LiveDashboard {
   const [result, setResult] = useState<LiveDashboard>(() => ({
     dash: null,
@@ -79,7 +112,7 @@ export function useLiveDashboard(
   const latest = useRef(0)
 
   useEffect(() => {
-    if (!isNative()) return
+    if (!enabled || !isNative()) return
     let cancelled = false
     const fetchDash = async () => {
       const mine = ++seq.current
@@ -122,7 +155,7 @@ export function useLiveDashboard(
       cancelled = true
       clearInterval(timer)
     }
-  }, [vaultPath, live, refetchKey])
+  }, [vaultPath, live, refetchKey, enabled])
 
   return result
 }
