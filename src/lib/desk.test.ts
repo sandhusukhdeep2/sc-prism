@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  deskSummary,
   buildDeskItems,
   buildPhase,
   buildProgressMeta,
@@ -1028,5 +1029,31 @@ describe('recentManagerRuns — a run carries its age', () => {
       now,
     )
     expect(out.map((r) => r.title)).toEqual(['new', 'old'])
+  })
+})
+
+// THE DESK'S ONE LINE (clear-room spec 2026-11-09 §A6). Closed, the desk used
+// to say "happening now · health · catch-up" — three labels, no facts. It now
+// says what is on it: managers on duty, project loops, and when a manager last
+// ran — every part a count or a time from the stores, or nothing.
+describe('deskSummary — the closed desk says what is on it', () => {
+  const now = Date.UTC(2026, 10, 9, 12, 0, 0)
+  const job = (over: Partial<ManagerJob>): ManagerJob =>
+    ({ id: 'j', managerId: 'm', label: 'beat', cadenceMs: 1, runs: [], ...over }) as ManagerJob
+  const managers = (enabled: number, lastAt?: number): ManagersState =>
+    ({
+      managers: Array.from({ length: enabled }, (_, i) => ({ id: `m${i}`, enabled: true })) as unknown as ManagersState['managers'],
+      jobs: lastAt ? [job({ runs: [{ at: lastAt, ok: true, summary: 'fine' } as ManagerJob['runs'][number]] })] : [],
+    }) as ManagersState
+  const loop = (projectId: string, id: string): Schedule => ({ id, task: 't', projectId } as unknown as Schedule)
+  const proj = (id: string): Project => ({ id, name: id, status: 'planned' } as unknown as Project)
+
+  it('counts managers on duty, project loops, and the last manager run', () => {
+    expect(deskSummary(managers(2, now - 3 * 60_000), [loop('p1', 's1'), loop('p1', 's2'), loop('p2', 's3')], [proj('p1'), proj('p2')], now))
+      .toBe('2 managers on duty · 3 loops · last ran 3 min ago')
+  })
+  it('singulars and a loop with no project still count; nothing on duty says so', () => {
+    expect(deskSummary(managers(1), [loop('', 's1')], [], now)).toBe('1 manager on duty · 1 loop')
+    expect(deskSummary(managers(0), [], [], now)).toBe('nothing on the desk yet')
   })
 })

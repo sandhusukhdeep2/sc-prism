@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useSchedules } from '../lib/schedules'
+import { useManagers } from '../lib/managers'
 import { agentsInRun } from '../lib/agentDossier'
 import { Link } from 'react-router-dom'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
@@ -28,7 +30,7 @@ import { meterFor } from '../lib/contextMeter'
 import { useConnectivity } from '../lib/connectivity'
 import { filterRoster, rosterGate, sitOutLine } from '../lib/roster'
 import Icon from '../components/Icon'
-import { greeting, statusLine } from '../lib/desk'
+import { greeting, statusLine, deskSummary } from '../lib/desk'
 import { isNative, pickFile, readImageBase64, readTextFile, revealVaultNote } from '../lib/nativeEngine'
 import { composeWithAttachments, displayLine, type ChatAttachment } from '../lib/attachments'
 import { useSpanTail } from '../lib/engineConsole'
@@ -254,6 +256,9 @@ export default function Workspace() {
   // project has ever been opened, or the bound id no longer resolves (the
   // project was deleted): the chip simply doesn't render, same as today.
   const { projects } = useProjects()
+  // The desk's closed line is counts from the stores, not headings (§A6).
+  const managersForDesk = useManagers()
+  const schedulesForDesk = useSchedules()
   const projectsHydrated = useProjectsHydrated()
   const activeProject = state.activeProjectId
     ? projects.find((p) => p.id === state.activeProjectId)
@@ -736,7 +741,7 @@ export default function Workspace() {
               which lives in the always-visible rail above. A label may only
               advertise what its own click shows. */}
           <span className="ws__desksummary mono">
-            {deskOpen ? '' : 'happening now · health · catch-up'}
+            {deskOpen ? '' : deskSummary(managersForDesk, schedulesForDesk, projects)}
           </span>
           <span className="ws__deskchev">{deskOpen ? '▾' : '▸'}</span>
         </button>

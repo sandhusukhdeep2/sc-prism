@@ -558,3 +558,39 @@ export function nextDueSchedule(
   }
   return best
 }
+
+/** How long ago, in the desk's own words: "just now", "3 min ago", "2 h ago",
+ *  "yesterday", "4 days ago". */
+function agoLabel(at: number, now: number): string {
+  const s = Math.max(0, Math.round((now - at) / 1000))
+  if (s < 60) return 'just now'
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m} min ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h} h ago`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'yesterday' : `${d} days ago`
+}
+
+/**
+ * THE DESK'S ONE LINE while it is closed (clear-room spec 2026-11-09 §A6):
+ * managers on duty · loops · when a manager last ran. Every part is a count or
+ * a time from the stores; a part with nothing behind it is left out, and an
+ * empty desk says so instead of listing headings.
+ */
+export function deskSummary(
+  m: ManagersState,
+  schedules: readonly Schedule[],
+  projects: readonly Project[],
+  now: number = Date.now(),
+): string {
+  const onDuty = m.managers.filter((x) => x.enabled).length
+  const loops = schedules.length
+  const last = recentManagerRuns(m, 1, now)[0]
+  const parts: string[] = []
+  if (onDuty > 0) parts.push(`${onDuty} manager${onDuty === 1 ? '' : 's'} on duty`)
+  if (loops > 0) parts.push(`${loops} loop${loops === 1 ? '' : 's'}`)
+  if (last) parts.push(`last ran ${agoLabel(last.at, now)}`)
+  void projects
+  return parts.length ? parts.join(' · ') : 'nothing on the desk yet'
+}
