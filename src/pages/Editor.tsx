@@ -284,7 +284,7 @@ export default function Editor() {
           >
             ↗
           </button>
-          <Link to="/vault" className="ed__btn ed__btn--ghost">Open in Vault</Link>
+          <Link to="/library?tab=vault" className="ed__btn ed__btn--ghost">Open in Vault</Link>
           <span className="ed__spacer" />
           {status.type === 'saved' ? (
             <span className="mono ed__status ed__status--ok">

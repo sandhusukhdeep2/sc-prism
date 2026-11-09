@@ -319,7 +319,7 @@ export default function Memory() {
               <div className="tier__desc">single source of truth · git-synced markdown</div>
               <div className="tier__meta">
                 indexes derived &amp; regenerable ·{' '}
-                <Link to="/vault" className="tier__link">
+                <Link to="/library?tab=vault" className="tier__link">
                   open ›
                 </Link>
               </div>
@@ -515,7 +515,7 @@ export default function Memory() {
                 router is a separate, explicit action
               </div>
               <div className="mem-ft__spacer" />
-              <Link to="/training" className="mem-ft__run">
+              <Link to="/library?tab=training" className="mem-ft__run">
                 See real learning on the Training page →
               </Link>
             </div>

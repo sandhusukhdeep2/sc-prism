@@ -1426,7 +1426,7 @@ export default function Desk({
             {catchUpRuns.length > 0 && (
               <div className="desk__catchcol">
                 {catchUpRuns.map((r, i) => (
-                  <Link key={i} to="/vault" className="desk__catchrow">
+                  <Link key={i} to="/library?tab=vault" className="desk__catchrow">
                     <span className={'desk__dot ' + (r.ok ? 'desk__dot--ok' : 'desk__dot--err')} />
                     <span className="desk__catchtitle">{r.title}</span>
                     <span className="desk__catchsummary mono">{r.summary}</span>

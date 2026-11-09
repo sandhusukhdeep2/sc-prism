@@ -317,7 +317,7 @@ export default function Stats() {
             ) : costDir === 'none' ? (
               'the last run cost $0 (no priced call) — no trend can be read from it'
             ) : (
-              <>local models take over routine work · <Link to="/memory" className="stats__inlink">see learning ›</Link></>
+              <>local models take over routine work · <Link to="/library?tab=memory" className="stats__inlink">see learning ›</Link></>
             )}
           </div>
         </div>

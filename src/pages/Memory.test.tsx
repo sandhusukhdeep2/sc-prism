@@ -59,7 +59,7 @@ describe('Memory page — no fabricated learning figures', () => {
   it('links out to the real learning gate on the Training page', () => {
     renderMemory()
     const link = screen.getByRole('link', { name: /see real learning on the training page/i })
-    expect(link).toHaveAttribute('href', '/training')
+    expect(link).toHaveAttribute('href', '/library?tab=training')
   })
 })
 

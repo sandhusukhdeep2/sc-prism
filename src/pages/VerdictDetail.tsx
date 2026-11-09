@@ -364,7 +364,7 @@ function VerdictBody({ v, spans }: { v: Verdict; spans: readonly EngineSpan[] })
                   span trace: <span className="vd__dim">{v.native.spansPath}</span> ·{' '}
                 </>
               ) : null}
-              <Link to="/vault" className="vd__spanlink">open the vault ›</Link>
+              <Link to="/library?tab=vault" className="vd__spanlink">open the vault ›</Link>
             </div>
           </div>
         </div>

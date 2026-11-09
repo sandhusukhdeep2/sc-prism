@@ -536,7 +536,7 @@ export default function Vault() {
           )}
           <div className="vault__treenote">
             indexes are derived &amp; regenerable · L3 of{' '}
-            <Link to="/memory" className="vault__treelink">
+            <Link to="/library?tab=memory" className="vault__treelink">
               memory ›
             </Link>
           </div>
