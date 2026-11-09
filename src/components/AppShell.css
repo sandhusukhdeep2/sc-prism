@@ -214,6 +214,13 @@
     clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
   .rail__link:hover .icon { transform: none; }
+  /* The meter shrinks to its number: the bar and the token line need the
+     width the icon rail no longer has, and spilled past it. */
+  .meter { padding: 8px 4px; align-items: center; gap: 0; }
+  .meter__bar,
+  .meter__sub,
+  .meter__add { display: none; }
+  .meter__num { font-size: 12px; gap: 4px; }
 }
 
 

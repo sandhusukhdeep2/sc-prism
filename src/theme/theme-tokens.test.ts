@@ -319,3 +319,15 @@ describe('motion is one system', () => {
     expect(ceremony).toMatch(/\.ceremony__line \{[^}]*animation: [a-zA-Z]+ var\(--dur\) var\(--ease-out\) both/)
   })
 })
+
+// THE ICON RAIL (≤ 820px): the rail is 60px wide and the links are icons only,
+// but the local-share meter at its foot still laid out its bar and its token
+// line at full width and spilled past the rail. There it shows the number only.
+describe('the meter fits the icon rail', () => {
+  it('hides the bar and the token line, and keeps the number, below 820px', () => {
+    const shell = read('src/components/AppShell.css')
+    const narrow = shell.slice(shell.indexOf('@media (max-width: 820px)'))
+    expect(narrow).toMatch(/\.meter__bar,?\s*\n?\s*\.meter__sub[^}]*display: none/)
+    expect(narrow).toMatch(/\.meter \{[^}]*padding: [^;]+;/)
+  })
+})
