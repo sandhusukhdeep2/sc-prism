@@ -83,14 +83,22 @@ function AgentEditor({ a }: { a: StoredAgent }) {
     setTools((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))
 
   const save = () => {
+    const nextCharter = charter.slice(0, MAX_CHARTER)
+    // A proof vouches for ONE identity — this charter, on this model, with
+    // these tools. Change any of those and the dated chip would be a fact
+    // about a different agent, so it goes back to "not yet proven". A role
+    // line or a skill pick does not change what was proven.
+    const sameTools = [...tools].sort().join(',') === [...(a.tools ?? [])].sort().join(',')
+    const identityChanged = model !== a.model || nextCharter !== (a.charter ?? '') || !sameTools
     const patch = {
       name: name.trim() || a.name,
       role: role.trim(),
       model,
       skills: picked,
       tools,
-      charter: charter.slice(0, MAX_CHARTER),
+      charter: nextCharter,
       assignedTo,
+      proof: identityChanged ? undefined : a.proof,
     }
     updateAgent(a.id, patch)
     // Write-through with the merged row (the store hook re-renders async, so

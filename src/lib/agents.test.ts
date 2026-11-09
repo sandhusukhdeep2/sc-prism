@@ -838,3 +838,23 @@ describe('crewModelPlan names its cloud explicitly', () => {
     expect(crewModelPlan(crew, 'local', ['local']).every((r) => r.model === 'local')).toBe(true)
   })
 })
+
+// A proof vouches for one identity on one model. Moving the seat to another
+// model (Settings' crew lean does this for system agents too) must drop it,
+// so a caller that says `proof: undefined` MEANS "clear it" — for every
+// agent, system or not. A patch that does not mention proof leaves it alone.
+describe('update — an explicit proof: undefined clears the proof', () => {
+  it('on a system agent, whose identity is otherwise read-only', () => {
+    const sys = list().find((a) => a.system)!
+    update(sys.id, { proof: { at: 1, proven: true, reason: '' } })
+    expect(list().find((a) => a.id === sys.id)?.proof?.proven).toBe(true)
+    update(sys.id, { model: sys.model === 'local' ? 'claude' : 'local', proof: undefined })
+    expect(list().find((a) => a.id === sys.id)?.proof).toBeUndefined()
+  })
+  it('a patch that does not mention proof keeps it', () => {
+    const sys = list().find((a) => a.system)!
+    update(sys.id, { proof: { at: 1, proven: true, reason: '' } })
+    update(sys.id, { enabled: true })
+    expect(list().find((a) => a.id === sys.id)?.proof?.proven).toBe(true)
+  })
+})

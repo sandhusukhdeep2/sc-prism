@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AgentDetail from './AgentDetail'
 import Agents from './Agents'
-import { create as createAgent, agentSlug } from '../lib/agents'
+import { create as createAgent, agentSlug, list as listAgents, update as updateAgent } from '../lib/agents'
 import { SettingsProvider } from '../lib/settings'
 import { ConnectivityProvider } from '../lib/connectivity'
 import { OnboardingProvider } from '../lib/onboarding'
@@ -87,6 +87,32 @@ describe('the per-agent page', () => {
       expect(file).toContain('tracks competitor pricing weekly')
       expect(file).toContain('Watch three competitors. Cite sources.')
     })
+  })
+
+  // A proof is a fact about ONE identity: "this charter, on this model, with
+  // these tools answered and used its tools". Edit any of those and the fact
+  // no longer describes the seat — so the chip goes back to "not yet proven"
+  // instead of wearing a date earned by a different agent.
+  it('editing the charter clears a stale proof, in the store and in the file', async () => {
+    const a = createAgent({ name: 'proof-scout', role: 'r', model: 'local' })
+    updateAgent(a.id, { proof: { at: Date.UTC(2026, 10, 8), proven: true, reason: '' } })
+    renderAt(`/agents/${agentSlug(a.name)}`)
+    fireEvent.change(screen.getByLabelText(/charter/i), { target: { value: 'A different job entirely.' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(native.files.get('agents/proof-scout.md')).toContain('A different job entirely.'))
+    expect(listAgents().find((x) => x.id === a.id)?.proof).toBeUndefined()
+    expect(native.files.get('agents/proof-scout.md')).not.toContain('proven_at:')
+  })
+
+  it('editing only the role keeps the proof — the identity it vouches for is unchanged', async () => {
+    const a = createAgent({ name: 'proof-keeper', role: 'r', model: 'local' })
+    updateAgent(a.id, { proof: { at: Date.UTC(2026, 10, 8), proven: true, reason: '' } })
+    renderAt(`/agents/${agentSlug(a.name)}`)
+    fireEvent.change(screen.getByLabelText(/what this coworker is for/i), { target: { value: 'a clearer one-liner' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(native.files.get('agents/proof-keeper.md')).toContain('a clearer one-liner'))
+    expect(listAgents().find((x) => x.id === a.id)?.proof?.proven).toBe(true)
+    expect(native.files.get('agents/proof-keeper.md')).toContain('proven_at:')
   })
 
   it('a built-in system agent is read-only and says so', () => {

@@ -1,5 +1,6 @@
+import { list as listAgents, update as updateAgent } from '../lib/agents'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Settings from './Settings'
 import { SettingsProvider } from '../lib/settings'
@@ -80,5 +81,32 @@ describe('crew lean presets — all local / balanced / all cloud', () => {
     const on = agents.filter((a) => a.enabled)
     expect(on.length).toBeGreaterThan(1)
     expect(on.every((a) => a.model === 'local')).toBe(true)
+  })
+
+  it('a seat that moves to another model loses its proof; a seat that stays keeps it', () => {
+    localStorage.setItem(
+      'scprism.settings',
+      JSON.stringify({
+        providers: [
+          { id: 'local', name: 'Local', baseUrl: '', apiKey: '', enabled: true, primary: true, connected: true },
+        ],
+      }),
+    )
+    renderSettings()
+    // Two system seats carry a proof: one already on local (stays), one on claude (moves).
+    // The store seeds in memory and writes localStorage only on a change, so read the live list.
+    const before = listAgents()
+    // The store is module-level state: the test above already moved every
+    // seat to local, so put one back on claude here.
+    const stays = before.find((a) => a.enabled)!
+    const moves = before.find((a) => a.enabled && a.id !== stays.id)!
+    act(() => {
+      updateAgent(stays.id, { model: 'local', proof: { at: 1, proven: true, reason: '' } })
+      updateAgent(moves.id, { model: 'claude', proof: { at: 1, proven: true, reason: '' } })
+    })
+    fireEvent.click(screen.getByRole('button', { name: /all local/i }))
+    const after = JSON.parse(localStorage.getItem('scprism.agents') ?? '[]') as { id: string; proof?: { proven: boolean } }[]
+    expect(after.find((a) => a.id === stays.id)?.proof?.proven).toBe(true)
+    expect(after.find((a) => a.id === moves.id)?.proof).toBeUndefined()
   })
 })

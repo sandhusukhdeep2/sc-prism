@@ -481,7 +481,10 @@ export function update(id: string, patch: AgentPatch): void {
       if (patch.model !== undefined) allowed.model = patch.model
       // A proof is a FACT about the seat (did it answer, did its tools run),
       // not an edit of its identity — every agent, system or not, can carry one.
-      if (patch.proof !== undefined) allowed.proof = patch.proof
+      // An EXPLICIT `proof: undefined` means "clear it" (the seat moved to
+      // another model, or its identity changed): a key that is present counts,
+      // whatever its value; a patch that never mentions proof leaves it alone.
+      if (Object.prototype.hasOwnProperty.call(patch, 'proof')) allowed.proof = patch.proof
       return Object.keys(allowed).length ? { ...a, ...allowed } : a
     }
     return {

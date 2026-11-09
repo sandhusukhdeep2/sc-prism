@@ -1221,8 +1221,9 @@ function YourAIsRow() {
     for (const row of plan) {
       const a = agents.find((x) => x.id === row.id)
       if (!a || a.model === row.model) continue
-      updateAgent(a.id, { model: row.model })
-      void persistAgentToVault({ ...a, model: row.model }, settings.vaultPath)
+      // A proof vouches for the seat ON ONE MODEL; moved, it starts unproven.
+      updateAgent(a.id, { model: row.model, proof: undefined })
+      void persistAgentToVault({ ...a, model: row.model, proof: undefined }, settings.vaultPath)
     }
     setApplied(`${label} — ${plan.length} seat${plan.length === 1 ? '' : 's'} moved`)
   }
