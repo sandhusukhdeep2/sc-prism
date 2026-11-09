@@ -344,3 +344,17 @@ describe('the engine console uses the room’s surfaces', () => {
     expect(console).toMatch(/\.ws__console \{[^}]*background: var\(--/)
   })
 })
+
+// SMALL WINDOWS (clear-room spec 2026-11-09 §C). At 1000×760 during a live
+// run the stage kept its full height (`flex: 0 0 auto`) and the chat — the
+// hero — was a sliver with its composer clipped. In a small window the live
+// stage yields and the chat column keeps a floor.
+describe('the live stage yields in a small window', () => {
+  it('caps the live stage and floors the chat column under a narrow or short media query', () => {
+    const ws = read('src/pages/Workspace.css')
+    const small = ws.slice(ws.indexOf('@media (max-width: 1180px), (max-height: 820px)'))
+    expect(small.length).toBeGreaterThan(10)
+    expect(small).toMatch(/\.ws__stage--live:not\(:empty\) \{[^}]*max-height: 4\d%/)
+    expect(small).toMatch(/\.ws__chatcol \{[^}]*min-height: 2\d\dpx/)
+  })
+})

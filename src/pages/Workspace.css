@@ -683,3 +683,13 @@
 .msg:hover .msg__copy, .msg__copy:focus-visible { opacity: 0.85; }
 @media (prefers-reduced-motion: reduce) { .msg__copy { transition: none; } }
 .msg__actions { display: flex; gap: 10px; }
+
+/* SMALL WINDOWS (clear-room spec 2026-11-09 §C). The live stage used to keep
+   its full height whatever the window, so at 1000×760 the chat was a sliver
+   and its composer was clipped. Narrow or short, the stage yields and the
+   conversation keeps a floor tall enough for its last lines and the composer. */
+@media (max-width: 1180px), (max-height: 820px) {
+  .ws__stage { max-height: 46%; }
+  .ws__stage--live:not(:empty) { flex: 0 1 auto; max-height: 46%; }
+  .ws__chatcol { min-height: 260px; }
+}
