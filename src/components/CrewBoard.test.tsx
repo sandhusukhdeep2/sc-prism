@@ -258,6 +258,9 @@ describe('the seats say what each agent is doing, from its own spans', () => {
     expect(state.className).toContain('crew__seatstate--no')
     expect(state).toHaveAttribute('title', cause)
     expect(state.textContent).toContain('✕')
+    // The cause is READABLE, not tooltip-only: a screen reader and a touch
+    // user get the engine's words too (visually hidden inside the seat).
+    expect(cluster().getByText(cause)).toBeInTheDocument()
   })
 
   it('a handoff is drawn between the two seats and labelled with the stage', () => {
@@ -270,6 +273,9 @@ describe('the seats say what each agent is doing, from its own spans', () => {
     )
     expect(cluster().getByLabelText('researcher handed to developer: draft')).toBeInTheDocument()
     expect(cluster().getByText('draft')).toBeInTheDocument()
+    // A labelled span has no role, so assistive tech drops the label; the
+    // arrow is an image with that name.
+    expect(cluster().getByRole('img', { name: 'researcher handed to developer: draft' })).toBeInTheDocument()
   })
 
   it('A → B → A draws BOTH arrows between the two seats, each with its own label', () => {

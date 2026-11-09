@@ -364,6 +364,8 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .crew__seatstate--no { color: var(--v2-coral-ink); font-weight: 600; }
+/* Visually hidden, read aloud: the cause behind a refused turn. */
+.crew__srcause { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .crew__seattokens { font-size: 10px; color: var(--v2-muted); }
 
 /* A HANDOFF: a line with a head from one seat to the next, labelled with the

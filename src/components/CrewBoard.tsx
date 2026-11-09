@@ -228,6 +228,10 @@ export default function CrewBoard({
                       >
                         {st.kind === 'no-answer' ? '✕ ' : ''}
                         {st.text}
+                        {/* The cause is readable, not tooltip-only: visually
+                            hidden, so a screen reader or a touch user gets
+                            the engine's words too. */}
+                        {st.cause && <span className="crew__srcause">{st.cause}</span>}
                       </span>
                     )}
                     {st && st.tokens > 0 && (
@@ -242,6 +246,7 @@ export default function CrewBoard({
                       {fwd && (
                         <span
                           className="crew__handoff"
+                          role="img"
                           aria-label={`${fwd.from} handed to ${fwd.to}${fwd.label ? ': ' + fwd.label : ''}`}
                         >
                           <span className="crew__handofflabel">{fwd.label}</span>
@@ -251,6 +256,7 @@ export default function CrewBoard({
                       {back && (
                         <span
                           className="crew__handoff crew__handoff--back"
+                          role="img"
                           aria-label={`${back.from} handed to ${back.to}${back.label ? ': ' + back.label : ''}`}
                         >
                           <i aria-hidden="true" />
