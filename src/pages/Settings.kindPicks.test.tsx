@@ -198,8 +198,17 @@ describe('Settings — the best local model for each kind of work', () => {
     expect(note).toContain('25 GB ceiling')
     expect(note).toContain("the server's own figures")
     expect(note).toContain('one model at a time')
-    // Every kind now names the same compromise model.
-    for (const kind of WORK_KINDS) expect(line(kind)).toContain(FAST)
+    // Every kind now takes the same compromise model — so it is NAMED ONCE, in
+    // its own line, instead of five times down a column (seen 2026-11-11: one
+    // 60-character model id repeated on every row). Each row keeps its kind
+    // and its reason.
+    const one = screen.getByTestId('local-kind-one').textContent ?? ''
+    expect(one).toContain(FAST)
+    expect(one).toContain('every kind')
+    for (const kind of WORK_KINDS) expect(line(kind)).not.toContain(FAST)
     expect(line('implementer')).toContain('compromise')
+    // One model cell in the whole block (a reason or the memory note may still
+    // mention the model in a sentence).
+    expect(screen.getByTestId('local-kind-picks').querySelectorAll('.settings__kmodel')).toHaveLength(1)
   })
 })

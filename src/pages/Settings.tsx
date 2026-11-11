@@ -2188,6 +2188,9 @@ function LocalModelPicker({ p, vaultPath }: { p: ProviderConfig; vaultPath: stri
   // own figures say cannot co-load (the 2026-08-28 refusal, pre-empted), the
   // helper collapses them to one compromise and `memoryNote` says why.
   const kindPicks = report ? buildKindPicks(report.rows, status) : { picks: [], memoryNote: '' }
+  // When every kind of work takes the same model, name it once.
+  const kindIds = new Set(kindPicks.picks.map((k) => k.id))
+  const oneKindModel = kindPicks.picks.length > 1 && kindIds.size === 1 ? kindPicks.picks[0].id : ''
 
   return (
     <div className="settings__provider" data-testid="local-model-picker">
@@ -2214,14 +2217,37 @@ function LocalModelPicker({ p, vaultPath }: { p: ProviderConfig; vaultPath: stri
       {kindPicks.picks.length > 0 ? (
         <div className="settings__kpicks" data-testid="local-kind-picks">
           <span className="settings__khead">best for each kind of work — from these measurements</span>
+          {/* ONE MODEL, NAMED ONCE (2026-11-11): when every kind takes the same
+              model the id is said in its own line, not five times down a
+              column; each row keeps its kind and its reason. */}
+          {oneKindModel && (
+            <div className="settings__kone" data-testid="local-kind-one">
+              <span className="settings__konetext">one model takes every kind here:</span>
+              <span className="mono settings__kmodel" title={oneKindModel}>
+                {oneKindModel}
+              </span>
+              {(p.model ?? '') === oneKindModel ? (
+                <span className="settings__minuse">in use</span>
+              ) : (
+                <button
+                  type="button"
+                  className="settings__kuse mono"
+                  aria-label={`Use ${oneKindModel} for every kind`}
+                  onClick={() => updateProvider(p.id, { model: oneKindModel })}
+                >
+                  use this
+                </button>
+              )}
+            </div>
+          )}
           {kindPicks.picks.map((pick) => {
             const picked = (p.model ?? '') === pick.id
             return (
               <div key={pick.kind} className="settings__krow" data-testid={`local-kind-${pick.kind}`}>
                 <span className="mono settings__kkind">{pick.kind}</span>
-                <span className="mono settings__kmodel">{pick.id}</span>
+                {!oneKindModel && <span className="mono settings__kmodel">{pick.id}</span>}
                 <span className="settings__kreason">{pick.reason}</span>
-                {picked ? (
+                {oneKindModel ? null : picked ? (
                   <span className="settings__minuse">in use</span>
                 ) : (
                   <button
