@@ -26,8 +26,6 @@ export type { ProviderBurn }
 // topology are a picture, not a measurement (ADR-007's ◆-hub rule constrained how
 // that graph must LOOK; it never required us to draw one we had not measured).
 
-// Cloud tints only — the local bar has its own class and its own colour.
-const BAR_CLASSES = ['console__bar--dark', 'console__bar--purple', 'console__bar--tan', 'console__bar--blue']
 
 // --- Finding 3b/3c: hook health that cannot hide errors or average in dispatch ---
 // `dispatch` wraps the WHOLE model call (687s on the user's install), so folding
@@ -285,7 +283,7 @@ export default function Console() {
                     <span className="console__burnname" title={p.label}>{p.label}</span>
                     <span className="console__burntrack" aria-hidden="true">
                       <span
-                        className={'console__bar ' + (p.isLocal ? 'console__bar--local' : BAR_CLASSES[i % BAR_CLASSES.length])}
+                        className={'console__bar ' + (p.isLocal ? 'console__bar--local' : 'console__bar--cloud')}
                         style={{ width: `${p.widthPct}%` }}
                       />
                     </span>

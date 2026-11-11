@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { renderChatMarkdown } from '../lib/chatMarkdown'
+import { resultForDisplay } from '../lib/resultDisplay'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import './Projects.css'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
@@ -230,7 +231,7 @@ function LastResult({ note }: { note: string }) {
   const long = note.split('\n').length > 5 || note.length > 360
   return (
     <div className={'proj__lastresult' + (long && !open ? ' is-clamped' : '')}>
-      <div className="proj__lastresult__body">{renderChatMarkdown(note)}</div>
+      <div className="proj__lastresult__body">{renderChatMarkdown(resultForDisplay(note))}</div>
       {long && (
         <button type="button" className="proj__lastresult__more" onClick={() => setOpen((v) => !v)}>
           {open ? 'show less' : 'show all'}

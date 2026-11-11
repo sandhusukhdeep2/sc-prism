@@ -19,17 +19,17 @@
 /* LEFT tree */
 .vault__tree {
   width: 250px; flex: 0 0 250px; border-radius: var(--r-card); background: var(--card-solid);
-  box-shadow: var(--shadow-card); padding: 18px; overflow-y: auto;
+  box-shadow: var(--shadow-card); padding: 18px; overflow-y: auto; overflow-x: hidden;
 }
 .vault__folder {
-  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px;
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; overflow-wrap: anywhere;
   font-size: 12px; font-family: inherit; color: var(--ink-3); text-align: left;
   background: none; border: 0; cursor: pointer; border-radius: var(--v2-r-chip);
 }
 .vault__folder:hover { color: var(--ink); background: var(--fill-soft); }
 .vault__caret { color: #5f6570; }
 .vault__file {
-  display: block; width: 100%; padding: 6px 10px 6px 30px; font-size: 12px;
+  display: block; width: 100%; padding: 6px 10px 6px 30px; font-size: 12px; overflow-wrap: anywhere;
   font-family: inherit; color: var(--muted); text-align: left; background: none;
   border: 0; border-radius: var(--v2-r-chip); cursor: pointer;
 }

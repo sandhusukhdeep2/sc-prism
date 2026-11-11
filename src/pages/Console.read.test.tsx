@@ -79,6 +79,18 @@ describe('Console — the numbers can be read', () => {
     expect(claude.querySelector<HTMLElement>('.console__bar')!.style.width).toBe('33%')
   })
 
+  it('colours a bar by where the tokens ran — local green, every cloud provider the cloud blue', async () => {
+    renderConsole()
+    const local = (await screen.findByText('local')).closest('.console__burnrow') as HTMLElement
+    const claude = screen.getByText('claude').closest('.console__burnrow') as HTMLElement
+    expect(local.querySelector('.console__bar')!.className).toMatch(/console__bar--local/)
+    expect(claude.querySelector('.console__bar')!.className).toMatch(/console__bar--cloud/)
+    const css = readFileSync('src/pages/Console.css', 'utf8')
+    expect(css).toMatch(/\.console__bar--cloud \{[^}]*background: var\(--v2-blue\)/)
+    // The name beside the bar says which provider; a third and fourth hue said nothing.
+    expect(css).not.toMatch(/console__bar--(purple|tan|dark|blue)\b/)
+  })
+
   it('does not paint a zero in alarm red, and still paints a real error count', async () => {
     renderConsole()
     await screen.findByText('local')

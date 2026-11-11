@@ -444,12 +444,12 @@ describe('local and cloud are told apart, and dark cards are legible', () => {
     expect(mem).toMatch(/\.mem-share__seg--cloud \{[^}]*background: var\(--v2-blue\)/)
     const memTsx = read('src/pages/Memory.tsx')
     expect(memTsx).not.toMatch(/mem-legend__sw" style=\{\{ background: 'var\(--(gold|chart-dark)\)'/)
-    // Console: the local bar is the local green; cloud providers take cloud
-    // tints and can never be handed the local one.
+    // Console: the local bar is the local green; every cloud provider is the
+    // cloud blue and can never be handed the local one.
     expect(con).toMatch(/\.console__bar--local \{[^}]*background: var\(--v2-local\)/)
+    expect(con).toMatch(/\.console__bar--cloud \{[^}]*background: var\(--v2-blue\)/)
     const conTsx = read('src/pages/Console.tsx')
-    expect(conTsx).toMatch(/p\.isLocal \? 'console__bar--local'/)
-    expect(conTsx.match(/const BAR_CLASSES = \[[^\]]*\]/)?.[0] ?? '').not.toMatch(/gold|local/)
+    expect(conTsx).toMatch(/p\.isLocal \? 'console__bar--local' : 'console__bar--cloud'/)
   })
   it('the headline number on a dark card is an on-dark colour, never the accent', () => {
     expect(stats).toMatch(/\.stats__hero-num \{[^}]*color: var\(--on-dark\)/)
@@ -477,6 +477,12 @@ describe('the Vault tree', () => {
   it('the open file is legible on its selection bar', () => {
     const rule = read('src/pages/Vault.css').match(/\.vault__file--active \{[^}]*\}/)?.[0] ?? ''
     expect(rule).toMatch(/color: var\(--on-gold\)/)
+  })
+  it('never scrolls sideways: a long name wraps inside the tree', () => {
+    const css = read('src/pages/Vault.css')
+    expect(css.match(/\.vault__tree \{[^}]*\}/)?.[0] ?? '').toMatch(/overflow-x: hidden/)
+    expect(css.match(/\.vault__file \{[^}]*\}/)?.[0] ?? '').toMatch(/overflow-wrap: anywhere/)
+    expect(css.match(/\.vault__folder \{[^}]*\}/)?.[0] ?? '').toMatch(/overflow-wrap: anywhere/)
   })
 })
 
@@ -510,5 +516,34 @@ describe('text tokens for the dark card stay on the dark card', () => {
 
   it('the verdict page does not put its dark-card dim text on the light hooks card', () => {
     expect(read('src/pages/VerdictDetail.tsx')).not.toMatch(/vd__hookname vd__dim/)
+  })
+})
+
+// 2026-11-11: the Agents page's Crew / Team / Managers tabs were <button>s whose
+// class set no border, background or font, so the system's grey bevelled button
+// showed through beside the Library's clean pills. One tab look for both.
+describe('a tab is never a native button', () => {
+  it('the Agents tabs carry the same reset as the Library tabs', () => {
+    const rule = (file: string, sel: string) =>
+      read(file).match(new RegExp(sel.replace('.', '\\.') + ' \\{[^}]*\\}'))?.[0] ?? ''
+    for (const [file, sel] of [
+      ['src/pages/Library.css', '.library__tab'],
+      ['src/pages/Agents.css', '.agents__tab'],
+    ] as const) {
+      const r = rule(file, sel)
+      expect(r, sel).toMatch(/border: 0/)
+      expect(r, sel).toMatch(/background: none/)
+      expect(r, sel).toMatch(/font: inherit/)
+      expect(r, sel).toMatch(/cursor: pointer/)
+    }
+  })
+})
+
+describe('the Agents page section note', () => {
+  it('is a phrase set as text, at a readable size', () => {
+    const r = read('src/pages/Agents.css').match(/\.sect-head__note \{[^}]*\}/)?.[0] ?? ''
+    expect(r).not.toBe('')
+    expect(r).not.toMatch(/font-mono/)
+    expect(Number(r.match(/font-size: ([\d.]+)px/)?.[1] ?? 0)).toBeGreaterThanOrEqual(11.5)
   })
 })
