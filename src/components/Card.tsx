@@ -55,7 +55,7 @@ export default function Card({
       {(title || actions) && (
         <div className="card__head">
           {title && <h2 className="card__title">{title}</h2>}
-          {hint && <span className="card__hint mono">{hint}</span>}
+          {hint && <span className="card__hint">{hint}</span>}
           <span className="card__spacer" />
           {actions && <div className="card__actions">{actions}</div>}
         </div>

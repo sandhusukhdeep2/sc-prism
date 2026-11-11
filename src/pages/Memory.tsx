@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../store/AppStore'
 import { isCliProvider, isCustomProvider, useSettings } from '../lib/settings'
 import { costDirection, costFloorSeries } from '../lib/costTrend'
+import { costSpark } from '../lib/costSpark'
 import {
   isNative,
   resolveVaultDir,
@@ -288,42 +289,30 @@ export default function Memory() {
     [dash, dashLoading, verdicts],
   )
 
-  // Cost floor sparkline — marginal cost per task walked across verdicts (oldest→newest).
-  const costLine = useMemo(() => {
-    const chron = [...verdicts].reverse()
-    const vals = chron.map((v) => v.cost)
-    const n = vals.length
-    if (n === 0) return 'M0 20 L220 20'
-    const min = Math.min(...vals)
-    const max = Math.max(...vals)
-    const span = max - min || 1
-    if (n === 1) {
-      const y = (6 + (1 - (vals[0] - min) / span) * 28).toFixed(1)
-      return `M0 ${y} L220 ${y}`
-    }
-    return vals
-      .map((v, i) => {
-        const x = (i / (n - 1)) * 220
-        const y = 6 + (1 - (v - min) / span) * 28
-        return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`
-      })
-      .join(' ')
-  }, [verdicts])
+  // Cost floor — ONE series for the line and for the sentence under it: the
+  // engine's recorded runs when the app can read them, else this session's
+  // verdicts (costFloorSeries). The line used to walk the session's verdicts
+  // while the sentence read the engine's series.
+  const costSeries = useMemo(
+    () => costFloorSeries(dash, [...verdicts].reverse().map((v) => v.cost)),
+    [dash, verdicts],
+  )
+  const costPaths = useMemo(() => costSpark(costSeries), [costSeries])
+  const costScope = dash
+    ? costSeries.length === 1
+      ? 'marginal cost per run · the one recorded run'
+      : `marginal cost per run · all ${costSeries.length.toLocaleString()} recorded runs`
+    : 'marginal cost per task · this session’s verdicts'
 
-  // REAL count — no fabricated base. This session's produced verdicts; the
-  // real on-disk training-record count (across sessions) is shown honestly
-  // on the Training page via LearningPanel's `readTrainingCount`.
+  // REAL count — no fabricated base: the verdicts in the durable record, the
+  // same number (and the same words) as the Work header's pill. It was
+  // labelled "this session" here, which it is not — it outlives a session.
   const runsRecorded = verdicts.length
 
   // Honest cost-trend — only claim a direction the REAL cost series actually
   // shows (first vs last, 2% deadband); otherwise no directional claim. The
   // direction also drives the COLOR: rising cost is a warning, not a success.
-  const costDir = useMemo(
-    // The SAME series Stats reads (costFloorSeries) — these two pages once
-    // told opposite cost stories because each walked its own private series.
-    () => costDirection(costFloorSeries(dash, [...verdicts].reverse().map((v) => v.cost))),
-    [dash, verdicts],
-  )
+  const costDir = useMemo(() => costDirection(costSeries), [costSeries])
   const costTrend = costDir === 'down' ? ' · trending down' : costDir === 'up' ? ' · trending up' : ''
 
   return (
@@ -333,7 +322,7 @@ export default function Memory() {
       <PageHead
         title="Memory"
         em="& learning"
-        hint={dashNote || 'three tiers · a flywheel that lowers cost every week'}
+        hint={dashNote || 'three tiers · measured from your own runs'}
       />
 
       <OkfCard />
@@ -510,14 +499,17 @@ export default function Memory() {
                 preserveAspectRatio="none"
                 className="mem-cost__svg"
               >
+                {costPaths.area && <path d={costPaths.area} fill="var(--area-soft)" />}
                 <path
-                  d={costLine}
+                  className="mem-cost__line"
+                  d={costPaths.line}
                   fill="none"
                   stroke="var(--chart-dark)"
-                  strokeWidth="2.2"
+                  strokeWidth="1.6"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
                 />
-                <path d={`${costLine} L220 40 L0 40 Z`} fill="var(--area-soft)" />
               </svg>
               <div
                 className={
@@ -529,7 +521,8 @@ export default function Memory() {
                       : '')
                 }
               >
-                marginal cost per task · this session&apos;s verdicts{costTrend}
+                {costScope}
+                {costTrend}
               </div>
             </div>
           </div>
@@ -545,7 +538,7 @@ export default function Memory() {
               </div>
               <div className="mem-ft__nums">
                 <span className="mem-ft__val">{runsRecorded.toLocaleString()}</span>
-                <span className="mem-ft__label">runs recorded this session</span>
+                <span className="mem-ft__label">{runsRecorded === 1 ? 'run' : 'runs'} recorded all time</span>
               </div>
               <div className="mem-ft__meta">
                 the router learns route selection (local vs cloud) from real outcomes — never LLM
