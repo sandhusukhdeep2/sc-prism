@@ -393,3 +393,14 @@ describe('wide windows and sentences', () => {
     expect(tsx).not.toContain('agent-usage__label mono')
   })
 })
+
+describe('page heads and the icon rail', () => {
+  it('a page\u2019s one-line hint is a sentence, not code', () => {
+    expect(read('src/components/PageHead.tsx')).not.toMatch(/phead__hint mono/)
+  })
+  it('the icon rail never scrolls sideways', () => {
+    const shell = read('src/components/AppShell.css')
+    const narrow = shell.slice(shell.indexOf('@media (max-width: 820px)'))
+    expect(narrow).toMatch(/\.rail \{[^}]*overflow-x: hidden/)
+  })
+})

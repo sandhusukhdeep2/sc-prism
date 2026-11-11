@@ -55,5 +55,9 @@ describe('Agents page — a card speaks for its own turns', () => {
     })
     await waitFor(() => expect(labelFor('Planner')).toBe('1 turn · last answered · 1,050 tokens · 1 tool call · all on your Mac'))
     expect(labelFor('Retrieval')).toBe('no runs yet')
+    // A card can only speak for its own turns if the log it reads reaches back
+    // far enough: with a 400-line tail three proven agents fell back to one
+    // model-wide number two days after their proof (seen 2026-11-11).
+    expect(native.readSpansTail).toHaveBeenCalledWith('/vault', 4000)
   })
 })

@@ -722,7 +722,8 @@ export default function Agents() {
     const load = async () => {
       try {
         const vault = await resolveVaultDir(settings.vaultPath)
-        const tail = await readSpansTail(vault, 400)
+        // Far enough back for a card to find its own turns days later.
+        const tail = await readSpansTail(vault, 4000)
         if (!stop) setSpans(tail)
       } catch {
         /* no log yet — the cards keep the model-wide line */

@@ -1618,13 +1618,23 @@ async fn store_get(app: tauri::AppHandle, key: String) -> Result<Option<String>,
     .map_err(|e| format!("store join failed: {e}"))?
 }
 
+/// The most span lines one tail read returns. The file is read whole either
+/// way; the cap only bounds what crosses the bridge. 400 was enough for the
+/// live console, but a card that speaks for its OWN turns (Agents page) lost
+/// them two days after a proof — each model or tool call writes two lines.
+const SPANS_TAIL_MAX: usize = 4000;
+
+fn spans_tail_len(max_lines: Option<usize>) -> usize {
+    max_lines.unwrap_or(60).min(SPANS_TAIL_MAX)
+}
+
 /// Tail of the vault's span stream (`spans.jsonl`) — the live "engine
 /// console" feed. Pure read; returns up to `max_lines` raw JSON lines.
 #[tauri::command]
 async fn read_spans_tail(vault: String, max_lines: Option<usize>) -> Result<Vec<String>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let path = PathBuf::from(&vault).join("spans.jsonl");
-        let n = max_lines.unwrap_or(60).min(400);
+        let n = spans_tail_len(max_lines);
         let raw = std::fs::read_to_string(&path).unwrap_or_default();
         let mut tail: Vec<String> = raw.lines().rev().take(n).map(|s| s.to_string()).collect();
         tail.reverse();
@@ -3310,6 +3320,16 @@ mod path_tests {
     // folder exits 55, so "Connect to Gemini" failed from wherever the app
     // happened to be running. The probe runs in a fresh empty folder like the
     // gateway does, and hands gemini (and only gemini) its own trust switch.
+    // The Agents page lets each card speak for its own turns from the span
+    // tail; at 400 lines three proven agents had scrolled out two days later.
+    #[test]
+    fn spans_tail_reaches_back_far_enough_for_a_card_to_find_its_own_turns() {
+        assert_eq!(spans_tail_len(None), 60);
+        assert_eq!(spans_tail_len(Some(4000)), 4000);
+        assert_eq!(spans_tail_len(Some(1_000_000)), SPANS_TAIL_MAX);
+        assert!(SPANS_TAIL_MAX >= 4000);
+    }
+
     #[test]
     fn probe_env_hands_gemini_its_trust_switch_and_nobody_else() {
         assert_eq!(

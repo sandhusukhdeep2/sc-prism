@@ -15,7 +15,7 @@
 //   · a light title whose SECOND half is emphasised — "Improve routing",
 //     "Automations · recurring work", "Provably done, at falling cost". The
 //     weight change is the emphasis; there is no colour and no accent bar.
-//   · an optional `hint`, in mono, sitting on the title's baseline: the one
+//   · an optional `hint`, sitting on the title's baseline: the one
 //     sentence saying what this page is for.
 //   · an optional `sub` line beneath, for the caveat that needs a full line.
 //   · optional `actions`, pushed right.
@@ -36,7 +36,8 @@ export default function PageHead({
   title: string
   /** The emphasised second half — the word the page is actually about. */
   em?: string
-  /** One mono line on the title's baseline: what this page is for. */
+  /** One line on the title's baseline: what this page is for (a sentence, so
+   *  body type — 2026-11-11). */
   hint?: ReactNode
   /** A full line beneath, when the caveat will not sit on the baseline. */
   sub?: ReactNode
@@ -50,7 +51,7 @@ export default function PageHead({
           {title}
           {em && <span className="phead__em"> {em}</span>}
         </h1>
-        {hint && <span className="phead__hint mono">{hint}</span>}
+        {hint && <span className="phead__hint">{hint}</span>}
         <span className="phead__spacer" />
         {actions && <div className="phead__actions">{actions}</div>}
       </div>

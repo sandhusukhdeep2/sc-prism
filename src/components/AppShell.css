@@ -205,7 +205,7 @@
    is icons only and each link carries its label as a tooltip — you can still
    reach every page, which is the promise the rail exists to keep. */
 @media (max-width: 820px) {
-  .rail { width: 60px; flex-basis: 60px; padding-left: 12px; padding-right: 8px; align-items: center; }
+  .rail { width: 60px; flex-basis: 60px; padding-left: 12px; padding-right: 8px; align-items: center; overflow-x: hidden; }
   .rail__group { align-self: stretch; }
   .rail__link { justify-content: center; padding: 9px 0; gap: 0; }
   .rail__linktext {
