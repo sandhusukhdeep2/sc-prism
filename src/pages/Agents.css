@@ -112,7 +112,7 @@
 .chip-row { display: flex; gap: 5px; margin-top: 12px; flex-wrap: wrap; }
 .chip-skill {
   padding: 4px 9px; border-radius: var(--v2-r-chip); background: var(--hair-2);
-  font-size: 10px; color: var(--on-dark-label); font-family: var(--font-mono);
+  font-size: 10px; color: var(--v2-muted); font-family: var(--font-mono);
 }
 .chip-skill__stat { color: var(--muted-2); }
 /* --warn-ink is the per-theme flipping status amber (dark ink on Amber's light

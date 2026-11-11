@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -477,5 +477,38 @@ describe('the Vault tree', () => {
   it('the open file is legible on its selection bar', () => {
     const rule = read('src/pages/Vault.css').match(/\.vault__file--active \{[^}]*\}/)?.[0] ?? ''
     expect(rule).toMatch(/color: var\(--on-gold\)/)
+  })
+})
+
+// 2026-11-11: --on-dark-muted and --on-dark-label became tints of the on-dark
+// colour so that dark cards read. Eight rules on LIGHT surfaces had borrowed
+// the label token as a general grey and turned white on white with it: the
+// attribution line under every chat reply, the narration strip, and the skill
+// and agent chips. The tokens are for the dark card and stay there.
+describe('text tokens for the dark card stay on the dark card', () => {
+  const cssFiles = (dir: string): string[] =>
+    readdirSync(dir).flatMap((name) => {
+      const path = `${dir}/${name}`
+      return statSync(path).isDirectory() ? cssFiles(path) : name.endsWith('.css') ? [path] : []
+    })
+  const DARK_SURFACE = /^\.(verdict__|vd__|stats__|mem-saves__)/
+
+  it('no rule outside a dark card uses them', () => {
+    const offenders: string[] = []
+    for (const file of cssFiles('src')) {
+      if (file.endsWith('tokens.css')) continue
+      const css = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
+      for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!/var\(--on-dark-(muted|label)\)/.test(m[2])) continue
+        for (const sel of m[1].split(',').map((x) => x.trim())) {
+          if (!DARK_SURFACE.test(sel)) offenders.push(`${file}: ${sel}`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('the verdict page does not put its dark-card dim text on the light hooks card', () => {
+    expect(read('src/pages/VerdictDetail.tsx')).not.toMatch(/vd__hookname vd__dim/)
   })
 })

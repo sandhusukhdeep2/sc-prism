@@ -92,7 +92,7 @@
 
 .companion__ctx {
   align-self: flex-start; margin-top: 10px; padding: 3px 9px; border-radius: var(--v2-r-chip);
-  background: var(--fill-soft); font-size: 10px; color: var(--on-dark-label);
+  background: var(--fill-soft); font-size: 10px; color: var(--v2-muted);
 }
 
 /* ── notices list — project run outcomes surfaced in the panel ─────── */
@@ -167,7 +167,7 @@
 .companion__chips { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; }
 .companion__chip {
   padding: 6px 11px; border-radius: var(--v2-r-chip); border: none;
-  background: var(--fill-soft); color: var(--on-dark-label);
+  background: var(--fill-soft); color: var(--v2-muted);
   font-size: 10.5px; font-weight: 600; cursor: pointer;
 }
 .companion__chip:first-child { background: rgba(131, 162, 219, 0.2); color: var(--badge-ink); }

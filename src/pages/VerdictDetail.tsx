@@ -218,7 +218,7 @@ function VerdictBody({ v, spans }: { v: Verdict; spans: readonly EngineSpan[] })
             <div className="vd__hooks mono">
               {!isNativeRun && (
                 <div className="vd__hook">
-                  <span className="vd__hookname vd__dim">(sim run — no hook trace)</span>
+                  <span className="vd__hookname vd__hookname--none">(sim run — no hook trace)</span>
                 </div>
               )}
               {isNativeRun && decisions.length === 0 &&

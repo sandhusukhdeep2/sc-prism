@@ -61,6 +61,8 @@
 
 /* hooks */
 .vd__hooks { display: flex; flex-direction: column; gap: 8px; }
+/* On the light hooks card: the dark trail's dim text would be white on white. */
+.vd__hookname--none { color: var(--v2-muted); }
 .vd__hook { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--v2-r-inner); }
 .vd__hook.is-ok { background: rgba(110, 154, 131, 0.08); }
 .vd__hook.is-block { background: rgba(206, 105, 105, 0.08); }
