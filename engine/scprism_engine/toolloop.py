@@ -532,6 +532,11 @@ def run_tool_loop(
     max_iters: Optional[int] = None,
     guard_observation: Optional[Callable[[str], Tuple[str, bool]]] = None,
     token_budget: Optional[int] = None,
+    # Computer use that can see (2026-11-11): given a tool's result, the picture
+    # to show the model alongside the text observation, or None. The caller's
+    # egress floor decides (a withheld screen yields None). Default None = text
+    # only, byte-identical.
+    image_for_result: Optional[Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]] = None,
 ) -> ToolLoopResult:
     """Run the bounded model tool-use loop; return the final aggregate result.
 
@@ -698,6 +703,7 @@ def run_tool_loop(
         name = call["tool"]
         blocked = False
         observed: Any
+        result: Any = None
         try:
             result = tool_exec(name, call["arguments"])
             ok = not bool(result.get("isError"))
@@ -745,5 +751,17 @@ def run_tool_loop(
         observation = json.dumps(
             {"tool": name, "ok": ok, "content": observed}, ensure_ascii=False
         )
-        cur.append({"role": "user", "content": "```tool_result\n%s\n```" % observation})
+        result_text = "```tool_result\n%s\n```" % observation
+        picture = None
+        if image_for_result is not None and ok and not withheld and isinstance(result, dict):
+            picture = image_for_result(result)
+        if picture is not None:
+            # The observation AND the picture it describes, as one user turn: a
+            # vision route sees the screen; any other route is told an image was
+            # attached and could not be shown (the gateway's honest fallback).
+            cur.append(
+                {"role": "user", "content": [{"type": "text", "text": result_text}, picture]}
+            )
+        else:
+            cur.append({"role": "user", "content": result_text})
         iters += 1

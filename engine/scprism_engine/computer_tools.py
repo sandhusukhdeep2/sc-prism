@@ -46,6 +46,37 @@ _INPUT_HINT = (
 )
 
 
+def _display_points() -> Optional[tuple]:
+    """The main display's size in POINTS — the unit `computer_click` takes — or
+    None when it cannot be read. CoreGraphics through ctypes: standard library
+    only, no permission needed, a few microseconds."""
+    try:
+        import ctypes
+        import ctypes.util
+
+        lib = ctypes.util.find_library("CoreGraphics")
+        if not lib:
+            return None
+        cg = ctypes.cdll.LoadLibrary(lib)
+
+        class _Rect(ctypes.Structure):
+            _fields_ = [
+                ("x", ctypes.c_double),
+                ("y", ctypes.c_double),
+                ("w", ctypes.c_double),
+                ("h", ctypes.c_double),
+            ]
+
+        cg.CGMainDisplayID.restype = ctypes.c_uint32
+        cg.CGDisplayBounds.restype = _Rect
+        cg.CGDisplayBounds.argtypes = [ctypes.c_uint32]
+        rect = cg.CGDisplayBounds(cg.CGMainDisplayID())
+        width, height = int(round(rect.w)), int(round(rect.h))
+        return (width, height) if width > 0 and height > 0 else None
+    except Exception:  # noqa: BLE001 - any failure is "unknown", never a crash
+        return None
+
+
 def _text_result(text: str, is_error: bool = False, **extra: Any) -> Dict[str, Any]:
     out: Dict[str, Any] = {"content": [{"type": "text", "text": text}], "isError": is_error}
     out.update(extra)
@@ -80,8 +111,9 @@ class ComputerToolProvider:
                 name="computer_screenshot",
                 description=(
                     "Capture the whole screen to a PNG file on this machine. "
-                    "Returns the file path and byte size — the image itself "
-                    "stays local unless a later step explicitly reads it."
+                    "Returns the file path and size; a model that can see is "
+                    "shown the picture with the result. Positions in it are "
+                    "screen points, so a click goes where you see it."
                 ),
                 input_schema={"type": "object", "properties": {}},
             ),
@@ -185,12 +217,31 @@ class ComputerToolProvider:
             err = (proc.stderr or b"").decode("utf-8", "replace")
             hint = _SCREEN_HINT if "image" in err or "display" in err else err or "screencapture failed"
             return _text_result(hint, is_error=True)
+        # A model that is SHOWN this picture answers in the picture's own
+        # coordinates, and `computer_click` takes screen points. A Retina
+        # capture is twice the point size, so it is resampled to the display's
+        # point size: a pixel in the picture is then a point on the screen.
+        points = _display_points()
+        if points is not None:
+            width, height = points
+            resized = self._run(["sips", "-z", str(height), str(width), path])
+            if resized.returncode != 0:
+                points = None
         try:
             size = os.path.getsize(path)
         except OSError:
             return _text_result(_SCREEN_HINT, is_error=True)
+        if points is not None:
+            width, height = points
+            return _text_result(
+                f"screenshot saved: {path} ({size} bytes, {width}×{height} — "
+                "a pixel in it is a screen point, so click where you see it)",
+                path=path, bytes=size, width=width, height=height,
+            )
         return _text_result(
-            f"screenshot saved: {path} ({size} bytes)", path=path, bytes=size
+            f"screenshot saved: {path} ({size} bytes; the screen's point size "
+            "could not be read, so positions in it may not match click coordinates)",
+            path=path, bytes=size,
         )
 
     def _open_app(self, app: str) -> Dict[str, Any]:

@@ -55,6 +55,49 @@ class TestComputerCapability(unittest.TestCase):
         self.assertTrue(str(out.get("path", "")).endswith(".png"))
         self.assertEqual(out.get("bytes"), 51234)
 
+    # 2026-11-11: a model that is shown the screenshot answers in the PICTURE's
+    # coordinates, and `computer_click` takes screen POINTS. On a Retina display
+    # the capture is twice the point size, so every click landed at double the
+    # distance. The capture is resampled to the display's point size, so a
+    # pixel in the picture IS a point on the screen.
+    def test_screenshot_is_resampled_to_the_displays_point_size(self):
+        prov = ComputerToolProvider()
+        calls = []
+
+        def fake_run(argv, **kw):
+            calls.append(list(argv))
+            return _proc(0)
+
+        with mock.patch("scprism_engine.computer_tools.subprocess.run", side_effect=fake_run):
+            with mock.patch("scprism_engine.computer_tools.os.path.getsize", return_value=900):
+                with mock.patch("scprism_engine.computer_tools._display_points", return_value=(1800, 1169)):
+                    out = prov.call_tool("computer_screenshot", {})
+        self.assertFalse(out.get("isError"))
+        sips = [c for c in calls if c and c[0] == "sips"]
+        self.assertEqual(len(sips), 1, "the capture is resampled exactly once")
+        # sips -z <height> <width> <file>
+        self.assertEqual(sips[0][1:4], ["-z", "1169", "1800"])
+        self.assertEqual(sips[0][-1], out["path"])
+        self.assertEqual((out.get("width"), out.get("height")), (1800, 1169))
+        self.assertIn("1800×1169", out["content"][0]["text"])
+        self.assertIn("a pixel in it is a screen point", out["content"][0]["text"])
+
+    def test_screenshot_says_so_when_the_point_size_is_unknown(self):
+        prov = ComputerToolProvider()
+        calls = []
+
+        def fake_run(argv, **kw):
+            calls.append(list(argv))
+            return _proc(0)
+
+        with mock.patch("scprism_engine.computer_tools.subprocess.run", side_effect=fake_run):
+            with mock.patch("scprism_engine.computer_tools.os.path.getsize", return_value=900):
+                with mock.patch("scprism_engine.computer_tools._display_points", return_value=None):
+                    out = prov.call_tool("computer_screenshot", {})
+        self.assertFalse(out.get("isError"))
+        self.assertEqual([c for c in calls if c and c[0] == "sips"], [])
+        self.assertIn("may not match click coordinates", out["content"][0]["text"])
+
     def test_screenshot_tcc_denial_names_the_permission(self):
         prov = ComputerToolProvider()
         with mock.patch(

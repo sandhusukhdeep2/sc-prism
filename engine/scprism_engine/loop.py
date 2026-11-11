@@ -107,6 +107,41 @@ _WITHHELD_VAULT_RESULT = (
 )
 
 
+# THE SCREEN'S FLOOR (2026-11-11). Computer use that can see means a model is
+# shown a screenshot — the most private thing a run can hold. It obeys the same
+# floor as vault content: a screenshot taken on a cloud route flips the rest of
+# the run LOCAL, and with no local model the picture is withheld. The owner's
+# explicit switch (`Gateway.screen_to_cloud`, SCPRISM_SCREEN_TO_CLOUD=1) is the
+# only thing that lets a cloud model be shown the screen.
+SCREEN_LOCAL_REASON = "screen captured -> kept local (no egress)"
+
+_WITHHELD_SCREEN_RESULT = (
+    "[withheld: this is a picture of your screen and this run is on a cloud "
+    "model with no local model configured to read it — the picture exists but "
+    "was not sent]"
+)
+
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+
+def _result_image_path(result: Any) -> str:
+    """The image file a tool result points at ('' when it points at none)."""
+    if not isinstance(result, dict) or result.get("isError"):
+        return ""
+    path = result.get("path")
+    if isinstance(path, str) and path.lower().endswith(_IMAGE_SUFFIXES) and os.path.isfile(path):
+        return path
+    return ""
+
+
+def _is_screen_content(mcp_client: Any, tool: str, result: Any) -> bool:
+    """True when ``tool`` was served by the COMPUTER source and really returned
+    a picture of the screen."""
+    if not _result_image_path(result):
+        return False
+    return getattr(_tool_source(mcp_client, tool), "provider", "") == "computer"
+
+
 def _is_vault_content(mcp_client: Any, tool: str, result: Any) -> bool:
     """True when ``tool`` was served by the VAULT source and really returned
     content.
@@ -159,6 +194,8 @@ class VaultEgressFloor:
         self._withhold = False
         self._lock = threading.Lock()
         self._local = threading.local()
+        # A screenshot is floor content too, unless the owner switched that off.
+        self._screen_to_cloud = bool(getattr(gateway, "screen_to_cloud", False))
         # The user's own SCPRISM_SENSITIVE words apply to tool results through
         # the gateway method; a gateway without it (the Bifrost supervisor) falls
         # back to the built-in keyword list alone.
@@ -182,15 +219,24 @@ class VaultEgressFloor:
         nothing is sent; ``guard`` then hands the model an honest withheld note.
         """
         self._local.vault_now = False
+        self._local.screen_now = False
         result = self._client.call_tool(name, arguments)
-        if not _is_vault_content(self._client, name, result):
+        is_vault = _is_vault_content(self._client, name, result)
+        is_screen = (
+            not is_vault
+            and not self._screen_to_cloud
+            and _is_screen_content(self._client, name, result)
+        )
+        if not is_vault and not is_screen:
             return result
-        self._local.vault_now = True
+        self._local.vault_now = is_vault
+        self._local.screen_now = is_screen
         with self._lock:
             if self._forced is not None or self._withhold:
                 return result  # the run already flipped / already withholds
             local_route_for = getattr(self._gateway, "local_route_for", None)
-            forced = local_route_for(VAULT_LOCAL_REASON) if local_route_for else None
+            why = VAULT_LOCAL_REASON if is_vault else SCREEN_LOCAL_REASON
+            forced = local_route_for(why) if local_route_for else None
             if forced is None:
                 # No local model, and no local seam on this gateway. The ONLY
                 # safe answer is to not send it — never a silent cloud fallback.
@@ -215,6 +261,8 @@ class VaultEgressFloor:
         def _guard(content: str) -> Tuple[str, bool]:
             if self._withhold and getattr(self._local, "vault_now", False):
                 return _WITHHELD_VAULT_RESULT, True
+            if self._withhold and getattr(self._local, "screen_now", False):
+                return _WITHHELD_SCREEN_RESULT, True
             if self.route(decision).is_local:
                 # The flip already made this turn local: the content is going
                 # nowhere, so there is nothing to redact.
@@ -222,6 +270,29 @@ class VaultEgressFloor:
             return self._result_guard(content)
 
         return _guard
+
+    def image_for(self, result: Any) -> Optional[Dict[str, Any]]:
+        """The picture to SHOW the model for a tool result, or None.
+
+        This is what makes computer use see: the screenshot's own image block
+        rides the observation, so the next turn looks at the screen instead of
+        at a file path. It is called after ``exec_tool`` on the same thread, so
+        the floor has already acted: a withheld screen yields no picture, and a
+        run that flipped local hands it to the local model only. Whether the
+        route can actually see is the gateway's business — a non-vision route
+        drops the block and tells the model so.
+        """
+        path = _result_image_path(result)
+        if not path:
+            return None
+        if self._withhold and getattr(self._local, "screen_now", False):
+            return None
+        from .gateway import GatewayError, load_image_block
+
+        try:
+            return load_image_block(path)
+        except GatewayError:
+            return None  # oversize / unreadable: the text result still says so
 
 
 def _build_skill_context(
@@ -547,6 +618,7 @@ def _gateway_model(
                 tool_exec=floor.exec_tool,
                 max_iters=mcp_max_iters,
                 guard_observation=floor.guard(decision),
+                image_for_result=floor.image_for,
                 token_budget=token_budget,
             )
         # M3: the F1 egress gate fired — a tool RESULT carrying a secret was

@@ -575,6 +575,7 @@ def run_team(
                         tool_exec=floor.exec_tool,
                         max_iters=mcp_max_iters,
                         guard_observation=floor.guard(route),
+                        image_for_result=floor.image_for,
                         token_budget=budget if budget > 0 else None,
                     )
                 # M3: surface each F1 result-withhold as its own governance span

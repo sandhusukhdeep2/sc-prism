@@ -1143,6 +1143,11 @@ class Gateway:
         # non-vision (most aren't). SCPRISM_LOCAL_VISION=1 opts a known
         # vision-capable local server in; default False keeps the honest
         # 'image not sent' fallback for local routes.
+        # The owner's explicit switch for showing the SCREEN to a cloud model
+        # (2026-11-11). A screenshot obeys the same egress floor as vault
+        # content — it keeps a run local — unless this is exactly "1". Anything
+        # else, including "true" or a typo, is off.
+        self.screen_to_cloud = (env.get("SCPRISM_SCREEN_TO_CLOUD") or "").strip() == "1"
         self.local_supports_vision = (env.get("SCPRISM_LOCAL_VISION") or "").strip().lower() in (
             "1",
             "true",
