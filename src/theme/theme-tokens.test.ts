@@ -358,3 +358,18 @@ describe('the live stage yields in a small window', () => {
     expect(small).toMatch(/\.ws__chatcol \{[^}]*min-height: 2\d\dpx/)
   })
 })
+
+// THE STAGE IS NEVER A SLIVER (seen 2026-11-11, idle, full-screen): with
+// `flex: 0 1 auto` the stage shrank in proportion to its size against a chat
+// thousands of pixels tall, so a finished-run row showed as a clipped strip
+// above the chat. The stage keeps its content height up to its cap and scrolls
+// inside; only the chat, which scrolls, yields.
+describe('the stage is never squeezed to a sliver', () => {
+  it('does not shrink; it is capped and scrolls inside', () => {
+    const ws = read('src/pages/Workspace.css')
+    const rule = ws.match(/^\.ws__stage \{[^}]*\}/m)?.[0] ?? ''
+    expect(rule).toMatch(/flex: 0 0 auto/)
+    expect(rule).toMatch(/max-height: \d+%/)
+    expect(rule).toMatch(/overflow-y: auto/)
+  })
+})

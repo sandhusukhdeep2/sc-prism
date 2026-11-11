@@ -259,7 +259,7 @@ function DeleteProjectControl({ projectId }: { projectId: string }) {
   }
   return (
     <span className="proj__deleteconfirm">
-      <span className="mono proj__deletenote">removes it from SC Prism — the folder on disk is untouched</span>
+      <span className="proj__deletenote">removes it from SC Prism — the folder on disk is untouched</span>
       <button
         type="button"
         className="proj__startbtn proj__deletebtn proj__deletebtn--armed"
@@ -288,7 +288,7 @@ function ProjectAgentsPanel({ project, verdicts }: { project: Project; verdicts:
         </Link>
       </div>
       {assigned.length === 0 ? (
-        <div className="proj__agentsempty mono">
+        <div className="proj__agentsempty">
           No project-specific agents — this build uses the default system team.
         </div>
       ) : (
@@ -409,12 +409,12 @@ function TeamRosterControl({ project }: { project: Project }) {
               onChange={(e) => updateProject(project.id, { roster: e.target.value })}
             />
           )}
-          <div className="proj__teamnote mono">
+          <div className="proj__teamnote">
             the enabled system agents run this build unless you assign project-specific agents or set an override.
           </div>
         </>
       ) : (
-        <div className="proj__teamnote mono">
+        <div className="proj__teamnote">
           project-specific agents — manage them on the Agents page.
         </div>
       )}
@@ -449,7 +449,7 @@ export function ProjectLoops({ project }: { project: Project }) {
     <div className="proj__loops">
       <div className="proj__sectionhead">
         <span className="proj__sectionkicker">Loops</span>
-        <span className="proj__sectionhint mono">
+        <span className="proj__sectionhint">
           standing build/test loops for this project — off until you add one
         </span>
       </div>
@@ -763,7 +763,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             </button>
           )}
           {project.status === 'running' && (
-            <div className="proj__runningnote mono">
+            <div className="proj__runningnote">
               ⏳ running — step {Math.min(project.stepIndex + 1, project.plan.length)} of {project.plan.length}
             </div>
           )}
@@ -778,7 +778,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               <div className="proj__askbannertext">
                 {awaitingNotice?.text ?? `«${project.name}» is waiting for your answer.`}
               </div>
-              <div className="proj__askbannerhint mono">waiting for your answer — see the orb</div>
+              <div className="proj__askbannerhint">waiting for your answer — see the orb</div>
               <div className="proj__askbannerbtns">
                 <button type="button" className="proj__askyes" onClick={() => answerProjectRequest(true)}>
                   Yes, one more try

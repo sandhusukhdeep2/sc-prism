@@ -92,6 +92,10 @@ describe('the Details drawer reads', () => {
     expect(goal.className).not.toMatch(/\bmono\b/)
     const team = await screen.findByText(/Default team/)
     expect(team.className).not.toMatch(/\bmono\b/)
+    // Every explanatory sentence in the drawer is a sentence, not code.
+    for (const re of [/No project-specific agents/, /the enabled system agents run this build/, /standing build\/test loops for this project/]) {
+      expect((await screen.findByText(re)).className, String(re)).not.toMatch(/\bmono\b/)
+    }
   })
 
   it('renders the last result as markdown, clamped, with a way to see all of it', async () => {

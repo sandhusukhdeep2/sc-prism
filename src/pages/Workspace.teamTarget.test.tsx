@@ -168,9 +168,10 @@ describe('Work composer → team: the SHARED governed launch', () => {
     expect(captured.app!.state.finishedRuns[0]).toMatchObject({ kind: 'team', outcome: 'passed' })
     expect(captured.app!.claimEngine()).toBe(true)
     captured.app!.releaseEngine()
-    expect(
-      screen.getByText('team run passed · 120/100,000 tok · board saved: /vault/agents/board-r1.jsonl'),
-    ).toBeInTheDocument()
+    // The notice reads as a sentence; the saved board is a reveal action named
+    // by the file, with the full path behind it (clear-room 2026-11-09 §B).
+    expect(screen.getByText('team run passed · 120/100,000 tok')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reveal board-r1.jsonl' })).toHaveAttribute('title', '/vault/agents/board-r1.jsonl')
     expect(screen.getByText('here is the plan the team agreed on')).toBeInTheDocument()
     expect(h.cancelEngineRun).not.toHaveBeenCalled()
   })

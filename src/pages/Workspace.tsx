@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { noticeParts } from '../lib/noticeParts'
 import { useNarrow } from '../lib/useNarrow'
 import { useSchedules } from '../lib/schedules'
 import { useManagers } from '../lib/managers'
@@ -32,7 +33,7 @@ import { useConnectivity } from '../lib/connectivity'
 import { filterRoster, rosterGate, sitOutLine } from '../lib/roster'
 import Icon from '../components/Icon'
 import { greeting, statusLine, deskSummary } from '../lib/desk'
-import { isNative, pickFile, readImageBase64, readTextFile, revealVaultNote } from '../lib/nativeEngine'
+import { isNative, pickFile, readImageBase64, readTextFile, revealVaultNote, revealPath } from '../lib/nativeEngine'
 import { composeWithAttachments, displayLine, type ChatAttachment } from '../lib/attachments'
 import { useSpanTail } from '../lib/engineConsole'
 import { stageSpans, type PipelineStage,
@@ -1008,9 +1009,23 @@ export default function Workspace() {
               // REAL outcome. Never an AI bubble (no model said it) and no
               // Retry (its retry would send to the wrong runner).
               if (m.kind === 'notice') {
+                // The app speaking: a sentence in body type. A file it names is
+                // a reveal action by the file's own name, never a wall of path.
+                const np = noticeParts(m.text)
                 return (
-                  <div key={m.id} className="msg msg--notice mono" role="status">
-                    {m.text}
+                  <div key={m.id} className="msg msg--notice" role="status">
+                    <span className="msg__noticetext">{np.body}</span>
+                    {np.path && (
+                      <button
+                        type="button"
+                        className="msg__noticefile mono"
+                        title={np.path}
+                        aria-label={`Reveal ${np.file}`}
+                        onClick={() => void revealPath(np.path!)}
+                      >
+                        {np.file} ↗
+                      </button>
+                    )}
                     {(m as { repeats?: number }).repeats && (m as { repeats?: number }).repeats! > 1 && (
                       <span className="msg__repeat" title="this exact line repeated — collapsed, every occurrence is still in the record">
                         ×{(m as { repeats?: number }).repeats}

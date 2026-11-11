@@ -124,7 +124,11 @@
    the page's working surface: it takes the larger share and holds a real
    floor, and the chat body — which scrolls — yields. The floor is gated on
    viewport height so a short window can never squeeze the composer out. */
-.ws__stage { flex: 0 1 auto; min-height: 0; max-height: 58%; overflow-y: auto; padding-right: 4px; }
+/* NEVER A SLIVER (2026-11-11): with shrink allowed the stage shrank in
+   proportion against a chat thousands of pixels tall, and a finished-run row
+   showed as a clipped strip. It keeps its content height up to the cap and
+   scrolls inside; only the chat, which scrolls, yields. */
+.ws__stage { flex: 0 0 auto; min-height: 0; max-height: 58%; overflow-y: auto; padding-right: 4px; }
 .ws__stage:empty { display: none; }
 /* MOTION, honestly: the stage APPEARING is a real event (a run began) and may
    announce itself; nothing in here pulses while idle. Reduced-motion users get
@@ -240,9 +244,17 @@
    ending or its busy refusal. Distinct from a divider (this carries something
    the user must read) and deliberately NOT bubble-shaped: no model said it. */
 .msg--notice {
-  align-self: stretch; font-size: 11.5px; line-height: 1.5; color: var(--muted);
-  padding: 8px 12px; border-radius: var(--v2-r-chip); background: var(--fill-soft);
+  align-self: stretch; font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
+  padding: 9px 12px; border-radius: var(--v2-r-chip); background: var(--fill-soft);
   border-left: 2px solid var(--hair); white-space: pre-line; word-break: break-word;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+}
+.msg__noticetext { flex: 1 1 320px; min-width: 0; }
+/* The file a notice names: a quiet reveal action, the one mono thing in it. */
+.msg__noticefile {
+  font-size: 11px; color: var(--v2-blue-ink); background: none; border: 0; padding: 0;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .msg--ai { display: flex; gap: 12px; align-items: flex-start; }
 .msg__orb {
