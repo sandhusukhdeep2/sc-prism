@@ -1,4 +1,6 @@
-.stats { display: flex; flex-direction: column; height: 100%; min-height: 600px; }
+/* The page GROWS and the content area scrolls. Pinned to the window's height
+   the grid's cards overflowed into the card below (seen 2026-11-11). */
+.stats { display: flex; flex-direction: column; min-height: 100%; }
 
 /* header */
 .stats__range { display: flex; gap: 2px; padding: 4px; border-radius: var(--r-chip); background: var(--raise-55); margin-bottom: 4px; }
@@ -7,8 +9,8 @@
 
 /* grid */
 .stats__grid {
-  flex: 1; min-height: 0; display: grid;
-  grid-template-columns: 1.25fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px; padding-bottom: 4px;
+  flex: 1 0 auto; display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr; grid-template-rows: repeat(2, minmax(210px, auto)); gap: 16px; padding-bottom: 4px;
 }
 .stats__grow { flex: 1; }
 
@@ -40,14 +42,15 @@
 /* token burn stack */
 .stats__stack { display: flex; height: 26px; border-radius: var(--v2-r-chip); overflow: hidden; margin-top: 14px; }
 .stats__seg { display: flex; align-items: center; }
-.stats__seg--cloud { width: 78%; background: var(--chart-dark); padding: 0 10px; }
-.stats__seg--local { width: 14%; background: var(--gold-grad); padding: 0 8px; }
-.stats__seg-txt { font-size: 10.5px; color: var(--on-chart-dark); }
-.stats__seg-txt--dark { color: var(--on-gold); font-weight: 600; }
+/* LOCAL IS NOT CLOUD (2026-11-11): both used to alias the accent black. */
+.stats__seg--cloud { width: 78%; background: var(--v2-blue); padding: 0 10px; }
+.stats__seg--local { width: 14%; background: var(--v2-local); padding: 0 8px; }
+.stats__seg-txt { font-size: 10.5px; color: var(--v2-on-fill); font-weight: 600; white-space: nowrap; }
+.stats__seg-txt--dark { color: var(--v2-on-fill); font-weight: 600; }
 .stats__legend { display: flex; gap: 14px; margin-top: 12px; font-size: 11px; color: var(--muted); }
 .stats__sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
-.stats__sw--cloud { background: var(--chart-dark); }
-.stats__sw--gold { background: var(--gold); }
+.stats__sw--cloud { background: var(--v2-blue); }
+.stats__sw--gold { background: var(--v2-local); }
 
 /* HERO */
 .stats__hero {
@@ -61,13 +64,14 @@
 }
 .stats__hero-kicker { display: flex; align-items: center; gap: 8px; }
 .stats__hero-badge {
-  width: 26px; height: 26px; border-radius: var(--v2-r-chip); background: var(--gold-grad);
+  width: 26px; height: 26px; border-radius: var(--v2-r-chip); background: color-mix(in srgb, var(--on-dark) 16%, transparent);
   display: inline-flex; align-items: center; justify-content: center;
 }
-.stats__kicker-dark { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-.stats__hero-num { font-size: 110px; font-weight: 300; line-height: 1; color: var(--gold); margin-top: 26px; text-shadow: 0 0 40px rgba(131, 162, 219, 0.35); }
+.stats__kicker-dark { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--on-dark-muted); font-weight: 600; }
+/* On a dark card the number is an on-dark colour: --gold is the accent black. */
+.stats__hero-num { font-size: 110px; font-weight: 300; line-height: 1; color: var(--on-dark); margin-top: 26px; text-shadow: 0 0 40px rgba(131, 162, 219, 0.35); }
 .stats__hero-desc { font-size: 14px; color: var(--on-dark-2); margin-top: 14px; line-height: 1.6; max-width: 300px; }
-.stats__dim { color: var(--muted); }
+.stats__dim { color: var(--on-dark-muted); }
 .stats__on-dark { color: var(--on-dark); }
 .stats__green-2 { color: var(--ok-2); }
 .stats__hero-list { display: flex; flex-direction: column; gap: 9px; }

@@ -423,3 +423,52 @@ describe('the Agents tabs', () => {
     expect(tsx).not.toMatch(/team__hint mono/)
   })
 })
+
+// LOCAL IS NOT CLOUD (seen 2026-11-11). The legacy tokens --gold and
+// --chart-dark both alias the accent black, so every local-versus-cloud bar
+// and legend was one black shape with two labels, and the headline number on
+// the dark savings card was black on black. These are the charts that show how
+// much work stayed on this Mac: local wears the local green, cloud the blue,
+// and anything on a dark card is an on-dark colour.
+describe('local and cloud are told apart, and dark cards are legible', () => {
+  const stats = read('src/pages/Stats.css')
+  const mem = read('src/pages/Memory.css')
+  const con = read('src/pages/Console.css')
+  it('share bars and their legends: local green, cloud blue, ink that reads on both', () => {
+    expect(stats).toMatch(/\.stats__seg--local \{[^}]*background: var\(--v2-local\)/)
+    expect(stats).toMatch(/\.stats__seg--cloud \{[^}]*background: var\(--v2-blue\)/)
+    expect(stats).toMatch(/\.stats__seg-txt \{[^}]*color: var\(--v2-on-fill\)/)
+    expect(stats).toMatch(/\.stats__sw--gold \{[^}]*background: var\(--v2-local\)/)
+    expect(stats).toMatch(/\.stats__sw--cloud \{[^}]*background: var\(--v2-blue\)/)
+    expect(mem).toMatch(/\.mem-share__seg--local \{[^}]*background: var\(--v2-local\)/)
+    expect(mem).toMatch(/\.mem-share__seg--cloud \{[^}]*background: var\(--v2-blue\)/)
+    const memTsx = read('src/pages/Memory.tsx')
+    expect(memTsx).not.toMatch(/mem-legend__sw" style=\{\{ background: 'var\(--(gold|chart-dark)\)'/)
+    // Console: the local bar is the local green; cloud providers take cloud
+    // tints and can never be handed the local one.
+    expect(con).toMatch(/\.console__bar--local \{[^}]*background: var\(--v2-local\)/)
+    const conTsx = read('src/pages/Console.tsx')
+    expect(conTsx).toMatch(/p\.isLocal \? 'console__bar--local'/)
+    expect(conTsx.match(/const BAR_CLASSES = \[[^\]]*\]/)?.[0] ?? '').not.toMatch(/gold|local/)
+  })
+  it('the headline number on a dark card is an on-dark colour, never the accent', () => {
+    expect(stats).toMatch(/\.stats__hero-num \{[^}]*color: var\(--on-dark\)/)
+    expect(mem).toMatch(/\.mem-saves__num \{[^}]*color: var\(--on-dark\)/)
+  })
+  it('secondary text on a dark card is a tint of the on-dark colour in every theme', () => {
+    expect(tokens).toMatch(/--on-dark-muted:\s*color-mix\(in srgb, var\(--v2-on-accent\) \d+%, transparent\)/)
+    for (const rule of ['.stats__kicker-dark', '.stats__dim']) {
+      const r = stats.match(new RegExp(rule.replace('.', '\\.') + ' \\{[^}]*\\}'))?.[0] ?? ''
+      expect(r, rule).toMatch(/color: var\(--on-dark-muted\)/)
+    }
+    for (const rule of ['.mem-saves__kicker', '.mem-saves__sub', '.mem-saves__note']) {
+      const r = mem.match(new RegExp(rule.replace('.', '\\.') + ' \\{[^}]*\\}'))?.[0] ?? ''
+      expect(r, rule).toMatch(/color: var\(--on-dark-muted\)/)
+    }
+  })
+  it('the Stats page grows and scrolls instead of squeezing its cards into each other', () => {
+    const page = stats.match(/^\.stats \{[^}]*\}/m)?.[0] ?? ''
+    expect(page).not.toMatch(/[^-]height: 100%/)
+    expect(stats).toMatch(/\.stats__grid \{[^}]*flex: 1 0 auto/)
+  })
+})

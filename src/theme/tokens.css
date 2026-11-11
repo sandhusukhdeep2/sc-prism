@@ -73,8 +73,10 @@
   /* on-dark */
   --on-dark: var(--v2-on-accent);
   --on-dark-2: var(--v2-on-accent);
-  --on-dark-muted: var(--v2-muted);
-  --on-dark-label: var(--v2-muted);
+  /* Secondary text ON a dark card is a tint of the on-dark colour. It used to
+     be --v2-muted, which in the light theme is dark grey — dark on dark. */
+  --on-dark-muted: color-mix(in srgb, var(--v2-on-accent) 66%, transparent);
+  --on-dark-label: color-mix(in srgb, var(--v2-on-accent) 66%, transparent);
 
   /* accent — gold */
   --gold: var(--v2-accent);

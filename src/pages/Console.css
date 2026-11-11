@@ -28,8 +28,10 @@
 .console__bars { flex: 1; display: flex; align-items: flex-end; gap: 8px; margin-top: 14px; padding-bottom: 4px; }
 .console__barcol { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
 .console__bar { border-radius: var(--v2-r-chip); }
-.console__bar--dark { background: var(--chart-dark); }
-.console__bar--gold { background: var(--gold-grad); }
+/* The local bar is the local green everywhere it is drawn; cloud providers
+   take the cloud tints below and can never be handed the local one. */
+.console__bar--local { background: var(--v2-local); }
+.console__bar--dark { background: var(--v2-blue); }
 .console__bar--tan { background: #d9d0b8; }
 .console__bar--blue { background: #83a2db; }
 .console__bar--purple { background: #c9b8f2; }

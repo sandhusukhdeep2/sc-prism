@@ -57,8 +57,8 @@
 /* One measured split bar (Finding 2): the hardcoded w1-w4 "ramp" bars and their
    .bar rules are deleted — a shape nobody measured is not a chart. */
 .mem-share__split { display: flex; height: 14px; border-radius: var(--v2-r-pill); overflow: hidden; margin-top: 16px; background: var(--hair); }
-.mem-share__seg--local { background: var(--gold-grad); }
-.mem-share__seg--cloud { background: var(--chart-dark); }
+.mem-share__seg--local { background: var(--v2-local); }
+.mem-share__seg--cloud { background: var(--v2-blue); }
 .mem-share__tokens { font-size: 10.5px; color: var(--muted-2); margin-top: 8px; }
 .mem-share__caption { font-size: 12px; color: var(--ink-3); margin-top: auto; padding-top: 12px; line-height: 1.55; }
 .mem-share__caption b { color: var(--eval-ink); }
@@ -74,13 +74,13 @@
 }
 .mem-saves__head { display: flex; align-items: center; gap: 8px; }
 .mem-saves__bolt {
-  width: 22px; height: 22px; border-radius: var(--v2-r-chip); background: var(--gold-grad);
+  width: 22px; height: 22px; border-radius: var(--v2-r-chip); background: color-mix(in srgb, var(--on-dark) 16%, transparent);
   display: inline-flex; align-items: center; justify-content: center;
 }
-.mem-saves__kicker { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-.mem-saves__num { font-size: 52px; font-weight: 300; color: var(--gold); font-family: var(--font-mono); margin-top: 10px; line-height: 1; }
-.mem-saves__sub { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
-.mem-saves__note { font-size: 10px; color: var(--muted-2); margin-top: 6px; line-height: 1.5; }
+.mem-saves__kicker { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--on-dark-muted); font-weight: 600; }
+.mem-saves__num { font-size: 52px; font-weight: 300; color: var(--on-dark); font-family: var(--font-mono); margin-top: 10px; line-height: 1; }
+.mem-saves__sub { font-size: 11.5px; color: var(--on-dark-muted); margin-top: 8px; }
+.mem-saves__note { font-size: 10.5px; color: var(--on-dark-muted); margin-top: 6px; line-height: 1.5; }
 
 .mem-cost {
   flex: 1; border-radius: var(--r-card); background: var(--card-solid); padding: 20px 22px;

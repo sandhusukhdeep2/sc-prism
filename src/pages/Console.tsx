@@ -30,13 +30,8 @@ function pctHeight(val: number, max: number): string {
   return `${Math.max(6, Math.round((val / max) * 100))}%`
 }
 
-const BAR_CLASSES = [
-  'console__bar--dark',
-  'console__bar--gold',
-  'console__bar--tan',
-  'console__bar--blue',
-  'console__bar--purple',
-]
+// Cloud tints only — the local bar has its own class and its own colour.
+const BAR_CLASSES = ['console__bar--dark', 'console__bar--purple', 'console__bar--tan', 'console__bar--blue']
 
 // --- Finding 3b/3c: hook health that cannot hide errors or average in dispatch ---
 // `dispatch` wraps the WHOLE model call (687s on the user's install), so folding
@@ -288,7 +283,7 @@ export default function Console() {
                     key={p.key}
                     label={p.label}
                     height={pctHeight(p.tokens, burnMax)}
-                    cls={p.isLocal ? 'console__bar--gold' : BAR_CLASSES[i % BAR_CLASSES.length]}
+                    cls={p.isLocal ? 'console__bar--local' : BAR_CLASSES[i % BAR_CLASSES.length]}
                   />
                 ))}
               </div>

@@ -426,11 +426,11 @@ export default function Memory() {
             )}
             <div className="mem-legend">
               <span>
-                <span className="mem-legend__sw" style={{ background: 'var(--gold)' }} />
+                <span className="mem-legend__sw" style={{ background: 'var(--v2-local)' }} />
                 local
               </span>
               <span>
-                <span className="mem-legend__sw" style={{ background: 'var(--chart-dark)' }} />
+                <span className="mem-legend__sw" style={{ background: 'var(--v2-blue)' }} />
                 cloud
               </span>
             </div>
