@@ -30,6 +30,7 @@ const native = vi.hoisted(() => {
       files.delete(rel)
       return null
     }),
+    readSpansTail: vi.fn(async (..._a: unknown[]) => [] as unknown[]),
   }
 })
 vi.mock('../lib/nativeEngine', async (orig) => {
@@ -159,5 +160,44 @@ describe('the agent page edits per-seat tools', () => {
     await waitFor(() => {
       expect(native.files.get('agents/tool-scout.md')).toContain('tools: [vault, web]')
     })
+  })
+})
+
+// THE AGENT'S OWN RECORD on its page (2026-11-11). The header said "73 runs on
+// local · last failed" — a model-wide number — while its card on the crew page
+// said "90 turns · last answered"; and the page showed nothing of what the
+// agent had actually done. Both now read the agent's own spans.
+describe('the agent page shows the agent’s own record', () => {
+  beforeEach(() => {
+    native.files.clear()
+    native.readSpansTail.mockReset()
+    localStorage.clear()
+  })
+  afterEach(() => localStorage.clear())
+
+  it('lists its latest turns and tools, and the header speaks for its own work', async () => {
+    const a = createAgent({ name: 'record-scout', role: 'r', model: 'local' })
+    native.readSpansTail.mockResolvedValue([
+      { name: 'model_call', type: 'model_call', status: 'ok', start: 1, duration_ms: 2100, span_id: 's1', attrs: { agent: 'record-scout', round: 'proof', provider: 'local', model: 'gemma', is_local: true, is_real: true, tokens_in: 1911, tokens_out: 42 } },
+      { name: 'tool_exec', type: 'tool_exec', status: 'ok', start: 2, span_id: 's2', attrs: { agent: 'record-scout', round: 'proof', tool: 'vault_list', server: 'vault' } },
+    ])
+    renderAt(`/agents/${agentSlug(a.name)}`)
+    const card = await screen.findByRole('region', { name: /its record/i })
+    await waitFor(() => expect(card.textContent).toContain('proof'))
+    expect(card.textContent).toContain('local · gemma')
+    expect(card.textContent).toMatch(/1,911\s*→\s*42/)
+    expect(card.textContent).toContain('answered')
+    expect(card.textContent).toMatch(/vault_list/)
+    // The header's line is the same one its card on the crew page shows.
+    expect(document.querySelector('.adetail__meta')!.textContent).toContain('1 turn · last answered · 1,953 tokens · 1 tool call · all on your Mac')
+    expect(native.readSpansTail).toHaveBeenCalledWith('/vault', 4000)
+  })
+
+  it('says so plainly when the log holds nothing of its own', async () => {
+    const a = createAgent({ name: 'record-empty', role: 'r', model: 'local' })
+    native.readSpansTail.mockResolvedValue([])
+    renderAt(`/agents/${agentSlug(a.name)}`)
+    const card = await screen.findByRole('region', { name: /its record/i })
+    expect(card.textContent).toMatch(/no turns of its own in the recent log/i)
   })
 })

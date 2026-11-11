@@ -63,3 +63,70 @@ export function ownActivity(spans: readonly EngineSpan[], agent: string, live: b
   ]
   return { state: noAnswer ? 'failed' : 'ok', label: parts.join(' · '), turns: turns.length, toolCalls, tokens, allLocal }
 }
+
+/** One of the agent's own work turns, in the span's own figures. */
+export interface RecordTurn {
+  /** The engine's `round` attr: 'proof', '1', 'synthesis', a wake's label… */
+  stage: string
+  /** `provider · model` that really took the turn ('' when the span named neither). */
+  ai: string
+  local: boolean
+  tokensIn: number
+  tokensOut: number
+  /** Wall time in ms; 0 when the span carried none (still open). */
+  ms: number
+  result: 'answered' | 'no answer' | 'working'
+  /** The engine's cause for a turn with no answer, verbatim. */
+  cause?: string
+}
+
+export interface AgentRecord {
+  /** Newest first, at most `limit`. */
+  turns: RecordTurn[]
+  /** Tools it called, most used first. */
+  tools: { name: string; count: number }[]
+}
+
+/**
+ * THE AGENT'S RECORD (2026-11-11): what it has really done, for its own page —
+ * the latest turns and the tools it called, read from the spans that carry its
+ * name. Nothing is inferred: an agent with no span of its own has an empty
+ * record, and the page says so.
+ */
+export function agentRecord(spans: readonly EngineSpan[], agent: string, limit = 8): AgentRecord {
+  const key = seatKey(agent)
+  if (!key) return { turns: [], tools: [] }
+  const mine = spans
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => seatKey(str(s.attrs, 'agent')) === key)
+  const turns = mine
+    .filter(({ s }) => isWork(s))
+    .sort((a, b) => (b.s.start ?? 0) - (a.s.start ?? 0) || b.i - a.i)
+    .slice(0, Math.max(0, limit))
+    .map(({ s }): RecordTurn => {
+      const a = s.attrs
+      const round = a?.round
+      const noAnswer = a?.is_real === false || s.status === 'error'
+      const cause = str(a, 'error')
+      return {
+        stage: typeof round === 'string' ? round : typeof round === 'number' ? String(round) : '',
+        ai: [str(a, 'provider'), str(a, 'model')].filter(Boolean).join(' · '),
+        local: a?.is_local === true,
+        tokensIn: num(a, 'tokens_in'),
+        tokensOut: num(a, 'tokens_out'),
+        ms: typeof s.duration_ms === 'number' && Number.isFinite(s.duration_ms) ? s.duration_ms : 0,
+        result: isOpen(s) ? 'working' : noAnswer ? 'no answer' : 'answered',
+        ...(noAnswer && cause ? { cause } : {}),
+      }
+    })
+  const counts = new Map<string, number>()
+  for (const { s } of mine) {
+    if (!isTool(s)) continue
+    const name = str(s.attrs, 'tool')
+    if (name) counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+  const tools = [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  return { turns, tools }
+}

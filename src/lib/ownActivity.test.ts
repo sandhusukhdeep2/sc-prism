@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EngineSpan } from './nativeEngine'
-import { ownActivity } from './ownActivity'
+import { agentRecord, ownActivity } from './ownActivity'
 
 // What ONE agent's card says about ITS OWN work, read from the spans that
 // carry its name — never from the model-wide tally. Seen 2026-11-09: five
@@ -40,5 +40,39 @@ describe('ownActivity — the agent’s own turns', () => {
   })
   it('returns null when the log holds no turn of its own — the card falls back to the model-wide line', () => {
     expect(ownActivity([call('other')], 'scout', false)).toBeNull()
+  })
+})
+
+// THE AGENT'S RECORD (2026-11-11): its own page shows what it has really done
+// — the latest turns with the AI that answered, tokens, time and result, and
+// the tools it called — read from the spans that carry its name.
+describe('agentRecord — the latest turns, newest first', () => {
+  it('lists this agent’s work turns newest first with the span’s own figures', () => {
+    const rec = agentRecord(
+      [
+        call('scout', { round: 'proof', tokens_in: 1911, tokens_out: 42 }, 'ok', 10),
+        call('other', {}, 'ok', 11),
+        { ...call('scout', { round: '1', provider: 'claude-cli', model: 'opus', is_local: false, tokens_in: 500, tokens_out: 200 }, 'ok', 20), duration_ms: 9000 },
+        call('scout', { round: '2', is_real: false, error: 'local refused the request (HTTP 401)' }, 'error', 30),
+      ],
+      'Scout',
+      5,
+    )
+    expect(rec.turns.map((t) => t.stage)).toEqual(['2', '1', 'proof'])
+    expect(rec.turns[0]).toMatchObject({ result: 'no answer', cause: 'local refused the request (HTTP 401)' })
+    expect(rec.turns[1]).toMatchObject({ ai: 'claude-cli · opus', local: false, tokensIn: 500, tokensOut: 200, ms: 9000, result: 'answered' })
+    expect(rec.turns[2]).toMatchObject({ ai: 'local · gemma', local: true, tokensIn: 1911, tokensOut: 42, result: 'answered' })
+  })
+  it('keeps only the newest N and counts the tools it called by name', () => {
+    const spans = [
+      call('scout', {}, 'ok', 1), call('scout', {}, 'ok', 2), call('scout', {}, 'ok', 3),
+      tool('scout', 'vault_read', 4), tool('scout', 'vault_read', 5), tool('scout', 'web_search', 6), tool('other', 'vault_read', 7),
+    ]
+    const rec = agentRecord(spans, 'scout', 2)
+    expect(rec.turns).toHaveLength(2)
+    expect(rec.tools).toEqual([{ name: 'vault_read', count: 2 }, { name: 'web_search', count: 1 }])
+  })
+  it('an agent with no span of its own has an empty record', () => {
+    expect(agentRecord([call('other')], 'scout', 5)).toEqual({ turns: [], tools: [] })
   })
 })

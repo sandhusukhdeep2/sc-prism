@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { agentRecord, ownActivity } from '../lib/ownActivity'
+import { readSpansTail, resolveVaultDir, type EngineSpan } from '../lib/nativeEngine'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { proofChipText } from '../lib/proveAgent'
 import './AgentDetail.css'
@@ -75,6 +77,27 @@ function AgentEditor({ a }: { a: StoredAgent }) {
   const seatGate = useMemo(() => rosterGate(settings, { health }), [settings, health])
   const sitsOut = seatGate(model)
   const activity = agentActivity(a, state.verdicts)
+  // ITS OWN RECORD (2026-11-11): the same span log its card on the crew page
+  // reads, far enough back to find its turns days later.
+  const [spans, setSpans] = useState<readonly EngineSpan[]>([])
+  useEffect(() => {
+    let stop = false
+    void (async () => {
+      try {
+        const vault = await resolveVaultDir(settings.vaultPath)
+        const tail = await readSpansTail(vault, 4000)
+        if (!stop) setSpans(tail)
+      } catch {
+        /* no log yet — the page says the record is empty */
+      }
+    })()
+    return () => {
+      stop = true
+    }
+  }, [settings.vaultPath, a.id])
+  const own = ownActivity(spans, a.name, false)
+  const record = agentRecord(spans, a.name, 8)
+  const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : ms > 0 ? `${Math.round(ms)}ms` : '')
 
   const toggleSkill = (n: string) =>
     setPicked((cur) => (cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n]))
@@ -134,11 +157,11 @@ function AgentEditor({ a }: { a: StoredAgent }) {
               onChange={(e) => setName(e.target.value)}
             />
           )}
-          <div className="adetail__meta mono">
+          <div className="adetail__meta">
             <span className={'adetail__proof' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')}>{proofChipText(a.proof)}</span> ·{' '}
             {a.system ? 'built-in · read-only definition' : 'your agent'}
             {' · '}
-            {activity.label}
+            {(own ?? activity).label}
           </div>
         </div>
         <span className="adetail__spacer" />
@@ -151,7 +174,7 @@ function AgentEditor({ a }: { a: StoredAgent }) {
         </button>
       </div>
 
-      {sitsOut && a.enabled && <div className="adetail__sitout mono">sits out: {sitsOut}</div>}
+      {sitsOut && a.enabled && <div className="adetail__sitout">sits out: {sitsOut}</div>}
 
       <div className="adetail__grid">
         <section className="adetail__card">
@@ -209,7 +232,7 @@ function AgentEditor({ a }: { a: StoredAgent }) {
         <section className="adetail__card">
           <h3 className="adetail__kicker">Skills</h3>
           {skills.length === 0 && (
-            <div className="adetail__hint mono">no skills in the library yet — add them on the Skills page</div>
+            <div className="adetail__hint">no skills in the library yet — add them on the Skills page</div>
           )}
           <div className="adetail__skills">
             {skills.map((s) => (
@@ -248,7 +271,7 @@ function AgentEditor({ a }: { a: StoredAgent }) {
               <span>use the web (search + fetch, only when web research is on)</span>
             </label>
           </div>
-          <div className="adetail__hint mono">
+          <div className="adetail__hint">
             no boxes ticked = this seat runs with the run&rsquo;s defaults; a tick past your own
             grants is refused out loud at launch, never silently
           </div>
@@ -279,12 +302,50 @@ function AgentEditor({ a }: { a: StoredAgent }) {
         </section>
       </div>
 
+      {/* WHAT IT HAS REALLY DONE — its latest turns and the tools it called,
+          read from the engine's spans that carry its name. Nothing inferred:
+          an empty record says so. */}
+      <section className="adetail__card adetail__record" aria-label="Its record">
+        <h3 className="adetail__kicker">Its record — from the engine’s own spans</h3>
+        {record.turns.length === 0 ? (
+          <div className="adetail__hint">
+            No turns of its own in the recent log. Prove it on the crew page, or give its project a task.
+          </div>
+        ) : (
+          <>
+            <ol className="adetail__turns">
+              {record.turns.map((t, i) => (
+                <li key={i} className={'adetail__turn' + (t.result === 'no answer' ? ' is-no' : '')}>
+                  <span className="adetail__turnstage">{t.stage || 'turn'}</span>
+                  <span className="adetail__turnai mono" title={t.ai}>
+                    {t.ai || 'an AI'}
+                  </span>
+                  <span className="adetail__turntok mono" title="tokens in → out">
+                    {t.tokensIn.toLocaleString()} → {t.tokensOut.toLocaleString()}
+                  </span>
+                  <span className="adetail__turnms mono">{fmtMs(t.ms)}</span>
+                  <span className="adetail__turnres">
+                    {t.result}
+                    {t.cause ? ` — ${t.cause}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            {record.tools.length > 0 && (
+              <div className="adetail__tools">
+                tools it called: {record.tools.map((t) => `${t.name} ×${t.count}`).join(' · ')}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
       {!a.system && (
         <div className="adetail__actions">
           <button type="button" className="adetail__save" onClick={save}>
             Save
           </button>
-          {savedAt > 0 && <span className="adetail__saved mono">saved — the file matches</span>}
+          {savedAt > 0 && <span className="adetail__saved">saved — the file matches</span>}
           <span className="adetail__spacer" />
           {confirmDel ? (
             <span className="adetail__confirm">
