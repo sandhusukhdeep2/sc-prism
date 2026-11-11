@@ -125,7 +125,7 @@ function ManagersPanel() {
     <div className="mgrs">
       <div className="mgrs__head">
         <span className="mgrs__kicker">Manager agents</span>
-        <span className="mgrs__hint mono">
+        <span className="mgrs__hint">
           per-AI maintenance managers under {primaryDisplayName(settings)} · reports →
           vault/reports/ · flip a manager ON to start its jobs
         </span>
@@ -556,7 +556,7 @@ function TeamLauncher() {
     <div className="team">
       <div className="team__head">
         <span className="team__kicker">Launch a team</span>
-        <span className="team__hint mono">
+        <span className="team__hint">
           agents run on DIFFERENT models · they talk via the Orchestrator&rsquo;s board · the
           board is saved to your vault
         </span>

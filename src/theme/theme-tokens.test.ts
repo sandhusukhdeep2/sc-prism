@@ -404,3 +404,22 @@ describe('page heads and the icon rail', () => {
     expect(narrow).toMatch(/\.rail \{[^}]*overflow-x: hidden/)
   })
 })
+
+// THE AGENTS TABS (seen 2026-11-11): on Managers the companion's state line
+// was cut to "On · resti…" — it carries when the next check is — because two
+// cards sat in fixed 340px columns beside an empty third; and both tabs'
+// subtitles were sentences in monospace.
+describe('the Agents tabs', () => {
+  const css = read('src/pages/Agents.css')
+  const tsx = read('src/pages/Agents.tsx')
+  it('manager cards share the row they have, and the state line is never cut', () => {
+    expect(css).toMatch(/\.mgrs__grid \{[^}]*repeat\(auto-fit, minmax\(340px, 1fr\)\)/)
+    expect(css).toMatch(/\.hb__row \{[^}]*flex-wrap: wrap/)
+    const state = css.match(/\.hb__state \{[^}]*\}/)?.[0] ?? ''
+    expect(state).not.toMatch(/text-overflow: ellipsis/)
+  })
+  it('the tab subtitles are sentences, not code', () => {
+    expect(tsx).not.toMatch(/mgrs__hint mono/)
+    expect(tsx).not.toMatch(/team__hint mono/)
+  })
+})

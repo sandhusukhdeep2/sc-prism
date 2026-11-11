@@ -193,7 +193,7 @@
 }
 .team__head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .team__kicker { font-size: 15px; font-weight: 600; color: var(--ink); }
-.team__hint { font-size: 10.5px; color: var(--muted-2); }
+.team__hint { font-size: 12px; color: var(--muted-2); }
 .team__form { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .team__intent {
   flex: 2 1 320px; height: 40px; border-radius: var(--v2-r-chip);
@@ -277,7 +277,7 @@
 }
 .mgrs__head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .mgrs__kicker { font-size: 15px; font-weight: 600; color: var(--ink); }
-.mgrs__hint { font-size: 10.5px; color: var(--muted-2); }
+.mgrs__hint { font-size: 12px; color: var(--muted-2); }
 .mgrs__spacer { flex: 1; }
 .mgrs__addbtn {
   border: 1px solid var(--track); border-radius: var(--v2-r-chip); background: none;
@@ -304,7 +304,9 @@
 .mgrs__save { height: 38px; padding: 0 16px; border: 0; border-radius: var(--v2-r-chip); background: var(--gold-grad); color: var(--on-gold); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: filter 0.15s ease; }
 .mgrs__save:hover:not(:disabled) { filter: brightness(1.05); }
 .mgrs__save:disabled { opacity: 0.5; cursor: default; }
-.mgrs__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 14px; }
+/* auto-FIT, not auto-fill: the cards share the row they have instead of
+   sitting in fixed columns beside an empty one (2026-11-11). */
+.mgrs__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; margin-top: 14px; }
 .mgrs__card { border-radius: var(--v2-r-inner); background: var(--input-fill); box-shadow: var(--v2-shadow-soft); padding: 13px 15px; }
 .mgrs__card--off { opacity: 0.65; }
 .mgrs__row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -403,12 +405,14 @@
 
 /* ── companion heartbeat section (2026-07-29 spec) ──────────── */
 .hb { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--hair-2); padding-top: 9px; }
-.hb__row { display: flex; align-items: center; gap: 10px; }
+.hb__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 /* The state line replaced the big consent switch (2026-08-05 §Part 3): the
    card STATES what is true instead of inviting a flip. */
 .hb__state {
+  /* Never cut: this line says when the next check is ("On · resting · next
+     check in 12m"); it takes a line of its own when the row is tight. */
   font-size: 12.5px; font-weight: 600; color: var(--muted);
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere;
 }
 .hb__state--on { color: var(--ink); }
 /* "Wake now" — disabled means a real refusal with a real reason (.hb__why). */
