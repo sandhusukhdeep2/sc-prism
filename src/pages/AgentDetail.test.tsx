@@ -193,6 +193,18 @@ describe('the agent page shows the agent’s own record', () => {
     expect(native.readSpansTail).toHaveBeenCalledWith('/vault', 4000)
   })
 
+  it('a board round reads as "round 1" and every turn says when it happened', async () => {
+    const a = createAgent({ name: 'record-rounds', role: 'r', model: 'local' })
+    const at = Date.UTC(2026, 10, 9, 5, 0, 0) / 1000
+    native.readSpansTail.mockResolvedValue([
+      { name: 'model_call', type: 'model_call', status: 'ok', start: at, duration_ms: 5800, span_id: 'r1', attrs: { agent: 'record-rounds', round: 1, provider: 'local', model: 'gemma', is_local: true, is_real: true, tokens_in: 1007, tokens_out: 181 } },
+    ])
+    renderAt(`/agents/${agentSlug(a.name)}`)
+    const card = await screen.findByRole('region', { name: /its record/i })
+    await waitFor(() => expect(card.textContent).toContain('round 1'))
+    expect(card.querySelector('.adetail__turnwhen')!.textContent).toMatch(/Nov/)
+  })
+
   it('says so plainly when the log holds nothing of its own', async () => {
     const a = createAgent({ name: 'record-empty', role: 'r', model: 'local' })
     native.readSpansTail.mockResolvedValue([])

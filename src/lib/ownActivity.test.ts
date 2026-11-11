@@ -62,6 +62,8 @@ describe('agentRecord — the latest turns, newest first', () => {
     expect(rec.turns[0]).toMatchObject({ result: 'no answer', cause: 'local refused the request (HTTP 401)' })
     expect(rec.turns[1]).toMatchObject({ ai: 'claude-cli · opus', local: false, tokensIn: 500, tokensOut: 200, ms: 9000, result: 'answered' })
     expect(rec.turns[2]).toMatchObject({ ai: 'local · gemma', local: true, tokensIn: 1911, tokensOut: 42, result: 'answered' })
+    // When it happened: the span's own start (engine seconds), as epoch ms.
+    expect(rec.turns.map((t) => t.at)).toEqual([30_000, 20_000, 10_000])
   })
   it('keeps only the newest N and counts the tools it called by name', () => {
     const spans = [

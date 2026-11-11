@@ -98,6 +98,12 @@ function AgentEditor({ a }: { a: StoredAgent }) {
   const own = ownActivity(spans, a.name, false)
   const record = agentRecord(spans, a.name, 8)
   const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : ms > 0 ? `${Math.round(ms)}ms` : '')
+  // A board round is a number in the span; say what it is.
+  const stageLabel = (stage: string) => (/^\d+$/.test(stage) ? `round ${stage}` : stage || 'turn')
+  const whenLabel = (at: number) =>
+    at > 0
+      ? `${new Date(at).toLocaleDateString([], { day: 'numeric', month: 'short' })} ${new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      : ''
 
   const toggleSkill = (n: string) =>
     setPicked((cur) => (cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n]))
@@ -316,7 +322,8 @@ function AgentEditor({ a }: { a: StoredAgent }) {
             <ol className="adetail__turns">
               {record.turns.map((t, i) => (
                 <li key={i} className={'adetail__turn' + (t.result === 'no answer' ? ' is-no' : '')}>
-                  <span className="adetail__turnstage">{t.stage || 'turn'}</span>
+                  <span className="adetail__turnwhen mono">{whenLabel(t.at)}</span>
+                  <span className="adetail__turnstage">{stageLabel(t.stage)}</span>
                   <span className="adetail__turnai mono" title={t.ai}>
                     {t.ai || 'an AI'}
                   </span>

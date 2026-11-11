@@ -78,6 +78,8 @@ export interface RecordTurn {
   result: 'answered' | 'no answer' | 'working'
   /** The engine's cause for a turn with no answer, verbatim. */
   cause?: string
+  /** When the turn started, epoch ms (the span's `start` is engine seconds). */
+  at: number
 }
 
 export interface AgentRecord {
@@ -117,6 +119,7 @@ export function agentRecord(spans: readonly EngineSpan[], agent: string, limit =
         ms: typeof s.duration_ms === 'number' && Number.isFinite(s.duration_ms) ? s.duration_ms : 0,
         result: isOpen(s) ? 'working' : noAnswer ? 'no answer' : 'answered',
         ...(noAnswer && cause ? { cause } : {}),
+        at: Math.round((s.start ?? 0) * 1000),
       }
     })
   const counts = new Map<string, number>()
