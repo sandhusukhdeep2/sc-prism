@@ -1800,6 +1800,32 @@ fn cli_probe_argv(bin: &str) -> Option<Vec<String>> {
     }
 }
 
+/// What the probe's child needs beyond PATH, mirroring the `env` entry of the
+/// gateway's `_CLI_PROVIDERS`. Gemini CLI >= 0.6x refuses a headless run in a
+/// folder the user has not trusted (exit 55); the probe runs in a fresh empty
+/// folder, which can never be trusted in advance, so gemini is told to trust
+/// that throwaway workspace. An env var, not `--skip-trust`: an older CLI
+/// ignores a variable it does not know and rejects a flag it does not know.
+fn cli_probe_env(bin: &str) -> Vec<(&'static str, &'static str)> {
+    match bin {
+        "gemini" => vec![("GEMINI_CLI_TRUST_WORKSPACE", "true")],
+        _ => Vec::new(),
+    }
+}
+
+/// How long the probe waits when the caller names no bound. A cold Gemini CLI
+/// took 70 s to answer in a fresh folder (2026-11-11); 45 s called a signed-in
+/// CLI "installed but can't answer".
+const CLI_PROBE_DEFAULT_SECS: u64 = 90;
+
+/// Removes the probe's throwaway folder however the probe ends.
+struct ProbeDir(PathBuf);
+impl Drop for ProbeDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// The CLI's OWN failure text, trimmed to one honest line the UI can show
 /// (e.g. "IneligibleTierError: This client is no longer supported…"). Prefers
 /// stderr, falls back to stdout, and never invents a reason: an empty capture
@@ -1851,13 +1877,31 @@ async fn probe_cli(bin: String, timeout_secs: Option<u64>) -> Result<String, Str
             None => return Err(format!("no probe is defined for {bin}")),
         };
         // Bounded: a hung CLI must not hold the app's health check open.
-        let secs = timeout_secs.unwrap_or(45).clamp(5, 120);
+        let secs = timeout_secs.unwrap_or(CLI_PROBE_DEFAULT_SECS).clamp(5, 120);
+
+        // The same discipline as the gateway's `_invoke_cli`: a fresh, EMPTY
+        // folder, so an agentic CLI has nothing to read or touch — and so the
+        // probe exercises the call the real runs make, not one that happens to
+        // work from wherever the app was launched.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let work = ProbeDir(
+            std::env::temp_dir().join(format!("scprism-cli-probe-{}-{}", std::process::id(), nanos)),
+        );
+        std::fs::create_dir_all(&work.0)
+            .map_err(|e| format!("{bin} probe could not make its folder: {e}"))?;
 
         let mut cmd = Command::new(&path);
         for a in &args {
             cmd.arg(a);
         }
-        cmd.env("PATH", engine_path_env())
+        for (k, v) in cli_probe_env(&bin) {
+            cmd.env(k, v);
+        }
+        cmd.current_dir(&work.0)
+            .env("PATH", engine_path_env())
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -3261,6 +3305,29 @@ mod path_tests {
     // (IneligibleTierError) passed that check, showed green, and kept its seat
     // on every team while contributing an offline stub. These pin the pieces
     // that make "installed" and "usable" separate answers.
+
+    // Seen 2026-11-11 with Gemini CLI 0.67: a headless run outside a trusted
+    // folder exits 55, so "Connect to Gemini" failed from wherever the app
+    // happened to be running. The probe runs in a fresh empty folder like the
+    // gateway does, and hands gemini (and only gemini) its own trust switch.
+    #[test]
+    fn probe_env_hands_gemini_its_trust_switch_and_nobody_else() {
+        assert_eq!(
+            cli_probe_env("gemini"),
+            vec![("GEMINI_CLI_TRUST_WORKSPACE", "true")]
+        );
+        assert!(cli_probe_env("claude").is_empty());
+        assert!(cli_probe_env("codex").is_empty());
+    }
+
+    // A cold Gemini CLI took 70 s to answer in a fresh folder (measured through
+    // the engine the same day); a 45 s default would have called a signed-in
+    // CLI "installed but can't answer" and sat its seat out for half an hour.
+    #[test]
+    fn probe_default_bound_leaves_room_for_a_cold_cli() {
+        assert!(CLI_PROBE_DEFAULT_SECS >= 90);
+        assert!(CLI_PROBE_DEFAULT_SECS <= 120);
+    }
 
     #[test]
     fn probe_argv_mirrors_the_gateways_own_one_shot_shape() {

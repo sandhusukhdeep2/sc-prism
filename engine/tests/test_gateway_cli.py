@@ -198,6 +198,47 @@ class CliImageEgressTests(unittest.TestCase):
         self.assertEqual(argv[argv.index("--append-system-prompt") + 1], "be brief")
 
 
+class CliWorkspaceTrustTests(unittest.TestCase):
+    """Seen 2026-11-11 with Gemini CLI 0.67: a headless run in a directory the
+    user has not trusted exits 55 ("not running in a trusted directory"). The
+    gateway runs every CLI in a FRESH, EMPTY temp dir — so an agentic CLI has
+    nothing to read or touch — and a fresh dir can never be trusted in advance,
+    so every gemini-cli seat failed. The child is told to trust that throwaway
+    workspace through the CLI's own switch; an env var, so an older CLI that
+    does not know it simply ignores it (a flag would be an unknown-flag error)."""
+
+    def _run(self, primary, bin_path):
+        from scprism_engine.proc import BoundedResult
+
+        seen = {}
+
+        def fake_run(argv, *a, **kw):
+            seen["argv"] = list(argv)
+            seen["cwd"] = kw.get("cwd")
+            seen["env"] = dict(kw.get("env") or {})
+            return BoundedResult(returncode=0, stdout="cli reply", stderr="", timed_out=False)
+
+        g = Gateway(env={"SCPRISM_PRIMARY": primary})
+        route = g.route("design a plan")
+        with mock.patch.object(gw, "_find_cli", return_value=bin_path), \
+                mock.patch.object(gw.proc_util, "run_bounded", fake_run):
+            result = g.model_call(_messages("plain question"), route)
+        return result, seen
+
+    def test_gemini_cli_child_trusts_its_throwaway_workspace(self):
+        result, seen = self._run("gemini-cli", "/fake/gemini")
+        self.assertTrue(result.is_real)
+        self.assertEqual(seen["env"].get("GEMINI_CLI_TRUST_WORKSPACE"), "true")
+        # Still the throwaway dir — trust is granted to an EMPTY workspace only.
+        self.assertIn("scprism-cli-", str(seen["cwd"]))
+        # The switch is the env var, never a flag an older CLI would reject.
+        self.assertNotIn("--skip-trust", seen["argv"])
+
+    def test_other_clis_are_not_handed_geminis_switch(self):
+        _result, seen = self._run("claude-cli", "/fake/claude")
+        self.assertNotIn("GEMINI_CLI_TRUST_WORKSPACE", seen["env"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

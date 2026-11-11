@@ -504,6 +504,13 @@ _CLI_PROVIDERS = {
         "bin": "gemini",
         "model": "gemini-cli-account",
         "argv": lambda prompt: ["-p", prompt],
+        # Gemini CLI >= 0.6x refuses a headless run in a directory the user has
+        # not trusted (exit 55). We run every CLI in a fresh, EMPTY temp dir —
+        # nothing to read or touch — which can never be trusted in advance, so
+        # the child is told to trust that throwaway workspace. The CLI's own
+        # env switch, not `--skip-trust`: an older CLI ignores an env var it
+        # does not know and rejects a flag it does not know (2026-11-11).
+        "env": {"GEMINI_CLI_TRUST_WORKSPACE": "true"},
     },
     "codex-cli": {
         "bin": "codex",
@@ -1823,14 +1830,18 @@ class Gateway:
             # after the app had cancelled the run. `run_bounded` kills the whole
             # process group and measures on the longer of the two clocks —
             # the same wall clock the app's 240s cancel uses. See proc.py.
+            # These CLIs are node programs that shell out to `node`/`npx`;
+            # a GUI-inherited PATH cannot see an nvm install (same root
+            # cause as the Tier-1 verify failure), so hand them a real one —
+            # plus whatever this provider's own child needs (see `env` in
+            # _CLI_PROVIDERS: gemini's trust switch for the throwaway dir).
+            child_env = dict(toolpath.env_with_path())
+            child_env.update(conf.get("env") or {})
             proc = proc_util.run_bounded(
                 argv,
                 timeout=cli_timeout,
                 cwd=tmp,
-                # These CLIs are node programs that shell out to `node`/`npx`;
-                # a GUI-inherited PATH cannot see an nvm install (same root
-                # cause as the Tier-1 verify failure), so hand them a real one.
-                env=toolpath.env_with_path(),
+                env=child_env,
             )
             # A CLI that stopped to ask a HUMAN to sign in is not slow and not
             # broken — and saying "did not answer within 180s" sends the user
