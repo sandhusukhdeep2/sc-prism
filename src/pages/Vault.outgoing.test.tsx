@@ -60,3 +60,24 @@ describe('Vault — outgoing links navigate to the target note', () => {
     expect(screen.queryByText('º g')).not.toBeInTheDocument() // 7th is folded into "+2 more"
   })
 })
+
+// THE NOTE PREVIEW READS (seen 2026-11-11): the open file's row in the tree
+// was black text on the black selection bar, and a note's YAML frontmatter was
+// poured into its first paragraph.
+describe('Vault — the open note reads', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('shows frontmatter as a small table of facts above the body, not as a run-on paragraph', () => {
+    simCreate('aaa-agent.md', '---\nname: archivist\ndescription: manages vault reports\nmodel: local\n---\n\nResponsibility: own the lifecycle.\n')
+    renderVault()
+    fireEvent.click(screen.getByRole('button', { name: 'aaa-agent.md' }))
+    const meta = document.querySelector('.md__meta') as HTMLElement
+    expect(meta).not.toBeNull()
+    expect(meta.textContent).toContain('name')
+    expect(meta.textContent).toContain('archivist')
+    expect(meta.textContent).toContain('manages vault reports')
+    expect(screen.getByText('Responsibility: own the lifecycle.')).toBeInTheDocument()
+    expect(screen.queryByText(/--- name: archivist/)).toBeNull()
+  })
+})

@@ -472,3 +472,10 @@ describe('local and cloud are told apart, and dark cards are legible', () => {
     expect(stats).toMatch(/\.stats__grid \{[^}]*flex: 1 0 auto/)
   })
 })
+
+describe('the Vault tree', () => {
+  it('the open file is legible on its selection bar', () => {
+    const rule = read('src/pages/Vault.css').match(/\.vault__file--active \{[^}]*\}/)?.[0] ?? ''
+    expect(rule).toMatch(/color: var\(--on-gold\)/)
+  })
+})

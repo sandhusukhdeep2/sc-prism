@@ -35,7 +35,9 @@
 }
 .vault__file:hover { background: var(--fill-soft); }
 .vault__file--active {
-  margin: 2px 0; padding: 7px 10px 7px 30px; color: var(--ink); font-weight: 600;
+  /* --gold-grad is the accent black: the text on it is the on-gold colour.
+     With --ink the open file's name was black on black (2026-11-11). */
+  margin: 2px 0; padding: 7px 10px 7px 30px; color: var(--on-gold); font-weight: 600;
   background: var(--gold-grad); border-radius: var(--v2-r-chip);
 }
 .vault__file--active:hover { background: var(--gold-grad); }
@@ -144,3 +146,9 @@
 .vault__link--btn { border: 0; background: none; font: inherit; cursor: pointer; text-align: left; padding: 0; display: flex; align-items: center; gap: 7px; }
 .vault__link--btn:hover { color: var(--ink); }
 .vault__link--dim { opacity: 0.6; }
+
+/* A note's frontmatter, as facts above its body. */
+.md__meta { margin: 0 0 16px; padding: 10px 14px; border-radius: var(--v2-r-chip); background: var(--v2-fill); display: flex; flex-direction: column; gap: 4px; }
+.md__metarow { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.md__metakey { font-size: 11px; color: var(--v2-muted); margin: 0; }
+.md__metaval { font-size: 13px; color: var(--v2-ink); margin: 0; overflow-wrap: anywhere; }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { splitFrontmatter } from '../lib/frontmatter'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useSettings } from '../lib/settings'
@@ -129,6 +130,28 @@ function renderMarkdown(md: string): ReactNode[] {
   }
 
   return blocks
+}
+
+/** The open note: its frontmatter as a small table of facts, then its body.
+ *  Frontmatter is metadata — it used to pour into the first paragraph as
+ *  "--- name: archivist description: … ---" (2026-11-11). */
+function NoteBody({ content }: { content: string }) {
+  const note = splitFrontmatter(content)
+  return (
+    <div className="md">
+      {note.meta.length > 0 && (
+        <dl className="md__meta">
+          {note.meta.map(([k, v]) => (
+            <div key={k} className="md__metarow">
+              <dt className="md__metakey mono">{k}</dt>
+              <dd className="md__metaval">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {renderMarkdown(note.body)}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -607,7 +630,7 @@ export default function Vault() {
                 placeholder="# Title&#10;&#10;Write markdown here…"
               />
             ) : exists ? (
-              <div className="md">{renderMarkdown(content ?? '')}</div>
+              <NoteBody content={content ?? ''} />
             ) : (
               <p className="vault__p">
                 {selected ? 'Could not read this file.' : 'No file selected.'}
