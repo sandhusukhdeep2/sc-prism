@@ -732,6 +732,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     okf_p.add_argument("--vault", required=True, help="Vault directory.")
 
+    # -- graph-index -------------------------------------------------------
+    gi_p = sub.add_parser(
+        "graph-index",
+        help="Build the LightRAG graph index over the vault's notes on the "
+        "LOCAL model (the explicit build step — a run never builds it), or "
+        "report whether one is built (--status).",
+    )
+    gi_p.add_argument("--vault", required=True, help="Vault directory.")
+    gi_p.add_argument(
+        "--status", action="store_true",
+        help="Do not build: print {ready, docs, built_at, notes, available}.",
+    )
+
     # -- mcp -------------------------------------------------------------
     mcp_p = sub.add_parser(
         "mcp",
@@ -1045,10 +1058,11 @@ def _build_retriever(vault: str, *, gateway, env=None):
     """The graph retriever for a real run, or None (2026-11-11).
 
     Only when the LightRAG switch is on AND the library is runnable here AND a
-    local model exists (the graph index reads note text, which never goes to a
-    cloud model). It is built over the user's own notes — machine-written
-    files are left out, as they are from recall. None keeps the run exactly as
-    it was: memory's built-in full-text recall still answers.
+    local model exists (the graph reads note text, which never goes to a cloud
+    model) AND the graph has already been BUILT — a run attaches to it and
+    never builds it. It covers the user's own notes; machine-written files
+    are left out, as they are from recall. None keeps the run exactly as it
+    was: memory's built-in full-text recall still answers.
     """
     from . import lightrag_backend
     from .agentic_retrieval import RetrievalAgent
@@ -1063,6 +1077,10 @@ def _build_retriever(vault: str, *, gateway, env=None):
         lightrag_backend.require_local(gateway)
     except lightrag_backend.LightRAGLocalOnly:
         return None
+    # A run never BUILDS the graph (minutes on the local model): it only uses
+    # one that the explicit build step has finished.
+    if not lightrag_backend.index_ready(lightrag_backend.default_working_dir(env)):
+        return None
     try:
         docs = [
             d
@@ -1073,7 +1091,9 @@ def _build_retriever(vault: str, *, gateway, env=None):
         return None
     if not docs or len(docs) > MAX_INDEXED_DOCS:
         return None
-    return RetrievalAgent(RetrievalIndex(docs), gateway=gateway, backend="lightrag")
+    return RetrievalAgent(
+        RetrievalIndex(docs), gateway=gateway, backend="lightrag", attach_only=True
+    )
 
 
 def _cmd_run(args) -> int:
@@ -1551,6 +1571,86 @@ def _cmd_project_finish(args) -> int:
     return 0 if ok else 1
 
 
+def _graph_notes(vault: str):
+    """The notes a graph index covers: the user's own, machine output left out."""
+    from .memory import _is_machine_written
+    from .retrieval import _parse_vault
+
+    return [
+        d
+        for d in _parse_vault(vault)
+        if not _is_machine_written(getattr(d, "relpath", "") or getattr(d, "doc_id", ""))
+    ]
+
+
+def _cmd_graph_index(args) -> int:
+    """Build (or report on) the LightRAG graph index — never done inside a run.
+
+    Building reads every note through the LOCAL model, so it takes minutes and
+    is refused outright when there is no local model. The index is marked ready
+    only when the model really answered: a build of stand-ins is not a graph.
+    """
+    import time
+
+    from . import lightrag_backend as lrb
+
+    workdir = lrb.default_working_dir()
+    try:
+        notes = _graph_notes(args.vault)
+    except OSError as exc:
+        _emit({"ok": False, "reason": f"could not read the vault: {exc}"})
+        return 1
+
+    if args.status:
+        status = lrb.index_status(workdir)
+        _emit({
+            "ready": lrb.index_ready(workdir),
+            "docs": int(status.get("docs", 0) or 0),
+            "built_at": int(status.get("built_at", 0) or 0),
+            "notes": len(notes),
+            "available": lrb.lightrag_available(),
+        })
+        return 0
+
+    if not lrb.lightrag_available():
+        _emit({"ok": False, "reason": "LightRAG is not available in this install"})
+        return 1
+    if not notes:
+        _emit({"ok": False, "reason": "there are no notes to index yet"})
+        return 1
+
+    from .bifrost_client import make_gateway
+
+    started = time.time()
+    try:
+        backend = lrb.LightRAGBackend(make_gateway())
+        backend.index_docs(notes)
+    except lrb.LightRAGLocalOnly as exc:
+        _emit({"ok": False, "reason": str(exc)})
+        return 1
+    except Exception as exc:  # noqa: BLE001 - report it; never a silent half-build
+        _emit({"ok": False, "reason": f"the graph build stopped: {exc!r}"})
+        return 1
+    calls = int(getattr(backend.llm, "calls", 0) or 0)
+    if not getattr(backend.llm, "saw_real", False):
+        # Every model reply was a stand-in: nothing was really extracted.
+        _emit({
+            "ok": False,
+            "reason": "the local model did not answer, so nothing was indexed — "
+            "check that it is running, then build again",
+            "model_calls": calls,
+        })
+        return 1
+    lrb.mark_index_ready(workdir, docs=len(notes))
+    _emit({
+        "ok": True,
+        "docs": len(notes),
+        "model_calls": calls,
+        "seconds": round(time.time() - started, 1),
+    })
+    return 0
+
+
 def _cmd_okf(args) -> int:
     from . import okf
 
@@ -1654,6 +1754,7 @@ _DISPATCH = {
     "project-merge": _cmd_project_merge,
     "project-finish": _cmd_project_finish,
     "okf": _cmd_okf,
+    "graph-index": _cmd_graph_index,
     "mcp": _cmd_mcp,
 }
 

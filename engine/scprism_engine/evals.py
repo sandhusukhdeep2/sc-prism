@@ -788,7 +788,12 @@ def evaluate(
     if gateway is None:  # defensive: never let Tier-2 bypass the gateway
         raise ValueError("evaluate() requires a gateway — the judge must route through it")
 
-    if _use_deepeval(backend):
+    # A CHAT TURN keeps the built-in judge (2026-11-11). DeepEval's metrics are
+    # task metrics — trajectory, tool use, acceptance, completion — and a good
+    # one-sentence reply scored 0.61 and FAILED on them, at seven judge calls.
+    # The built-in judge has conversation criteria (a reply is graded as a reply).
+    is_conversation = str(getattr(contract, "mode", "") or "") == "converse"
+    if _use_deepeval(backend) and not is_conversation:
         from . import deepeval_backend  # lazy: never imported on the default path
 
         if deepeval_backend.deepeval_available():

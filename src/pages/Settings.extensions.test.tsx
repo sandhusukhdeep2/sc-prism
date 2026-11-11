@@ -55,6 +55,35 @@ describe('Settings — the engine extensions that ship with the app', () => {
     expect(screen.getByText(/the first run reads every note/)).toBeInTheDocument()
   })
 
+  // The daemon speaks HTTP to a provider; a primary that runs through its own
+  // command-line tool is spawned in-process, so the engine never uses the
+  // daemon for it. The row says so instead of implying the switch does something.
+  it('says when the daemon is not used: the primary runs through a command-line tool', async () => {
+    localStorage.setItem(
+      'scprism.settings',
+      JSON.stringify({
+        engineFlags: { deepeval: false, lightrag: true, bifrost: true },
+        providers: [{ id: 'claude-cli', enabled: true, primary: true }],
+      }),
+    )
+    renderSettings()
+    await waitFor(() => expect(screen.getAllByText(/included with the app/)).toHaveLength(3))
+    expect(screen.getByText(/not used right now/)).toBeInTheDocument()
+    // …so LightRAG is not sitting out either, and the note saying it does is not shown.
+    expect(screen.queryByText(/LightRAG sits out/)).not.toBeInTheDocument()
+  })
+
+  it('warns that LightRAG sits out only when the daemon is really in use', async () => {
+    localStorage.setItem(
+      'scprism.settings',
+      JSON.stringify({ engineFlags: { deepeval: false, lightrag: true, bifrost: true } }),
+    )
+    renderSettings()
+    await waitFor(() => expect(screen.getAllByText(/included with the app/)).toHaveLength(3))
+    expect(screen.getByText(/LightRAG sits out/)).toBeInTheDocument()
+    expect(screen.queryByText(/not used right now/)).not.toBeInTheDocument()
+  })
+
   it('no longer says the two libraries cannot be on together', () => {
     expect(readFileSync('src/pages/Settings.tsx', 'utf8')).not.toMatch(/use different runtimes/)
   })

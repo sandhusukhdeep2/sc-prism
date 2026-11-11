@@ -753,6 +753,78 @@ export async function checkExtensions(): Promise<ExtensionAvailability> {
   }
 }
 
+/** Whether the LightRAG graph index is built, and over how many notes. */
+export interface GraphIndexStatus {
+  ready: boolean
+  /** Notes the built graph covers. */
+  docs: number
+  /** Unix seconds; 0 when never built. */
+  built_at: number
+  /** Notes in the vault right now. */
+  notes: number
+  available: boolean
+}
+
+export type GraphIndexResult =
+  | { ok: true; docs: number; model_calls: number; seconds: number }
+  | { ok: false; reason: string }
+
+/** Read the graph index's status (native only; null when it cannot be read). */
+export async function graphIndexStatus(vault: string): Promise<GraphIndexStatus | null> {
+  if (!isNative()) return null
+  try {
+    const json = await invoke<string>('run_engine_graph_index', {
+      runId: '',
+      vault,
+      baseUrl: '',
+      apiKey: '',
+      localModel: '',
+      status: true,
+    })
+    const s = JSON.parse(json) as Partial<GraphIndexStatus>
+    if (typeof s?.ready !== 'boolean') return null
+    return {
+      ready: s.ready,
+      docs: Number(s.docs ?? 0),
+      built_at: Number(s.built_at ?? 0),
+      notes: Number(s.notes ?? 0),
+      available: s.available === true,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Build the graph index on the LOCAL model. Takes minutes: every note is read
+ * through the model. Only the local model's connection is passed. `runId`
+ * makes it cancellable (`cancelEngineRun`).
+ */
+export async function runGraphIndex(
+  vault: string,
+  local: { baseUrl?: string; apiKey?: string; localModel?: string },
+  runId = '',
+): Promise<GraphIndexResult> {
+  if (!isNative()) return { ok: false, reason: 'building the graph needs the installed app' }
+  try {
+    const json = await invoke<string>('run_engine_graph_index', {
+      runId,
+      vault,
+      baseUrl: local.baseUrl ?? '',
+      apiKey: local.apiKey ?? '',
+      localModel: local.localModel ?? '',
+      status: false,
+    })
+    const r = JSON.parse(json) as { ok?: boolean; docs?: number; model_calls?: number; seconds?: number; reason?: string }
+    if (r?.ok === true) {
+      return { ok: true, docs: Number(r.docs ?? 0), model_calls: Number(r.model_calls ?? 0), seconds: Number(r.seconds ?? 0) }
+    }
+    return { ok: false, reason: r?.reason || 'the graph build did not finish' }
+  } catch (e) {
+    return { ok: false, reason: typeof e === 'string' ? e : 'the graph build could not start' }
+  }
+}
+
 /**
  * Write a markdown note into the vault (overwrite) — co-founder deliverables
  * like plans/first-automations.md. Returns the absolute path, or null on

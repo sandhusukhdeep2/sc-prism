@@ -83,6 +83,40 @@ def default_working_dir(env: Optional[Dict[str, str]] = None) -> str:
 LOCAL_ONLY_REASON = "vault text for the graph index -> kept local (no egress)"
 
 
+# A RUN NEVER BUILDS THE GRAPH (2026-11-11). Building it reads every note
+# through the local model — minutes of work — so it is its own explicit step
+# (`build_index`), and it leaves a marker. A run only ATTACHES to a graph whose
+# marker exists; without one, the built-in recall answers.
+_READY_MARKER = ".ready.json"
+
+
+def index_ready(working_dir: str) -> bool:
+    """True iff a graph index was fully built in ``working_dir``."""
+    return os.path.isfile(os.path.join(working_dir, _READY_MARKER))
+
+
+def mark_index_ready(working_dir: str, *, docs: int) -> None:
+    """Record that the graph in ``working_dir`` is built and usable."""
+    import json as _json
+    import time as _time
+
+    os.makedirs(working_dir, exist_ok=True)
+    with open(os.path.join(working_dir, _READY_MARKER), "w", encoding="utf-8") as fh:
+        _json.dump({"docs": int(docs), "built_at": int(_time.time())}, fh)
+
+
+def index_status(working_dir: str) -> Dict[str, Any]:
+    """What the marker says ({} when the graph was never built)."""
+    import json as _json
+
+    try:
+        with open(os.path.join(working_dir, _READY_MARKER), "r", encoding="utf-8") as fh:
+            data = _json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
 class LightRAGLocalOnly(RuntimeError):
     """There is no local model, so the graph index cannot be built or queried:
     vault text is never sent to a cloud model to build it."""
@@ -474,6 +508,34 @@ class LightRAGBackend:
         await rag.initialize_storages()
         await initialize_pipeline_status()
         return rag
+
+    # -- attach (a run uses a graph that is already built) ---------------
+    def attach(self, docs: Sequence[Doc]) -> "LightRAGBackend":
+        """Open the EXISTING graph without inserting anything.
+
+        What a run does: no note is read through the model here, so it costs
+        no model call and no time. ``docs`` only supplies the id map that turns
+        LightRAG's references back into vault paths. A note added since the
+        graph was built is simply not in it until the graph is rebuilt.
+        """
+        for d in docs:
+            self._docid_by_name[d.doc_id] = d.doc_id
+            self._docid_by_name.setdefault(os.path.basename(d.doc_id), d.doc_id)
+
+        async def _go() -> None:
+            self._rag = await self._build()
+
+        self._run(_go())
+        self._indexed = True
+        return self
+
+    @classmethod
+    def open_existing(
+        cls, gateway: Any, index: RetrievalIndex, **kwargs: Any
+    ) -> "LightRAGBackend":
+        """Attach to the built graph (see ``attach``). The run-time entry."""
+        be = cls(gateway, **kwargs)
+        return be.attach(list(index.docs.values()))
 
     # -- indexing (the vault is the source of truth) --------------------
     def index_docs(self, docs: Sequence[Doc]) -> "LightRAGBackend":

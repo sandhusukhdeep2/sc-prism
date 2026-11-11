@@ -24,8 +24,14 @@ import {
 import { useOnboarding } from '../lib/onboarding'
 import { resetInterview } from '../lib/interview'
 import {
+  cancelEngineRun,
   checkExtensions,
+  graphIndexStatus,
   isNative,
+  newRunId,
+  runGraphIndex,
+  type GraphIndexResult,
+  type GraphIndexStatus,
   openExternal,
   providerGetJson,
   readMcpApprovals,
@@ -811,6 +817,120 @@ function CustomCard({ p }: { p: ProviderConfig }) {
   )
 }
 
+// A graph build outlives this page: it is an engine child the bridge keeps, so
+// leaving Settings must not lose track of it. One build at a time, app-wide.
+let graphBuild: { runId: string; done: Promise<GraphIndexResult> } | null = null
+
+/**
+ * LightRAG's graph is built by its own step (2026-11-11), never inside a run:
+ * building reads every note through the LOCAL model, which takes minutes. This
+ * line says whether the graph exists and over how many notes, and offers the
+ * build. Until it is built, the built-in recall answers.
+ */
+function GraphIndexControl() {
+  const { settings } = useSettings()
+  const [status, setStatus] = useState<GraphIndexStatus | null>(null)
+  const [building, setBuilding] = useState(graphBuild !== null)
+  const [failure, setFailure] = useState('')
+
+  const refresh = async () => {
+    const vault = await resolveVaultDir(settings.vaultPath)
+    setStatus(await graphIndexStatus(vault))
+  }
+  useEffect(() => {
+    let cancelled = false
+    void refresh()
+    // A build started before this page was opened: wait for it here too.
+    const running = graphBuild
+    if (running) {
+      void running.done.then((res) => {
+        if (cancelled) return
+        setBuilding(false)
+        if (!res.ok) setFailure(res.reason)
+        void refresh()
+      })
+    }
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const build = async () => {
+    if (graphBuild) return
+    setFailure('')
+    setBuilding(true)
+    const vault = await resolveVaultDir(settings.vaultPath)
+    const local = settings.providers.find((p) => p.id === 'local')
+    const runId = newRunId()
+    const done = runGraphIndex(
+      vault,
+      {
+        baseUrl: local ? normalizeProviderBase(local.baseUrl) : '',
+        apiKey: local?.apiKey ?? '',
+        localModel: local?.model ?? '',
+      },
+      runId,
+    )
+    graphBuild = { runId, done }
+    const res = await done
+    graphBuild = null
+    setBuilding(false)
+    if (!res.ok) setFailure(res.reason)
+    await refresh()
+  }
+
+  const stop = () => {
+    if (graphBuild) void cancelEngineRun(graphBuild.runId)
+  }
+
+  if (status === null && !building) return null
+  const built = status?.ready
+    ? `graph built from ${status.docs} note${status.docs === 1 ? '' : 's'}${
+        status.built_at ? ` on ${new Date(status.built_at * 1000).toLocaleDateString()}` : ''
+      }`
+    : ''
+  return (
+    <div className="settings__graph">
+      {building ? (
+        <>
+          <span className="settings__graphline">
+            reading your notes on your local model — this takes minutes, and you can leave this page
+          </span>
+          <button type="button" className="settings__graphbtn" onClick={stop}>
+            Stop
+          </button>
+        </>
+      ) : status?.ready ? (
+        <>
+          <span className="settings__graphline">
+            {built}
+            {status.notes !== status.docs && ` · you have ${status.notes} now — rebuild to include the rest`}
+          </span>
+          <button type="button" className="settings__graphbtn" onClick={() => void build()}>
+            Rebuild
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="settings__graphline">
+            graph not built yet — the built-in recall answers until it is
+            {status ? ` · ${status.notes} note${status.notes === 1 ? '' : 's'} to read` : ''}
+          </span>
+          <button type="button" className="settings__graphbtn" onClick={() => void build()}>
+            Build the graph index
+          </button>
+        </>
+      )}
+      {failure && !building && (
+        <span className="settings__graphfail" role="alert">
+          {failure}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** Engine extensions: honest availability + opt-in toggles + GRPO status. */
 function EngineExtensions() {
   const { settings, setEngineFlag } = useSettings()
@@ -837,6 +957,7 @@ function EngineExtensions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const daemonUnused = settings.providers.some((p) => p.primary && p.enabled && isCliProvider(p.id))
   const rows: {
     key: 'lightrag' | 'deepeval' | 'bifrost'
     name: string
@@ -853,7 +974,7 @@ function EngineExtensions() {
     {
       key: 'deepeval',
       name: 'DeepEval (LLM judge)',
-      desc: 'the Tier-2 judge scores each run with DeepEval’s metrics · the built-in judge otherwise',
+      desc: 'task runs are scored on DeepEval’s metrics, which takes several judge calls a run · chat turns keep the built-in judge',
     },
     {
       key: 'bifrost',
@@ -861,7 +982,13 @@ function EngineExtensions() {
       // OUR name in every user-facing surface — we don't trade on the
       // upstream Bifrost project's. Internal identifiers migrate post-launch.
       name: 'Prism Gateway (Go daemon)',
-      desc: 'routes model calls through the compiled Go daemon over a Unix socket',
+      // The daemon speaks HTTP to a provider. A primary that runs through its
+      // own command-line tool is spawned in-process, so the engine never uses
+      // the daemon for it (bifrost_client.make_gateway) — said here instead of
+      // leaving a switch that looks live and does nothing.
+      desc: daemonUnused
+        ? 'not used right now: your primary runs through its own command-line tool, which the daemon cannot route · it takes over when the primary is an API key or your local model'
+        : 'routes model calls through the compiled Go daemon over a Unix socket',
     },
   ]
 
@@ -896,6 +1023,7 @@ function EngineExtensions() {
             <div className="settings__extinfo">
               <span className="settings__pname">{r.name}</span>
               <span className="settings__clihint">{r.desc}</span>
+              {r.key === 'lightrag' && available && <GraphIndexControl />}
             </div>
             <span className="settings__spacer" />
             {avail === null ? (
@@ -925,7 +1053,7 @@ function EngineExtensions() {
           {records === null ? '…' : `${records} record${records === 1 ? '' : 's'} collected`}
         </span>
       </div>
-      {settings.engineFlags.lightrag && settings.engineFlags.bifrost && (
+      {settings.engineFlags.lightrag && settings.engineFlags.bifrost && !daemonUnused && (
         <div className="settings__resethint">
           Note: with the Prism Gateway daemon on there is no local-only route to build the graph
           index on, so LightRAG sits out and the built-in recall answers for that run.

@@ -137,9 +137,13 @@ class RetrievalAgent:
         k: int = 5,
         candidate_k: int = 20,
         backend: Optional[str] = None,
+        attach_only: bool = False,
     ) -> None:
         self.index = index
         self.gateway = gateway
+        # A real run ATTACHES to a graph that was already built and never
+        # inserts (building reads every note through the model — minutes).
+        self.attach_only = attach_only
         self.k = k
         self.candidate_k = candidate_k
         # OPT-IN graph/dense backend selector (default None -> stdlib cascade,
@@ -165,9 +169,12 @@ class RetrievalAgent:
             return None
         if self._lightrag_be is None:
             try:
-                self._lightrag_be = _lrb.LightRAGBackend.from_index(
-                    self.gateway, self.index
+                opener = (
+                    _lrb.LightRAGBackend.open_existing
+                    if self.attach_only
+                    else _lrb.LightRAGBackend.from_index
                 )
+                self._lightrag_be = opener(self.gateway, self.index)
             except _lrb.LightRAGLocalOnly:
                 # No local model: the graph index is never built from a cloud
                 # model. The built-in cascade answers instead.

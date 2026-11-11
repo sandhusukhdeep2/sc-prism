@@ -1602,6 +1602,59 @@ fn dev_engine_dir() -> Option<PathBuf> {
     }
 }
 
+/// Build the LightRAG graph index over the vault's notes, or report on it
+/// (`status`). A run never builds the graph — it reads every note through the
+/// LOCAL model, which takes minutes — so this is its own explicit step, started
+/// from Settings. Only the local model's connection details are passed (env
+/// only, never argv); no primary is named, so nothing can route to the cloud.
+/// Cancellable through the same retained-child map as a run.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn run_engine_graph_index(
+    app: tauri::AppHandle,
+    runs: tauri::State<'_, EngineRuns>,
+    run_id: String,
+    vault: String,
+    base_url: String,
+    api_key: String,
+    local_model: Option<String>,
+    status: Option<bool>,
+) -> Result<String, String> {
+    let runs = runs.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut rt = resolve_engine_runtime(&app)
+            .ok_or_else(|| "could not locate the engine (scprism_engine)".to_string())?;
+        apply_extension_runtime(&mut rt, true, false);
+        let mut args: Vec<&str> = vec!["graph-index", "--vault", &vault];
+        if status.unwrap_or(false) {
+            args.push("--status");
+        }
+        let mut cmd = engine_command(&rt, &args);
+        set_ext_data_env(&mut cmd, &rt, &vault);
+        cmd.env("SCPRISM_LIGHTRAG", "1");
+        if !base_url.is_empty() {
+            cmd.env("OPENAI_BASE_URL", &base_url);
+        }
+        if !api_key.is_empty() {
+            cmd.env("OPENAI_API_KEY", &api_key);
+        }
+        if let Some(model) = &local_model {
+            if !model.is_empty() {
+                cmd.env("OPENAI_MODEL", model);
+            }
+        }
+        let output = run_capturing(cmd, &run_id, &runs)?;
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !stdout.is_empty() {
+            return Ok(stdout);
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(format!("the graph build produced no output (exit {:?}): {stderr}", output.status.code()))
+    })
+    .await
+    .map_err(|e| format!("graph index join failed: {e}"))?
+}
+
 /// Which optional engine extensions are AVAILABLE here.
 ///
 /// PACKAGED app: what is staged in the bundle — the Go daemon beside the
@@ -3369,6 +3422,7 @@ pub fn run() {
             run_engine_export,
             read_spans_tail,
             check_extensions,
+            run_engine_graph_index,
             read_training_count,
             send_telegram,
             store_set,
@@ -3499,15 +3553,17 @@ fn wants_no_judge(mode: &str, no_judge: Option<bool>) -> bool {
 mod extension_runtime_tests {
     use super::*;
 
+    /// One folder per call. Tests run on parallel threads, and the clock alone
+    /// gave two of them the same name — one then deleted the other's bundle
+    /// mid-assertion (seen once in the gate, 2026-11-11). A counter cannot repeat.
     fn tmp(tag: &str) -> PathBuf {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let dir = std::env::temp_dir().join(format!(
-            "scprism-ext-{tag}-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
+            "scprism-ext-{tag}-{}-{n}",
+            std::process::id()
         ));
+        let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
