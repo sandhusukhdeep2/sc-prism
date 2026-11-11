@@ -513,8 +513,7 @@ export default function Vault() {
         hint={
           native ? (
             <>
-              {vaultDir || '…'} · {fileCount} markdown {fileCount === 1 ? 'file' : 'files'} ·
-              every write validated
+              {vaultDir || '…'} · {fileCount} markdown {fileCount === 1 ? 'file' : 'files'}
             </>
           ) : (
             <>browser demo store · {fileCount} files</>

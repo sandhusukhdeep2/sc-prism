@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import { MemoryRouter } from 'react-router-dom'
 import Vault from './Vault'
 import { create as simCreate } from '../lib/vault'
@@ -33,5 +34,14 @@ describe('Vault — a link can open one note', () => {
     simCreate('aaa-first.md', '# First note\n\nbody')
     renderAt('/library?tab=vault&file=gone.md')
     expect(screen.getByRole('heading', { name: 'First note' })).toBeInTheDocument()
+  })
+})
+
+// 2026-11-11: the page header said "every write validated". The note editor's
+// write checks that the path stays inside the vault and nothing else, and the
+// validator on the Memory page was reporting 81 notes that fail its checks.
+describe('Vault — the header claims only what the write path does', () => {
+  it('does not say every write is validated', () => {
+    expect(readFileSync('src/pages/Vault.tsx', 'utf8')).not.toMatch(/every write validated/)
   })
 })

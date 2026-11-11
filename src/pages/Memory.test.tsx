@@ -136,3 +136,23 @@ describe('Memory page — status colors tell the truth', () => {
     expect(trend).toHaveClass('mem-cost__trend--up')
   })
 })
+
+// 2026-11-11: the L3 card said "git-synced markdown" on an install whose vault
+// is not a git repository and has no repo configured. The page says it only
+// when a repo is set, and names the repo.
+describe('Memory page — the vault card does not claim a git sync that is not set up', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('says plain markdown on this Mac when no repo is configured', () => {
+    renderMemory()
+    expect(document.body.textContent).not.toMatch(/git-synced/)
+    expect(screen.getByText(/markdown files on this Mac/)).toBeInTheDocument()
+  })
+
+  it('says git-synced, and to where, when a repo is configured', () => {
+    localStorage.setItem('scprism.settings', JSON.stringify({ githubRepo: 'someone/notes' }))
+    renderMemory()
+    expect(screen.getByText(/git-synced to someone\/notes/)).toBeInTheDocument()
+  })
+})

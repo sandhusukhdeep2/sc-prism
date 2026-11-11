@@ -343,7 +343,13 @@ export default function Memory() {
             </div>
             <div className="tier tier--l3">
               <div className="tier__label">L3 · Vault</div>
-              <div className="tier__desc">single source of truth · git-synced markdown</div>
+              {/* "git-synced" only when a repo is configured, and it names the
+                  repo: the card said it on an install whose vault was not a
+                  git repository at all (2026-11-11). */}
+              <div className="tier__desc">
+                single source of truth ·{' '}
+                {settings.githubRepo ? `git-synced to ${settings.githubRepo}` : 'markdown files on this Mac'}
+              </div>
               <div className="tier__meta">
                 indexes derived &amp; regenerable ·{' '}
                 <Link to="/library?tab=vault" className="tier__link">
