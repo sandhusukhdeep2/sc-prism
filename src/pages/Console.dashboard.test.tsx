@@ -73,11 +73,13 @@ describe('Governance Console against a real-shaped dashboard', () => {
     await screen.findByText('claude')
     await screen.findByText('local')
     const bars = [...document.querySelectorAll<HTMLElement>('.console__bar')]
-    // claude (69,833) vs local (209,340): the tallest is local at 100%, and
+    // claude (69,833) vs local (209,340): the longest is local at 100%, and
     // claude is well above the 6% stub the old `provider === 'claude'` produced.
-    const heights = bars.map((b) => parseInt(b.style.height, 10))
-    expect(heights.some((h) => h === 100)).toBe(true)
-    expect(heights.every((h) => h > 6)).toBe(true)
+    // (The bars run along a row since 2026-11-11, so the measure is a width.)
+    const lengths = bars.map((b) => parseInt(b.style.width, 10))
+    expect(lengths).toHaveLength(2)
+    expect(lengths.some((h) => h === 100)).toBe(true)
+    expect(lengths.every((h) => h > 6)).toBe(true)
   })
 
   it('never renders "healthy" while hooks carry errors', async () => {

@@ -9,6 +9,7 @@ import { staleNote, useLiveDashboard } from '../lib/liveDashboard'
 import { activeRuns } from '../lib/liveRuns'
 import { Link } from 'react-router-dom'
 import { burnShareLabel } from '../lib/burnShareLabel'
+import { bucketMeans, burnRows, countTone } from '../lib/consoleView'
 import './Console.css'
 import PageHead from '../components/PageHead'
 
@@ -24,11 +25,6 @@ export type { ProviderBurn }
 // SVG was deleted in the 2026-08-09 honesty pass: fixed coordinates and a fixed
 // topology are a picture, not a measurement (ADR-007's ◆-hub rule constrained how
 // that graph must LOOK; it never required us to draw one we had not measured).
-
-function pctHeight(val: number, max: number): string {
-  if (max <= 0) return '6%'
-  return `${Math.max(6, Math.round((val / max) * 100))}%`
-}
 
 // Cloud tints only — the local bar has its own class and its own colour.
 const BAR_CLASSES = ['console__bar--dark', 'console__bar--purple', 'console__bar--tan', 'console__bar--blue']
@@ -125,22 +121,27 @@ function hookSparkPath(ms: readonly number[]): string {
     .join(' ')
 }
 
-// Eval sparkline path from a chronological score series (oldest→newest).
-function evalSparkPath(scores: number[]): string {
-  if (scores.length === 0) return 'M0 32 L240 32'
+// Eval sparkline from a chronological score series (oldest→newest). A long
+// history is averaged into at most EVAL_POINTS points first (bucketMeans): 383
+// raw points across a card-wide line overlapped into a solid band.
+const EVAL_POINTS = 48
+function evalSpark(scores: readonly number[]): { line: string; area: string } {
   const w = 240
+  const base = 36
   const yFor = (s: number) => 32 - s * 24 // 0 → y32, 1 → y8
-  if (scores.length === 1) {
-    const y = yFor(scores[0])
-    return `M0 ${y.toFixed(1)} L${w} ${y.toFixed(1)}`
+  const pts = bucketMeans(scores, EVAL_POINTS)
+  if (pts.length === 0) return { line: `M0 32 L${w} 32`, area: '' }
+  if (pts.length === 1) {
+    const y = yFor(pts[0]).toFixed(1)
+    return { line: `M0 ${y} L${w} ${y}`, area: `M0 ${y} L${w} ${y} L${w} ${base} L0 ${base} Z` }
   }
-  return scores
+  const line = pts
     .map((s, i) => {
-      const x = (w * i) / (scores.length - 1)
-      const y = yFor(s)
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
+      const x = (w * i) / (pts.length - 1)
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${yFor(s).toFixed(1)}`
     })
     .join(' ')
+  return { line, area: `${line} L${w} ${base} L0 ${base} Z` }
 }
 
 export default function Console() {
@@ -193,7 +194,7 @@ export default function Console() {
       real: false,
     }
   }, [dash, verdicts, stats.localSharePct, stats.costToday, stats.tokensToday])
-  const burnMax = Math.max(1, ...burn.providers.map((p) => p.tokens))
+  const burnView = useMemo(() => burnRows(burn.providers), [burn.providers])
 
   // Hook fire-rate, block-rate, ERRORS and gate latency — REAL from the hook
   // spans when native. `dispatch` is kept out of the latency aggregate (it
@@ -213,6 +214,7 @@ export default function Console() {
   const lastEval = evalScores.length ? evalScores[evalScores.length - 1] : stats.evalAvg
   const evalCount = dash ? dash.eval_trend.length : verdicts.length
   const evalNote = `${firstEval.toFixed(2)} → ${lastEval.toFixed(2)} · ${evalCount} verdicts`
+  const evalPaths = useMemo(() => evalSpark(evalScores), [evalScores])
 
   // Drift — REAL fired drift signals when native (the top signal wins).
   const drift = dash?.drift[0] ?? null
@@ -245,8 +247,8 @@ export default function Console() {
              quietly reverted to the session fallback. Stats left the rail
              (five places, 2026-11-08 §D); the truth page points at it. */
           <>
-            {dashNote ? <span className="console__note mono">{dashNote}</span> : null}
-            <Link to="/stats" className="console__statslink mono">
+            {dashNote ? <span className="console__note">{dashNote}</span> : null}
+            <Link to="/stats" className="console__statslink">
               Stats ›
             </Link>
           </>
@@ -269,30 +271,35 @@ export default function Console() {
             {burn.real && <span className="console__badge console__badge--ok">live engine</span>}
           </div>
           {burn.providers.length === 0 ? (
-            <>
-              <div className="console__spacer" />
-              <div className="console__foot mono">
-                no model calls recorded yet — a bar appears per provider once a run attributes tokens
-              </div>
-            </>
+            <div className="console__foot">
+              no model calls recorded yet — a row appears per provider once a run attributes tokens
+            </div>
           ) : (
             <>
-              <div className="console__bars">
-                {burn.providers.map((p, i) => (
-                  <Bar
-                    key={p.key}
-                    label={p.label}
-                    height={pctHeight(p.tokens, burnMax)}
-                    cls={p.isLocal ? 'console__bar--local' : BAR_CLASSES[i % BAR_CLASSES.length]}
-                  />
+              {/* One row per provider: its name, a bar along ONE axis, the
+                  amount and its share. The card used to draw three blocks with
+                  no amount on any of them (2026-11-11). */}
+              <ul className="console__burn" aria-label="Tokens by provider">
+                {burnView.map((p, i) => (
+                  <li key={p.key} className="console__burnrow" style={{ ['--i' as string]: i }}>
+                    <span className="console__burnname" title={p.label}>{p.label}</span>
+                    <span className="console__burntrack" aria-hidden="true">
+                      <span
+                        className={'console__bar ' + (p.isLocal ? 'console__bar--local' : BAR_CLASSES[i % BAR_CLASSES.length])}
+                        style={{ width: `${p.widthPct}%` }}
+                      />
+                    </span>
+                    <span className="console__burnamt mono">{p.tokensLabel}</span>
+                    <span className="console__burnshare mono">{p.shareLabel}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
               {/* The local share is a PERCENTAGE — it lived as a fourth bar on this
                   chart, drawn on the same axis as three TOKEN counts. Mixed
                   units on the card labelled the CEO view; it is a sentence in
                   the footer now, where a share belongs. */}
-              <div className="console__foot mono">
-                {fmtMoney(burn.cost)} {burn.real ? 'attributed' : 'this session'} · {burn.tokens.toLocaleString()} tok ·{' '}
+              <div className="console__foot">
+                {fmtMoney(burn.cost)} {burn.real ? 'attributed' : 'this session'} · {burn.tokens.toLocaleString()} tokens ·{' '}
                 {burn.providers.length} provider{burn.providers.length === 1 ? '' : 's'} · {burnShareLabel(burn.real, burn.localSharePct)}
               </div>
             </>
@@ -311,29 +318,33 @@ export default function Console() {
               d={hookSparkPath(hookLatencies)}
               fill="none"
               stroke={hasHookData ? 'var(--ok)' : 'var(--muted-2)'}
-              strokeWidth="2.2"
+              strokeWidth="1.8"
               strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
             />
           </svg>
-          <div className="console__metrics mono">
+          <div className="console__metrics">
             <div>
-              <div className="console__metric-val">
+              <div className="console__metric-val mono">
                 {hookView && hookView.avgMs !== null ? `${hookView.avgMs.toFixed(1)}ms` : '—'}
               </div>
               <div className="console__metric-lbl">avg gate latency</div>
             </div>
-            <div><div className="console__metric-val">{hookView ? hookView.fires : '—'}</div><div className="console__metric-lbl">hooks fired</div></div>
-            <div><div className="console__metric-val console__metric-val--red">{hookView ? hookView.blocks : '—'}</div><div className="console__metric-lbl">blocked</div></div>
-            <div><div className="console__metric-val console__metric-val--red">{hookView ? hookView.errors : '—'}</div><div className="console__metric-lbl">hook errors</div></div>
+            <div><div className="console__metric-val mono">{hookView ? hookView.fires : '—'}</div><div className="console__metric-lbl">hooks fired</div></div>
+            {/* A count of bad things is red only when there are some: "0
+                blocked · 0 hook errors" stood in alarm red (2026-11-11). */}
+            <div><div className={metricCls(hookView?.blocks)}>{hookView ? hookView.blocks : '—'}</div><div className="console__metric-lbl">blocked</div></div>
+            <div><div className={metricCls(hookView?.errors)}>{hookView ? hookView.errors : '—'}</div><div className="console__metric-lbl">hook errors</div></div>
             {/* Separate tile, separate meaning: these runs were CAUGHT, not
                 dropped. Merging them into "errors" reported the ratchet as
                 broken on every run it correctly failed. */}
-            <div><div className="console__metric-val">{hookView ? hookView.failedOutcomes : '—'}</div><div className="console__metric-lbl">runs failed by a hook</div></div>
+            <div><div className="console__metric-val mono">{hookView ? hookView.failedOutcomes : '—'}</div><div className="console__metric-lbl">runs failed by a hook</div></div>
           </div>
           {/* Say exactly what the average covers. `dispatch` wraps the whole
               model call, so averaging it in reported the LLM's thinking time as
               enforcement overhead (170,039.5ms on the real vault). */}
-          <div className="console__foot mono">
+          <div className="console__foot">
             {hasHookData
               ? `gate hooks only · dispatch excluded${
                   hookView?.dispatchAvgMs != null
@@ -371,19 +382,26 @@ export default function Console() {
               <div className="console__drift-desc">drift monitoring starts after your first native runs</div>
             </>
           )}
-          <div className="console__spacer" />
         </div>
 
         {/* eval trend + audit export */}
         <div className="console__card">
           <div className="console__kicker">Eval scores · audit export</div>
-          <svg width="100%" height="40" viewBox="0 0 240 40" preserveAspectRatio="none" className="console__spark">
-            <path d={evalSparkPath(evalScores)} fill="none" stroke="var(--gold-deep)" strokeWidth="2.2" strokeLinecap="round" />
+          <svg width="100%" height="40" viewBox="0 0 240 40" preserveAspectRatio="none" className="console__spark" role="img" aria-label={`Eval scores, ${evalNote}`}>
+            {evalPaths.area && <path className="console__evalarea" d={evalPaths.area} />}
+            <path
+              className="console__evalline"
+              d={evalPaths.line}
+              fill="none"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
           </svg>
-          <div className="console__evalnote mono">{evalNote}</div>
-          <div className="console__spacer" />
+          <div className="console__evalnote">{evalNote}</div>
           <div className="console__export">
-            <span className="console__daterange mono">{exportNote || 'hash-chained evidence'}</span>
+            <span className="console__exportnote">{exportNote || 'hash-chained evidence'}</span>
             <button type="button" className="console__export-btn" disabled={exporting} onClick={() => void doExport()}>
               {exporting ? 'Exporting…' : 'Export compliance report'}
             </button>
@@ -394,11 +412,6 @@ export default function Console() {
   )
 }
 
-function Bar({ label, height, cls }: { label: string; height: string; cls: string }) {
-  return (
-    <div className="console__barcol">
-      <div className={'console__bar ' + cls} style={{ height }} />
-      <div className="console__barlbl mono">{label}</div>
-    </div>
-  )
+function metricCls(n: number | null | undefined): string {
+  return 'console__metric-val mono' + (countTone(n) === 'alert' ? ' console__metric-val--red' : '')
 }

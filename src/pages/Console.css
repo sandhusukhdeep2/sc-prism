@@ -1,21 +1,33 @@
-.console { display: flex; flex-direction: column; height: 100%; min-height: 400px; }
+.console { display: flex; flex-direction: column; min-height: 100%; }
 
 /* header */
 .console__sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
 
 /* grid — four measured cards (burn, hooks, drift, eval). The fifth card was the
    static "execution graph"; it was deleted in the 2026-08-09 honesty pass. */
+/* A card is as tall as what it holds (2026-11-11): the rows used to split the
+   window's height in two, which left the drift and eval cards half empty. In
+   a narrow window the two columns become one. */
 .console__grid {
-  flex: 1; min-height: 0; display: grid;
-  grid-template-columns: 1.15fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 14px; padding-bottom: 4px;
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-auto-rows: auto;
+  align-content: start; gap: 14px; padding-bottom: 4px;
+}
+@media (max-width: 980px) {
+  .console__grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* generic card */
 .console__card {
   border-radius: var(--r-card); background: var(--card-solid); box-shadow: var(--shadow-card);
-  padding: 20px; display: flex; flex-direction: column;
+  padding: 20px; display: flex; flex-direction: column; min-width: 0;
+  animation: consoleCardIn var(--dur) var(--ease-out) both;
 }
-.console__cardhead { display: flex; align-items: center; }
+.console__card:nth-child(2) { animation-delay: 50ms; }
+.console__card:nth-child(3) { animation-delay: 100ms; }
+.console__card:nth-child(4) { animation-delay: 150ms; }
+@keyframes consoleCardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.console__cardhead { display: flex; align-items: center; gap: 8px; }
+.console__spacer { flex: 1; }
 .console__kicker { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
 .console__kicker--warn { color: var(--warn-ink); }
 .console__badge { padding: 3px 10px; border-radius: var(--r-chip); font-size: 10px; font-weight: 700; }
@@ -24,10 +36,22 @@
 .console__badge--muted { background: var(--hair); color: var(--muted); }
 .console__spark { margin-top: 16px; }
 
-/* token burn bars */
-.console__bars { flex: 1; display: flex; align-items: flex-end; gap: 8px; margin-top: 14px; padding-bottom: 4px; }
-.console__barcol { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
-.console__bar { border-radius: var(--v2-r-chip); }
+/* token burn — one row per provider: name · bar · amount · share. The bar is a
+   length along one axis on a faint track, so two providers compare at a
+   glance and the amount is written beside it. */
+.console__burn { list-style: none; margin: 16px 0 14px; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+.console__burnrow {
+  display: grid; grid-template-columns: minmax(56px, 120px) minmax(0, 1fr) 54px 40px;
+  align-items: center; column-gap: 12px;
+}
+.console__burnname { font-size: 12.5px; color: var(--v2-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console__burntrack { display: block; height: 14px; border-radius: 7px; background: var(--v2-fill); overflow: hidden; }
+.console__bar {
+  display: block; height: 100%; border-radius: 7px; transform-origin: left center;
+  animation: consoleBarGrow var(--dur) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 120ms);
+}
+@keyframes consoleBarGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 /* The local bar is the local green everywhere it is drawn; cloud providers
    take the cloud tints below and can never be handed the local one. */
 .console__bar--local { background: var(--v2-local); }
@@ -35,14 +59,15 @@
 .console__bar--tan { background: #d9d0b8; }
 .console__bar--blue { background: #83a2db; }
 .console__bar--purple { background: #c9b8f2; }
-.console__barlbl { font-size: 9.5px; color: var(--muted-2); text-align: center; margin-top: 5px; }
-.console__foot { font-size: 11.5px; color: var(--muted); }
+.console__burnamt { font-size: 12px; color: var(--v2-ink); text-align: right; font-variant-numeric: tabular-nums; }
+.console__burnshare { font-size: 11.5px; color: var(--v2-muted); text-align: right; font-variant-numeric: tabular-nums; }
+.console__foot { font-size: 12px; color: var(--muted); line-height: 1.5; font-variant-numeric: tabular-nums; }
 
 /* hook latency metrics */
-.console__metrics { display: flex; gap: 16px; margin-top: 12px; }
+.console__metrics { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 12px 0 10px; }
 .console__metric-val { font-size: 19px; font-weight: 600; color: var(--ink); }
 .console__metric-val--red { color: var(--danger-ink); }
-.console__metric-lbl { font-size: 9.5px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.console__metric-lbl { font-size: 10px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
 
 /* drift alert */
 /* calm by default (matches the generic cards); the amber alert ring is applied
@@ -67,9 +92,13 @@
 .console__drift-desc { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.55; }
 
 /* eval + export */
-.console__evalnote { font-size: 11px; color: var(--muted); margin-top: 6px; }
-.console__export { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.console__daterange { flex: 1; padding: 9px 13px; border-radius: var(--v2-r-chip); background: var(--fill-soft-2); font-size: 11.5px; color: var(--ink-3); }
+.console__evalline { stroke: var(--v2-ink); }
+.console__evalarea { fill: var(--v2-fill); stroke: none; }
+.console__evalnote { font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.console__export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; }
+/* A caption beside the button. It used to sit in a filled box the size of a
+   text field, which read as something to type into. */
+.console__exportnote { flex: 1 1 160px; min-width: 0; font-size: 12px; color: var(--v2-muted); overflow-wrap: anywhere; }
 .console__export-btn {
   padding: 9px 16px; border-radius: var(--v2-r-chip); background: var(--gold-grad);
   font-size: 11.5px; font-weight: 700; color: var(--on-gold); cursor: pointer; white-space: nowrap;
@@ -77,8 +106,8 @@
 
 /* The engine-read note, in the header's actions slot. Quiet: it is a caveat
    about the numbers below, not a headline. */
-.console__note { font-size: 11px; color: var(--v2-muted); }
+.console__note { font-size: 12px; color: var(--v2-muted); }
 
 /* The header's pointer to Stats — the same quiet link Work uses. */
-.console__statslink { font-size: 11px; color: var(--v2-ink-2); text-decoration: none; white-space: nowrap; margin-left: 10px; }
+.console__statslink { font-size: 12px; color: var(--v2-ink-2); text-decoration: none; white-space: nowrap; margin-left: 10px; }
 .console__statslink:hover { color: var(--v2-ink); text-decoration: underline; }
