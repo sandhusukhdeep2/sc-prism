@@ -2,6 +2,7 @@
 // Holds chat messages, produced verdicts, the live agent(s), and running stats.
 // sendIntent drives the simulated engine and dispatches its streamed events.
 
+import { smallMessage } from '../lib/messageWeight'
 import { mcpServersArg } from '../lib/mcpServers'
 import { clampBudget } from '../lib/budget'
 import {
@@ -3657,6 +3658,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
               // cancel), so no zombie keeps running; its late result is also
               // dropped by the race, so it can't backfill after the error card.
               const runId = newRunId()
+              // SMALL TALK (2026-11-11): the same rule the composer shows
+              // before the send (lib/messageWeight). A greeting or a one-word
+              // message with no image is answered by the primary and not
+              // graded — the judge call on "hello" was a second model call
+              // with nothing to judge.
+              const smallTalk = !image && smallMessage(trimmed) !== ''
               const outcome = await raceCancelable(
                 // Per-message route hint (composer local/cloud/auto). 'auto'/
                 // undefined → no override (byte-identical); the gateway keeps
@@ -3670,7 +3677,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 // 32 red badges / 3%-pass team card). Only THIS path — the one
                 // that declares kind:'chat' above — says it; every other
                 // runNativeTask caller omits the arg and is byte-identical.
-                runNativeTask(trimmed, vault, providers, runId, route, image, 0, 0, 'converse'),
+                // The trailing flag: SMALL TALK is answered but not judged
+                // (2026-11-11) — see `smallTalk` above.
+                runNativeTask(trimmed, vault, providers, runId, route, image, 0, 0, 'converse', smallTalk),
                 chatWall,
                 runId,
               )
@@ -3690,7 +3699,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   // the chat-log must not become a 50 KB wall of text per file.
                   appendChatNote(v, display, turn.response, verdict.route?.model ?? 'ai'),
                 )
-                dispatch({ type: 'ADD_VERDICT', verdict, thread: originThread })
+                // A greeting is a reply, not a run: it was not judged, so it
+                // is not added to the recorded runs (the count on Work, the
+                // Recent runs table, a model's quality figures).
+                if (!smallTalk) dispatch({ type: 'ADD_VERDICT', verdict, thread: originThread })
                 // Source (b): a "propose an agent" ask from Work. The reply may
                 // end with a PROPOSE_AGENT block; the EVIDENCE is the user's own
                 // request, attached verbatim by the parser. A malformed or
@@ -4276,6 +4288,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     roster,
                     attempt,
                     attemptGroup,
+                    // L2 working memory: the first step of a build starts
+                    // clean; every later step is shown the outcomes so far.
+                    workingReset: idx === 0,
                   }
                 : {
                     context: project.brief,

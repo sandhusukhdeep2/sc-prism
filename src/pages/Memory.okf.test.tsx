@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { OkfIssues } from './Memory'
+import { OkfIssues, okfChecked } from './Memory'
 import type { OkfReport } from '../lib/okfReport'
 
 // 2026-11-11: the Knowledge vault card listed the first four of 81 files, each
@@ -10,6 +10,7 @@ import type { OkfReport } from '../lib/okfReport'
 const report: OkfReport = {
   ok: false,
   doc_count: 9,
+  workProducts: 0,
   issues: [
     { path: 'projects/a/plan.md', code: 'no-frontmatter', message: 'no YAML frontmatter block' },
     { path: 'projects/b/result.md', code: 'no-frontmatter', message: 'no YAML frontmatter block' },
@@ -61,14 +62,28 @@ describe('Knowledge vault card — says why, by cause', () => {
   })
 
   it('renders nothing for a clean vault', () => {
-    const { container } = show({ ok: true, issues: [], warnings: [], doc_count: 3 })
+    const { container } = show({ ok: true, issues: [], warnings: [], doc_count: 3, workProducts: 0 })
     expect(container).toBeEmptyDOMElement()
   })
 
   it('does not link a path that is not a note in the vault', () => {
-    show({ ok: false, doc_count: 0, warnings: [], issues: [{ path: '/somewhere/vault', code: 'not-a-directory', message: 'bundle path is not a directory' }] })
+    show({ ok: false, doc_count: 0, workProducts: 0, warnings: [], issues: [{ path: '/somewhere/vault', code: 'not-a-directory', message: 'bundle path is not a directory' }] })
     fireEvent.click(screen.getByRole('button', { name: /The vault folder was not found/ }))
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     expect(screen.getByText('/somewhere/vault')).toBeInTheDocument()
+  })
+})
+
+// 2026-11-11: files in project folders are work products — counted, not
+// checked. The card says how many, so "45 notes checked" is not read as the
+// whole vault.
+describe('Knowledge vault card — what was checked', () => {
+  it('names the project files that were left out of the check', () => {
+    expect(okfChecked({ ok: true, issues: [], warnings: [], doc_count: 45, workProducts: 35 })).toBe(
+      '45 notes checked · 35 project files not checked',
+    )
+  })
+  it('says nothing about project files when there are none', () => {
+    expect(okfChecked({ ok: true, issues: [], warnings: [], doc_count: 1, workProducts: 0 })).toBe('1 note checked')
   })
 })

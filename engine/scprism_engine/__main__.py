@@ -175,6 +175,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "skills are disclosed and their instructions injected.",
     )
     run_p.add_argument(
+        "--no-judge",
+        action="store_true",
+        help="This converse turn is small talk (a greeting, a one-word "
+        "message): answer it and record the reply, but do not spend a Tier-2 "
+        "judge call grading it. Honoured ONLY with --mode converse — a task is "
+        "always judged, so the flag can never wave work through. Default: "
+        "every run is judged.",
+    )
+    run_p.add_argument(
         "--no-memory",
         action="store_true",
         help="Do not construct a MemoryStore for this run (memory injection "
@@ -544,6 +553,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "try, 2 = the first refine, …). With --attempt-group, the number is "
         "recorded on the Verdict and in <vault>/verdicts/attempts/<group>.json "
         "so attempt N and N+1 are readable as one run. Default 0 = untracked.",
+    )
+    proj_p.add_argument(
+        "--working-reset",
+        action="store_true",
+        help="This is the FIRST step of a build: discard the working memory "
+        "the previous build of this project left, so the build starts clean. "
+        "Every later step omits it and is shown the outcomes recorded so far.",
     )
     proj_p.add_argument(
         "--attempt-group",
@@ -1144,6 +1160,7 @@ def _cmd_run(args) -> int:
             mcp_client=tool_source,
             route_hint=route_hint,
             image=image_block,
+            no_judge=bool(getattr(args, "no_judge", False)),
             # Per-run tool-turn budget. 0 (the default, and what every caller
             # that omits the flag sends) means "no per-run choice": the engine
             # resolves the env value or its own default, so an omitted flag is
@@ -1444,6 +1461,7 @@ def _cmd_project(args) -> int:
         verify_command=args.tier1,
         context=args.context,
         refine_feedback=args.refine_feedback,
+        working_reset=bool(getattr(args, "working_reset", False)),
         attempt=args.attempt,
         attempt_group=args.attempt_group,
         previous_verdict=args.previous_verdict,

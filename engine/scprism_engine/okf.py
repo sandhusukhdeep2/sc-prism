@@ -46,6 +46,51 @@ REQUIRED_KEYS = ("type",)
 OPTIONAL_KEYS = ("title", "description", "resource", "tags", "timestamp")
 RESERVED_FILES = ("index.md", "log.md")
 
+# WHAT THE CHECK IS FOR (2026-11-11). On a real vault the validator reported
+# 81 problems across 79 notes, and almost none were knowledge notes. Two kinds
+# of file are not knowledge notes and are no longer judged as if they were:
+#
+# * APP-OWNED FOLDERS hold files whose kind the folder already says. Agent and
+#   skill definitions follow shared formats other tools read (a subagent file,
+#   a SKILL.md), so a `type:` line is not added to them; the app's own records
+#   (reports, the chat log, the business context, governance notes, tool
+#   history) are written by the app, some by appending, with no frontmatter.
+#   The kind is IMPLIED by the folder and named in the emitted bundle.
+#   Definition folders still need frontmatter and a body — an agent with no
+#   charter is a real finding.
+# * PROJECT FOLDERS hold work products: a launch plan a seat wrote, a repo's
+#   README. They are counted (`work_products`) and not checked.
+#
+# Everything else is a knowledge note and is held to the contract as before.
+IMPLIED_TYPES = {
+    "agents": "agent",
+    "skills": "skill",
+    "reports": "report",
+    "conversations": "conversation",
+    "business": "business-context",
+    "governance": "governance",
+    "tools": "tool-record",
+}
+# App-owned folders whose files are DEFINITIONS: frontmatter and a body required.
+DEFINITION_FOLDERS = ("agents", "skills")
+WORK_FOLDERS = ("projects",)
+
+
+def _top_folder(rel: str) -> str:
+    parts = rel.replace(os.sep, "/").split("/")
+    return parts[0] if len(parts) > 1 else ""
+
+
+def implied_type(rel: str) -> str:
+    """The kind a file's top folder implies, or '' for a knowledge note."""
+    return IMPLIED_TYPES.get(_top_folder(rel), "")
+
+
+def is_work_product(rel: str) -> bool:
+    """A file inside a project folder — a deliverable, not a vault note."""
+    return _top_folder(rel) in WORK_FOLDERS
+
+
 # Issue codes.
 NOT_A_DIRECTORY = "not-a-directory"
 EMPTY_BUNDLE = "empty-bundle"
@@ -154,15 +199,20 @@ def validate_bundle(vault: str) -> Dict[str, Any]:
         issues.append(Issue(vault or "", NOT_A_DIRECTORY, "bundle path is not a directory"))
         return _result(issues, warnings, 0)
 
-    rels = _iter_markdown(vault)
+    every = _iter_markdown(vault)
+    # Work products are counted apart and never checked (see IMPLIED_TYPES).
+    rels = [r for r in every if not is_work_product(r)]
+    work_products = len(every) - len(rels)
     if not rels:
         issues.append(Issue(vault, EMPTY_BUNDLE, "bundle contains no markdown concepts"))
-        return _result(issues, warnings, 0)
+        return _result(issues, warnings, 0, work_products)
 
     # Build the resolver maps for link checking (mirrors retrieval parsing).
-    by_relpath = {r: r for r in rels}
+    # Links resolve against EVERY markdown file, work products included: a
+    # note that points at a project's deliverable has a real target.
+    by_relpath = {r: r for r in every}
     by_basename: Dict[str, str] = {}
-    for r in rels:
+    for r in every:
         by_basename.setdefault(os.path.basename(r)[:-3].lower(), r)
 
     for rel in rels:
@@ -177,10 +227,18 @@ def validate_bundle(vault: str) -> Dict[str, Any]:
         fm, body = _parse_frontmatter(content)
         reserved = _is_reserved(rel)
 
-        if not reserved:
+        kind = implied_type(rel)
+        is_definition = _top_folder(rel) in DEFINITION_FOLDERS
+        if not reserved and kind and not is_definition:
+            # One of the app's own records: its folder says what it is, and the
+            # app writes it (often by appending) without frontmatter.
+            pass
+        elif not reserved:
             if not fm:
                 issues.append(Issue(rel, NO_FRONTMATTER, "no YAML frontmatter block"))
-            else:
+            elif not kind:
+                # A knowledge note states its own type. A definition file's
+                # type is implied by its folder (it follows a shared format).
                 for key in REQUIRED_KEYS:
                     if not fm.get(key):
                         issues.append(
@@ -205,7 +263,7 @@ def validate_bundle(vault: str) -> Dict[str, Any]:
                     Issue(rel, BROKEN_LINK, f"unresolved cross-link '{tgt}'", level="warning")
                 )
 
-    return _result(issues, warnings, len(rels))
+    return _result(issues, warnings, len(rels), work_products)
 
 
 def _looks_like_internal(target: str) -> bool:
@@ -214,12 +272,16 @@ def _looks_like_internal(target: str) -> bool:
     return bool(t) and not t.startswith(("http://", "https://", "mailto:", "#"))
 
 
-def _result(issues: List[Issue], warnings: List[Issue], doc_count: int) -> Dict[str, Any]:
+def _result(
+    issues: List[Issue], warnings: List[Issue], doc_count: int, work_products: int = 0
+) -> Dict[str, Any]:
     return {
         "ok": not issues,
         "issues": [i.to_dict() for i in issues],
         "warnings": [w.to_dict() for w in warnings],
         "doc_count": doc_count,
+        # Files in project folders: counted, not checked.
+        "work_products": work_products,
         "okf_version": OKF_VERSION,
     }
 
@@ -264,7 +326,7 @@ def emit_bundle(vault: str) -> OKFBundle:
         docs.append(
             BundleDoc(
                 path=rel,
-                type=fm.get("type", ""),
+                type=fm.get("type", "") or implied_type(rel),
                 title=fm.get("title") or base[:-3],
                 description=fm.get("description", ""),
                 links=resolved,

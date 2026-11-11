@@ -6,6 +6,7 @@ import unittest
 
 import _bootstrap  # noqa: F401
 
+from scprism_engine import okf
 from scprism_engine.okf import (
     validate_bundle,
     emit_bundle,
@@ -118,3 +119,89 @@ class TestEmitBundle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestValidatorScope(unittest.TestCase):
+    """What the check is FOR (2026-11-11).
+
+    On a real vault the validator reported 81 problems across 79 notes, and
+    almost none were knowledge notes: agent and skill definition files (which
+    follow their own shared formats and carry no ``type``), deliverables that
+    seats wrote into project folders, and the app's own records. The check is
+    for knowledge notes. An app-owned folder has a known kind; a project folder
+    holds work products.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.vault = self._tmp.name
+        _write(self.vault, "notes/idea.md", "---\ntype: note\n---\n\nAn idea.\n")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _codes(self, result):
+        return sorted((i["path"], i["code"]) for i in result["issues"])
+
+    def test_an_agent_definition_needs_no_type_its_folder_says_what_it_is(self):
+        _write(self.vault, "agents/planner.md", "---\nname: planner\ndescription: plans\n---\n\nPlan first.\n")
+        _write(self.vault, "agents/managers/ops.md", "---\nname: ops\n---\n\nRuns reports.\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertTrue(r["ok"], r["issues"])
+
+    def test_a_skill_file_keeps_its_own_format(self):
+        _write(self.vault, "skills/code-review.md", "---\nname: code-review\ndescription: reviews diffs\n---\n\nRead the diff.\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertTrue(r["ok"], r["issues"])
+
+    def test_an_agent_file_with_no_frontmatter_or_no_body_is_still_a_problem(self):
+        _write(self.vault, "agents/blank.md", "just text\n")
+        _write(self.vault, "agents/empty.md", "---\nname: empty\n---\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertEqual(
+            self._codes(r),
+            [("agents/blank.md", okf.NO_FRONTMATTER), ("agents/empty.md", okf.EMPTY_DOC)],
+        )
+
+    def test_files_in_a_project_folder_are_work_products_not_notes(self):
+        _write(self.vault, "projects/site/LAUNCH-PLAN.md", "# Launch plan\n\nShip it.\n")
+        _write(self.vault, "projects/site/docs/README.md", "")
+        _write(self.vault, "projects/site/report.md", "---\nname: weekly\n---\n\nbody\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertTrue(r["ok"], r["issues"])
+        self.assertEqual(r["work_products"], 3)
+        # Counted apart: the notes checked do not include them.
+        self.assertEqual(r["doc_count"], 1)
+
+    def test_a_note_may_link_to_a_projects_deliverable(self):
+        _write(self.vault, "projects/site/LAUNCH-PLAN.md", "# Launch plan\n")
+        _write(self.vault, "notes/pointer.md", "---\ntype: note\n---\n\nSee [[LAUNCH-PLAN]].\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertEqual(r["warnings"], [])
+
+    def test_the_apps_own_records_have_a_known_kind(self):
+        _write(self.vault, "reports/ops/vault-health.md", "All fine.\n")
+        _write(self.vault, "conversations/chat-log.md", "**you:** hi\n")
+        _write(self.vault, "business/context.md", "# Business context\n")
+        _write(self.vault, "governance/README.md", "Rules.\n")
+        _write(self.vault, "tools/pdf/history.md", "- tried\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertTrue(r["ok"], r["issues"])
+
+    def test_a_knowledge_note_is_still_held_to_the_contract(self):
+        _write(self.vault, "notes/loose.md", "no frontmatter here\n")
+        _write(self.vault, "research/typed-wrong.md", "---\ntitle: x\n---\n\nbody\n")
+        r = okf.validate_bundle(self.vault)
+        self.assertEqual(
+            self._codes(r),
+            [("notes/loose.md", okf.NO_FRONTMATTER), ("research/typed-wrong.md", okf.MISSING_TYPE)],
+        )
+
+    def test_the_bundle_names_the_kind_a_folder_implies(self):
+        _write(self.vault, "agents/planner.md", "---\nname: planner\n---\n\nPlan first.\n")
+        _write(self.vault, "skills/code-review.md", "---\nname: code-review\n---\n\nRead the diff.\n")
+        bundle = okf.emit_bundle(self.vault)
+        types = {d.path: d.type for d in bundle.docs}
+        self.assertEqual(types["agents/planner.md"], "agent")
+        self.assertEqual(types["skills/code-review.md"], "skill")
+        self.assertEqual(types["notes/idea.md"], "note")

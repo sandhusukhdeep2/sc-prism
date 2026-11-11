@@ -169,3 +169,32 @@ describe('registered plugin servers ride a launch', () => {
     expect(sent('run_engine_team')?.mcpServers).toBe('')
   })
 })
+
+// 2026-11-11: small talk is sent with the engine's `--no-judge`.
+describe('the no-judge flag rides the manager’s run', () => {
+  beforeEach(() => {
+    goNative()
+    invokeMock.mockReset()
+    invokeMock.mockImplementation(async () => {
+      throw new Error('stop after capture')
+    })
+  })
+  afterEach(() => {
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+  })
+  const sent = (): Record<string, unknown> | undefined =>
+    invokeMock.mock.calls.find((c) => c[0] === 'run_engine_task')?.[1] as Record<string, unknown> | undefined
+
+  it('is forwarded when asked for', async () => {
+    const { runNativeTask } = await import('./nativeEngine')
+    await runNativeTask('hello', '/vault', {} as never, '', 'auto', undefined, 0, 0, 'converse', true)
+    expect(sent()?.noJudge).toBe(true)
+    expect(sent()?.mode).toBe('converse')
+  })
+
+  it('is off for every caller that does not ask', async () => {
+    const { runNativeTask } = await import('./nativeEngine')
+    await runNativeTask('write the note', '/vault', {} as never)
+    expect(sent()?.noJudge).toBe(false)
+  })
+})

@@ -18,6 +18,8 @@ export interface OkfReport {
   issues: OkfIssue[]
   warnings: OkfIssue[]
   doc_count: number
+  /** Files in project folders: work products, counted and not checked. */
+  workProducts: number
 }
 
 function issueList(raw: unknown): OkfIssue[] {
@@ -41,6 +43,7 @@ export function normalizeOkfReport(raw: unknown): OkfReport | null {
     issues: issueList(r.issues),
     warnings: issueList(r.warnings),
     doc_count: typeof r.doc_count === 'number' ? r.doc_count : 0,
+    workProducts: typeof r.work_products === 'number' ? r.work_products : 0,
   }
 }
 

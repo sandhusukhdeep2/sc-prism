@@ -24,6 +24,12 @@ describe('normalizeOkfReport — the reason the engine gave is the reason shown'
     expect(r?.doc_count).toBe(0)
   })
 
+  it('carries the count of project files that were counted and not checked', () => {
+    expect(normalizeOkfReport({ ok: true, issues: [], warnings: [], doc_count: 45, work_products: 35 })?.workProducts).toBe(35)
+    // An older engine sends none: zero, not undefined.
+    expect(normalizeOkfReport({ ok: true, issues: [], warnings: [], doc_count: 3 })?.workProducts).toBe(0)
+  })
+
   it('is null when the engine sent no verdict', () => {
     expect(normalizeOkfReport({ issues: [] })).toBeNull()
     expect(normalizeOkfReport(null)).toBeNull()

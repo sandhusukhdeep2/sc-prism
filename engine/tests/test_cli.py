@@ -336,6 +336,41 @@ class TestCLIRunConverseMode(unittest.TestCase):
         self.assertTrue(obj["tier2"]["ran"])
         self.assertNotIn("file", obj["outcome_reason"])
 
+    # 2026-11-11: a greeting ("hello") answered by the primary still paid for a
+    # second model call — the Tier-2 judge grading a greeting. `--no-judge` is
+    # the client's word that this converse turn is small talk: the reply is
+    # recorded as answered, no judge is called, and nothing claims a score.
+    def test_no_judge_on_a_converse_turn_answers_without_calling_the_judge(self):
+        code, obj = _run_cli([
+            "run", "hello", "--vault", self.vault,
+            "--mode", "converse", "--no-judge",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["outcome"], "replied")
+        self.assertTrue(obj["passed"])
+        self.assertFalse(obj["tier2"]["ran"])
+        self.assertIn("not judged", obj["outcome_reason"])
+        self.assertNotIn("cleared the judge", obj["outcome_reason"])
+        # No judge call: the only model_call spans are the reply's own.
+        import json as _json, os as _os
+        names = []
+        with open(_os.path.join(self.vault, "spans.jsonl"), encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    names.append(_json.loads(line).get("name"))
+                except ValueError:
+                    pass
+        self.assertNotIn("eval", names)
+
+    def test_no_judge_is_ignored_outside_a_converse_turn(self):
+        # A task is always judged: the flag cannot be used to wave work through.
+        code, obj = _run_cli([
+            "run", "write the launch note", "--vault", self.vault,
+            "--mode", "read", "--no-judge",
+        ])
+        self.assertEqual(code, 0)
+        self.assertTrue(obj["tier2"]["ran"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1265,6 +1265,11 @@ def run_project(
     # its columns by — so a four-step plan draws four columns instead of one
     # anonymous "Working". Empty writes no attr (byte-identical).
     stage: str = "",
+    # L2 working memory (2026-11-11). Each step of a build records its outcome
+    # and the next step is shown the outcomes so far. True on the FIRST step of
+    # a build discards what the previous build left. Only acts when `memory`
+    # is given; False (the default) just continues the current build.
+    working_reset: bool = False,
 ) -> "Verdict":
     """Run one project step end to end through the SAME verified loop.
 
@@ -1722,6 +1727,19 @@ def run_project(
             }
         }
 
+    # L2 working memory: this build's step outcomes so far, read from disk so
+    # they survive from one step's process to the next. A new build starts
+    # clean. The session is the project, so two projects never share one.
+    working_session = ""
+    if memory is not None:
+        working_session = "project:" + (
+            slug or os.path.basename(os.path.normpath(project_dir)) or "project"
+        )
+        if working_reset:
+            memory.reset_working(working_session)
+        else:
+            memory.load_working(working_session)
+
     verdict = run(
         contract,
         vault=vault,
@@ -1729,6 +1747,7 @@ def run_project(
         tier1_cwd=project_dir,
         post_dispatch=post,
         model=model,
+        session_id=working_session or None,
         # The governed tool source + the caller's Telemetry (see the signature
         # comments): the single-doer dispatch runs the same bounded, gated
         # tool-use loop `run` does. Both None -> byte-identical.
@@ -1746,6 +1765,24 @@ def run_project(
         dispatch_wrapper=file_block_contract.wrap,
         stage=stage,
     )
+
+    # Record what this step did, for the next step of this build. Every word
+    # comes from the verdict: the outcome, the files it wrote, and — when it
+    # did not pass — the verdict's own reason.
+    if memory is not None and working_session:
+        files = list(((verdict.extras or {}).get("project") or {}).get("files_written") or [])
+        what = " ".join((stage or intent).split())[:80]
+        parts = [str(getattr(verdict, "outcome", "") or ("passed" if verdict.passed else "failed"))]
+        if files:
+            shown = ", ".join(str(f) for f in files[:6])
+            more = f" and {len(files) - 6} more" if len(files) > 6 else ""
+            parts.append(f"wrote {shown}{more}")
+        if not verdict.passed:
+            reason = " ".join(str(getattr(verdict, "outcome_reason", "") or "").split())[:160]
+            if reason:
+                parts.append(reason)
+        memory.working(working_session).put(f"step: {what}", " — ".join(parts))
+        memory.save_working(working_session)
 
     # Link this attempt to its siblings. The ledger holds no fact of its own —
     # every field is copied from the verdict already persisted above — so it can

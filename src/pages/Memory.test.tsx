@@ -67,7 +67,7 @@ describe('Memory page — no fabricated learning figures', () => {
 // stuck 'checking…' forever. runNativeOkf swallows errors and returns null, so
 // the badge must surface a real error state the user can act on.
 describe('OKF validation — a failure looks like a failure', () => {
-  const okReport: OkfReport = { ok: true, issues: [], warnings: [], doc_count: 3 }
+  const okReport: OkfReport = { ok: true, issues: [], warnings: [], doc_count: 3, workProducts: 0 }
 
   it('a null report AFTER the check completes reads as an error, never "checking" forever', () => {
     // loading has finished (false) and the engine returned no readable report.
@@ -154,5 +154,20 @@ describe('Memory page — the vault card does not claim a git sync that is not s
     localStorage.setItem('scprism.settings', JSON.stringify({ githubRepo: 'someone/notes' }))
     renderMemory()
     expect(screen.getByText(/git-synced to someone\/notes/)).toBeInTheDocument()
+  })
+})
+
+// 2026-11-11: working memory has a writer now — each step of a project build
+// records its outcome and the next step is shown it. The card says what the
+// tier really holds; it used to describe a tier nothing wrote to.
+describe('Memory page — the working-memory card says what it holds', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('describes step outcomes kept per project and reset when a build starts', () => {
+    renderMemory()
+    expect(screen.getByText(/each step of a project build records what it did/)).toBeInTheDocument()
+    expect(screen.getByText(/starts clean with each build/)).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/discarded on done/)
   })
 })

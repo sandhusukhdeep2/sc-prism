@@ -182,6 +182,24 @@ class TestProjectSubcommandAgentsRoster(unittest.TestCase):
         self.assertIsNotNone(obj, "stdout should parse as JSON")
         self.assertIn("passed", obj)
 
+    def test_working_reset_flag_is_forwarded_and_off_by_default(self):
+        """`--working-reset` marks the first step of a build (2026-11-11)."""
+        fake_verdict = mock.Mock()
+        fake_verdict.passed = True
+        fake_verdict.to_json.return_value = "{}"
+        fake_verdict.spans_path = os.path.join(self.vault, "spans.jsonl")
+        for argv_extra, expected in ((["--working-reset"], True), ([], False)):
+            with mock.patch(
+                "scprism_engine.project.run_project", return_value=fake_verdict
+            ) as run_project_mock:
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                    main([
+                        "project", "test intent",
+                        "--project-dir", self.project_dir,
+                        "--vault", self.vault,
+                    ] + argv_extra)
+            self.assertIs(run_project_mock.call_args.kwargs["working_reset"], expected)
+
     def test_agents_flag_builds_roster_and_forwards_to_run_project(self):
         """When --agents is given, `_cmd_project` parses it with the SAME
         `parse_agents` `team` uses and passes the resulting roster to

@@ -30,6 +30,7 @@ Stdlib only, deterministic, offline-safe.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass, field
@@ -347,6 +348,19 @@ class VaultWrite:
     content: str
 
 
+# L2 across processes (2026-11-11). A project build is several engine
+# processes — one per plan step — so a build's working memory lives on disk
+# between them, in a hidden folder the notes index and the vault check skip.
+# Bounded: only the newest entries are kept.
+MAX_WORKING_ITEMS = 8
+
+
+def working_path(vault: str, session_id: str) -> str:
+    """Where one session's working memory is kept between processes."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", str(session_id)).strip("-") or "session"
+    return os.path.join(vault, ".scprism", "working", f"{safe}.json")
+
+
 class MemoryStore:
     """Three-tier memory: L1 profile (static), L2 working (session isolated),
     L3 vault (markdown on disk).
@@ -380,6 +394,60 @@ class MemoryStore:
 
     def has_session(self, session_id: str) -> bool:
         return session_id in self._working
+
+    # -- L2 between processes ------------------------------------------------
+    def load_working(self, session_id: str) -> int:
+        """Read a session's saved working memory into this store. Returns how
+        many entries were loaded; a missing or damaged file is an empty memory
+        (0), never an error — working memory is a help, not a dependency."""
+        if not self.vault or not session_id:
+            return 0
+        try:
+            with open(working_path(self.vault, session_id), "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            return 0
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if not isinstance(entries, list):
+            return 0
+        wm = self.working(session_id)
+        loaded = 0
+        for entry in entries[-MAX_WORKING_ITEMS:]:
+            if (
+                isinstance(entry, list)
+                and len(entry) == 2
+                and isinstance(entry[0], str)
+                and isinstance(entry[1], str)
+            ):
+                wm.put(entry[0], entry[1])
+                loaded += 1
+        return loaded
+
+    def save_working(self, session_id: str) -> None:
+        """Write a session's working memory (its newest entries) to disk."""
+        wm = self._working.get(session_id)
+        if not self.vault or wm is None:
+            return
+        entries = [[k, str(wm.get(k))] for k in wm.keys()][-MAX_WORKING_ITEMS:]
+        path = working_path(self.vault, session_id)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = f"{path}.tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump({"session": session_id, "entries": entries}, fh, ensure_ascii=False)
+            os.replace(tmp, path)
+        except OSError:
+            pass  # best-effort: a step's result never depends on this write
+
+    def reset_working(self, session_id: str) -> None:
+        """Discard a session's working memory, here and on disk."""
+        self._working.pop(session_id, None)
+        if not self.vault or not session_id:
+            return
+        try:
+            os.remove(working_path(self.vault, session_id))
+        except OSError:
+            pass
 
     def drop_session(self, session_id: str) -> None:
         """Forget a task's working memory (per-task lifetime)."""

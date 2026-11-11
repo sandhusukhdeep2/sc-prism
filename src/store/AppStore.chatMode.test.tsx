@@ -112,5 +112,40 @@ describe('the chat path names its turn', () => {
     // …intent, vault, providers, runId, route, image, tokenBudget, toolTurns,
     // then the mode — the trailing arg the engine turns into `--mode converse`.
     expect(args[8]).toBe('converse')
+    // A real ask is judged: the trailing no-judge flag stays off.
+    expect(args[9] ?? false).toBe(false)
+    // …and it is a recorded run.
+    expect(captured.app!.state.verdicts).toHaveLength(1)
+  })
+
+  // 2026-11-11: a "hello" answered by the primary still paid for a second model
+  // call (the judge grading a greeting) and was counted as a recorded run. A
+  // small message (lib/messageWeight) is answered and attributed, but it is
+  // sent with no-judge and adds no verdict.
+  it('a small message is sent with no-judge and is not counted as a run', async () => {
+    let release: ((v: Verdict) => void) | null = null
+    h.runNativeTask.mockImplementation(() => new Promise<Verdict>((res) => { release = res }))
+    renderApp()
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    let sent: Promise<void>
+    await act(async () => {
+      sent = captured.app!.sendIntent('hello')
+      await Promise.resolve()
+    })
+    await act(async () => {
+      release!({ ...okVerdict(), response: 'Hello — what are we working on?' })
+      await sent!
+    })
+
+    const args = h.runNativeTask.mock.calls[0]
+    expect(args[8]).toBe('converse')
+    expect(args[9]).toBe(true)
+    expect(captured.app!.state.verdicts).toHaveLength(0)
+    // The reply itself is in the chat.
+    const text = JSON.stringify(captured.app!.state)
+    expect(text).toContain('Hello — what are we working on?')
   })
 })

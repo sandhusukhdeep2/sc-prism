@@ -184,7 +184,16 @@ def _tier1_summary(t1: Optional[Tier1Result]) -> Dict[str, Any]:
     }
 
 
+# Why a converse turn has no Tier-2 score: the client marked it as small talk
+# (`run --no-judge`), so it was answered and recorded but not graded.
+UNJUDGED_REASON = "not judged — small talk has nothing to judge"
+
+
 def _tier2_summary(t2: Optional[Tier2Result]) -> Dict[str, Any]:
+    if t2 is not None and not getattr(t2, "ran", False) and getattr(t2, "passed", False):
+        # Answered, not judged (small talk) — NOT a short-circuit: tier-1 did
+        # not fail, the judge was simply never asked.
+        return {"ran": False, "reason": t2.rationale or UNJUDGED_REASON}
     if t2 is None or not getattr(t2, "ran", False):
         return {"ran": False, "reason": "short-circuited (tier1 failed)"}
     return {
@@ -309,11 +318,16 @@ def build_verdict(
         # not applicable to a reply (the criteria say so), so "was skipped"
         # would report a non-event as if it were a caveat.
         outcome = "replied"
-        outcome_reason = (
-            f"the reply cleared the judge at "
-            f"{getattr(tier2_result, 'eval_score', 0.0)} "
-            f"(threshold {getattr(tier2_result, 'threshold', 0.0)})."
-        )
+        if t2_ran:
+            outcome_reason = (
+                f"the reply cleared the judge at "
+                f"{getattr(tier2_result, 'eval_score', 0.0)} "
+                f"(threshold {getattr(tier2_result, 'threshold', 0.0)})."
+            )
+        else:
+            # Small talk: answered and recorded, never graded. Say that — a
+            # "cleared the judge at 0.0" would invent a judgement.
+            outcome_reason = f"answered; {UNJUDGED_REASON}."
     elif passed:
         outcome = "passed"
         if t1_hard:

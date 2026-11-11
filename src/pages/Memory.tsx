@@ -78,6 +78,15 @@ export function OkfIssues({ report }: { report: OkfReport }) {
   )
 }
 
+/** What the check covered: the notes it read, and the project files it left
+ *  out on purpose (work products are counted, not checked). */
+export function okfChecked(report: OkfReport): string {
+  const n = report.doc_count
+  const notes = `${n} note${n === 1 ? '' : 's'} checked`
+  const w = report.workProducts
+  return w > 0 ? `${notes} · ${w} project file${w === 1 ? '' : 's'} not checked` : notes
+}
+
 // OKF (Open Knowledge Format) health of the vault — the knowledge layer the
 // engine already validates; this surfaces it. Native only.
 function OkfCard() {
@@ -146,7 +155,7 @@ function OkfCard() {
         </div>
       ) : (
       <div className="okf__stats">
-        <span>{report?.doc_count ?? 0} notes checked</span>
+        <span>{report ? okfChecked(report) : '0 notes checked'}</span>
         <span className={errs ? 'okf__err' : ''}>
           {errs} error{errs === 1 ? '' : 's'}
         </span>
@@ -338,8 +347,11 @@ export default function Memory() {
             </div>
             <div className="tier tier--l2">
               <div className="tier__label">L2 · Working memory</div>
-              <div className="tier__desc">per-task · session-isolated · discarded on done</div>
-              <div className="tier__meta">this task</div>
+              {/* What L2 really holds since 2026-11-11: a project build's
+                  step outcomes, recorded by the engine and shown to the next
+                  step. Nothing wrote to this tier before. */}
+              <div className="tier__desc">each step of a project build records what it did · the next step reads it</div>
+              <div className="tier__meta">kept apart per project · starts clean with each build</div>
             </div>
             <div className="tier tier--l3">
               <div className="tier__label">L3 · Vault</div>

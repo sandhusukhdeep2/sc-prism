@@ -24,6 +24,7 @@ from .planner import plan
 from . import conductor
 from .dispatcher import dispatch, ModelCall, ModelResult
 from .verifier import tier1, tier2, CommandResult, Tier1Result, Tier2Result
+from .writeback import UNJUDGED_REASON
 from .writeback import Verdict
 from .gateway import Gateway, guard_cloud_tool_result, note_stand_in
 from .companion import companion_messages
@@ -586,6 +587,11 @@ def run(
     use_bifrost: Optional[bool] = None,
     telemetry: Optional[Telemetry] = None,
     judge: Optional[Judge] = None,
+    # Small talk (2026-11-11): a converse turn the client marked as a greeting
+    # or a one-word message is answered and recorded, but NOT graded — a second
+    # model call judging "hello" is spend with nothing to judge. Honoured only
+    # for mode "converse"; a task is always judged.
+    no_judge: bool = False,
     eval_threshold: float = evals.DEFAULT_THRESHOLD,
     envelope: Optional[Envelope] = None,
     agent_id: str = "orchestrator",
@@ -1183,20 +1189,31 @@ def run(
             files_written=list((project_result or {}).get("files_written") or []),
             root=tier1_cwd or "",
         )
-        t2 = run_tier2(
-            contract,
-            dispatch_result,
-            tier1_passed=t1.passed,
-            gateway=gateway,
-            telemetry=telemetry,
-            parent_id=run_id,
-            envelope=envelope,
-            threshold=eval_threshold,
-            latency_ms=dispatch_latency_ms,
-            judge=judge,
-            hooks_fired=hooks_fired,
-            run_evidence=run_evidence,
-        )
+        if (
+            no_judge
+            and judge is None
+            and t1.passed
+            and str(getattr(contract, "mode", "") or "") == "converse"
+        ):
+            # Answered, not judged. No `tier2` span and no "tier2" hook: there
+            # was no judgement, so nothing may look like one (a 0.0 here would
+            # drag the eval trend; a 1.0 would be a score nobody gave).
+            t2 = Tier2Result(ran=False, passed=True, rationale=UNJUDGED_REASON)
+        else:
+            t2 = run_tier2(
+                contract,
+                dispatch_result,
+                tier1_passed=t1.passed,
+                gateway=gateway,
+                telemetry=telemetry,
+                parent_id=run_id,
+                envelope=envelope,
+                threshold=eval_threshold,
+                latency_ms=dispatch_latency_ms,
+                judge=judge,
+                hooks_fired=hooks_fired,
+                run_evidence=run_evidence,
+            )
 
         # 4b. Stop hook — the ratchet. Runs the Tier-1/compliance check at the
         #     "done" moment, exactly once, guarded against the infinite
