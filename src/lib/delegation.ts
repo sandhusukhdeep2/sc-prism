@@ -32,6 +32,7 @@
 
 import type { EngineSpan } from './nativeEngine'
 import { routeReasonLabel } from './nativeEngine'
+import { smallMessage, type SmallKind } from './messageWeight'
 import {
   emptyRosterRefusal,
   seatReason,
@@ -385,6 +386,11 @@ export interface RoutingInput {
   sitOut?: readonly SitOut[]
   /** The user explicitly asked for a team, or the job names several jobs. */
   wantsTeam?: boolean
+  /** The team was picked BY HAND for this message (not just the default lane):
+   *  then even a small message goes to the team. */
+  teamExplicit?: boolean
+  /** A file or image rides along: that is work, whatever was typed. */
+  hasAttachments?: boolean
   /** Sukh himself runs on this token; he does it HIMSELF when he is the pick. */
   managerToken?: string
 }
@@ -407,6 +413,9 @@ export interface RoutingChoice {
   soloNote: string
   /** Seats that could not be used, with their reasons — never dropped quietly. */
   sitOut: SitOut[]
+  /** What kind of small message this is ('' for a job): it was answered by one
+   *  AI and no team was staffed (lib/messageWeight). */
+  small: SmallKind
 }
 
 /** Keywords that mean "this needs the strongest reasoner we have". */
@@ -462,6 +471,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       floor: false,
       soloNote: '',
       sitOut,
+      small: '',
     }
   }
 
@@ -483,6 +493,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
         floor: true,
         soloNote,
         sitOut,
+        small: '',
       }
     }
     return {
@@ -495,6 +506,31 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       floor: true,
       soloNote,
       sitOut,
+      small: '',
+    }
+  }
+
+  // 2b. A SMALL MESSAGE is not a job (2026-11-11). The team is the default
+  //     lane, so without this a "hello" staffed a lead, a researcher and a
+  //     critic. The primary answers it alone — unless the team was picked by
+  //     hand, or a file rides along. Decided by rule (lib/messageWeight), after
+  //     the floor: a sensitive word keeps even a short message local.
+  const small =
+    input.teamExplicit || input.hasAttachments ? '' : smallMessage(input.intent)
+  if (small) {
+    const me =
+      team.find((t) => t.token === input.managerToken) ??
+      team.find((t) => t.strongestReasoner) ??
+      team[0]
+    return {
+      mode: me.token === input.managerToken ? 'self' : 'delegate',
+      assigned: [me],
+      reason: `${me.label} answers it — ${small}, not a job, so no team is staffed`,
+      engineReason: '',
+      floor: false,
+      soloNote: '',
+      sitOut,
+      small,
     }
   }
 
@@ -512,6 +548,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       floor: false,
       soloNote,
       sitOut,
+      small: '',
     }
   }
 
@@ -530,6 +567,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       floor: false,
       soloNote: '',
       sitOut,
+      small: '',
     }
   }
 
@@ -546,6 +584,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       floor: false,
       soloNote,
       sitOut,
+      small: '',
     }
   }
   const localSeat = team.find((t) => t.local)
@@ -558,6 +597,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       floor: false,
       soloNote,
       sitOut,
+      small: '',
     }
   }
   const pick = team.find((t) => t.strongestReasoner) ?? team[0]
@@ -569,6 +609,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
     floor: false,
     soloNote,
     sitOut,
+    small: '',
   }
 }
 

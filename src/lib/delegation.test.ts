@@ -508,3 +508,62 @@ describe('agentCapabilityNames — the file’s tools line is honoured', () => {
     expect(agentCapabilityNames(undefined)).toEqual([])
   })
 })
+
+// The owner, 2026-11-11: "Even on a hello or go or any small message, it
+// utilizes all three AIs. … Primary AI should do that." The team is the default
+// lane, so `wantsTeam` is true for every message; a small message is answered
+// by the primary alone unless the team was picked by hand.
+describe('decideRouting — a small message is not staffed', () => {
+  const base = { team: [CLAUDE, LOCAL], wantsTeam: true, managerToken: 'claude' }
+
+  it('a greeting on the default lane goes to the primary alone, and says why', () => {
+    const choice = decideRouting({ ...base, intent: 'hello' })
+    expect(choice.mode).toBe('self')
+    expect(choice.assigned).toEqual([CLAUDE])
+    expect(choice.small).toBe('a greeting')
+    expect(choice.reason).toMatch(/a greeting, not a job/)
+    expect(choice.reason).toMatch(/no team is staffed/)
+  })
+
+  it('"go" is a short message, not a team run', () => {
+    const choice = decideRouting({ ...base, intent: 'go' })
+    expect(choice.small).toBe('a short message')
+    expect(choice.assigned).toEqual([CLAUDE])
+  })
+
+  it('a real task on the default lane is still the team', () => {
+    const choice = decideRouting({ ...base, intent: 'plan the SOC 2 compliance dashboard' })
+    expect(choice.mode).toBe('team')
+    expect(choice.small).toBe('')
+  })
+
+  it('picking the team by hand wins over the size of the message', () => {
+    const choice = decideRouting({ ...base, intent: 'hello', teamExplicit: true })
+    expect(choice.mode).toBe('team')
+    expect(choice.small).toBe('')
+  })
+
+  it('an attached file makes it a job, whatever was typed', () => {
+    const choice = decideRouting({ ...base, intent: 'go', hasAttachments: true })
+    expect(choice.mode).toBe('team')
+  })
+
+  it('the sensitivity floor still comes first: a short message with a sensitive word stays local', () => {
+    const choice = decideRouting({ ...base, intent: 'mortgage ok?', sensitiveWords: ['mortgage'] })
+    expect(choice.floor).toBe(true)
+    expect(choice.assigned).toEqual([LOCAL])
+  })
+
+  it('goes to the strongest reasoner connected when the primary cannot answer', () => {
+    const choice = decideRouting({ ...base, intent: 'hello', managerToken: 'gemini' })
+    expect(choice.assigned).toEqual([CLAUDE])
+    expect(choice.mode).toBe('delegate')
+    expect(choice.small).toBe('a greeting')
+  })
+
+  it('with one AI connected it is that AI, with the same small-message reason', () => {
+    const choice = decideRouting({ ...base, team: [LOCAL], intent: 'hello', managerToken: 'local' })
+    expect(choice.assigned).toEqual([LOCAL])
+    expect(choice.small).toBe('a greeting')
+  })
+})

@@ -216,6 +216,10 @@ export default function Workspace() {
   const [target, setTarget] = useState<
     'companion' | 'team' | 'agent' | 'propose' | 'staff'
   >('team')
+  // The team was picked BY HAND for this message (2026-11-11). The team is
+  // only the DEFAULT lane; a small message on the default lane is answered by
+  // the manager alone (decideRouting rule 2b). A hand pick wins, for one send.
+  const [teamPicked, setTeamPicked] = useState(false)
   const [agentId, setAgentId] = useState('')
   // Sprint B2: the three specialist lanes fold behind 'more ▾' — two visible
   // choices (manager, team), never five (his 'too complicated' note).
@@ -249,8 +253,16 @@ export default function Workspace() {
     team: seats.team,
     sitOut: seats.sitOut,
     wantsTeam: target === 'team',
+    teamExplicit: teamPicked,
+    hasAttachments: attachments.length > 0 || !!image,
     managerToken: managerToken(settings),
   })
+  // WHERE THIS MESSAGE REALLY GOES. On the default team lane a small message
+  // ("hello", "go") is not a job: the manager answers it and no team is
+  // staffed. Everything the composer says and does below reads this, so the
+  // words, the controls and the send can never disagree.
+  const effectiveTarget: typeof target =
+    target === 'team' && routing.small ? 'companion' : target
 
   // The project bound to this Workspace session (P2-4), if any — set via
   // Projects' "Open in Workspace" button. undefined (the default) when no
@@ -401,13 +413,13 @@ export default function Workspace() {
   // the user didn't expect. The companion wording is unchanged (the default
   // path is untouched, down to its placeholder + label).
   const composerLabel =
-    target === 'team'
+    effectiveTarget === 'team'
       ? 'Describe the task for the team'
-      : target === 'propose'
+      : effectiveTarget === 'propose'
         ? 'Describe the gap — you get a proposal to review, not a new agent'
-        : target === 'staff' && staffProject
+        : effectiveTarget === 'staff' && staffProject
           ? `Send to have ${companionName} staff “${staffProject.name}” — you get a roster to review, not a team`
-        : target === 'agent' && chosenAgent
+        : effectiveTarget === 'agent' && chosenAgent
           ? `Describe the task for ${chosenAgent.name}`
           : 'Describe what you want to build'
   // A proposal is only ever RECORDED on the real-engine path (the store reads
@@ -417,15 +429,15 @@ export default function Workspace() {
   // WHO this send goes to, in one sentence — the target actually selected, so
   // it can never name a coworker the message will not reach.
   const targetSentence =
-    target === 'team'
+    effectiveTarget === 'team'
       ? 'your team takes this'
-      : target === 'agent'
+      : effectiveTarget === 'agent'
         ? chosenAgent
           ? `${chosenAgent.name} takes this`
           : 'nobody enabled to take this'
-        : target === 'propose'
+        : effectiveTarget === 'propose'
           ? 'you get a proposal to review'
-          : target === 'staff'
+          : effectiveTarget === 'staff'
             ? `${companionName} staffs this project`
             : `${primaryName} takes this`
 
@@ -434,17 +446,17 @@ export default function Workspace() {
   // What Send is allowed to do: a team run needs TEXT (it has no image path),
   // and an agent target needs a real agent to address.
   const canSend =
-    target === 'team'
+    effectiveTarget === 'team'
       ? !!draft.trim() || attachments.length > 0
-      : target === 'propose'
+      : effectiveTarget === 'propose'
         ? // a proposal must cite the user's OWN words as evidence, so it needs
           // typed text — an attachment alone is nothing to quote
           !!draft.trim()
-        : target === 'staff'
+        : effectiveTarget === 'staff'
           ? // The charter carries the project's own needs, so this send needs no
             // typed text — but it DOES need a project with real needs to cite.
             canStaff
-          : target === 'agent'
+          : effectiveTarget === 'agent'
             ? hasContent && !!chosenAgent
             : hasContent
 
@@ -469,20 +481,20 @@ export default function Workspace() {
     const text = draft.trim()
     // Staffing is the one send that carries no user text: the brief IS the
     // project's recorded plan. Every other target still needs something typed.
-    if (target !== 'staff' && !text && attachments.length === 0 && !image) return
+    if (effectiveTarget !== 'staff' && !text && attachments.length === 0 && !image) return
     // ...and it needs a project with REAL recorded needs to cite, or there is
     // nothing honest to staff against.
-    if (target === 'staff' && !canStaff) return
+    if (effectiveTarget === 'staff' && !canStaff) return
     // An agent target with nothing to address can't send (the control is
     // disabled in that state — this is the belt-and-braces guard, so a task can
     // never be attributed to an agent that isn't there).
-    if (target === 'agent' && !chosenAgent) return
+    if (effectiveTarget === 'agent' && !chosenAgent) return
     // A team run takes TEXT — an image alone has nowhere to go (guarded by the
     // send button too).
-    if (target === 'team' && !text && attachments.length === 0) return
+    if (effectiveTarget === 'team' && !text && attachments.length === 0) return
     // A proposal quotes the user's own request as its evidence — with no typed
     // text there is nothing real to cite, so nothing is sent.
-    if (target === 'propose' && !text) return
+    if (effectiveTarget === 'propose' && !text) return
     // Two strings: the ENGINE/AI gets the full file bodies (composeWithAttachments);
     // the transcript + vault log get the compact "📎 name (N chars)" ref (displayLine),
     // so a 50 KB file never becomes a wall of text in the user's bubble or the saved log.
@@ -506,7 +518,7 @@ export default function Workspace() {
           ? 'local'
           : 'cloud'
     const chosenImage = image ? { path: image.path, name: image.name } : undefined
-    const chosenTarget = target
+    const chosenTarget = effectiveTarget
     const chosenTeamAgent = chosenAgent
     setDraft('')
     setAttachments([])
@@ -516,6 +528,7 @@ export default function Workspace() {
     // Back to the DEFAULT lane — the team (his order, 2026-08-30). The picker
     // still shows the choice on every message; the manager is one click.
     setTarget('team')
+    setTeamPicked(false)
     setMoreTargetsOpen(false)
     setOverrideOpen(false)
     if (chosenTarget === 'team') {
@@ -1244,9 +1257,9 @@ export default function Workspace() {
               agent list is the REAL library. The hints state plainly what each
               target does — a team run is a full engine run, and an agent is a
               brief on the companion, not a separate model. */}
-          {target !== 'companion' && (
+          {effectiveTarget !== 'companion' && (
             <div className="chat__targetbar">
-              {target === 'propose' ? (
+              {effectiveTarget === 'propose' ? (
                 <>
                   <span className="chat__targethint">
                     you get a PROPOSAL to review under &ldquo;Needs you&rdquo; — nothing is added to
@@ -1259,7 +1272,7 @@ export default function Workspace() {
                     </span>
                   )}
                 </>
-              ) : target === 'team' ? (
+              ) : effectiveTarget === 'team' ? (
                 <>
                   <span className="chat__targethint">
                     your manager staffs the team — who really worked shows in the run, seat by
@@ -1405,9 +1418,12 @@ export default function Workspace() {
                   <button
                     type="button"
                     role="radio"
-                    aria-checked={target === 'companion'}
-                    className={'chat__routebtn mono' + (target === 'companion' ? ' chat__routebtn--on' : '')}
-                    onClick={() => setTarget('companion')}
+                    aria-checked={effectiveTarget === 'companion'}
+                    className={'chat__routebtn mono' + (effectiveTarget === 'companion' ? ' chat__routebtn--on' : '')}
+                    onClick={() => {
+                      setTarget('companion')
+                      setTeamPicked(false)
+                    }}
                     title={`${primaryName} answers in this chat — the normal path`}
                   >
                     {primaryName}
@@ -1415,9 +1431,12 @@ export default function Workspace() {
                   <button
                     type="button"
                     role="radio"
-                    aria-checked={target === 'team'}
-                    className={'chat__routebtn mono' + (target === 'team' ? ' chat__routebtn--on' : '')}
-                    onClick={() => setTarget('team')}
+                    aria-checked={effectiveTarget === 'team'}
+                    className={'chat__routebtn mono' + (effectiveTarget === 'team' ? ' chat__routebtn--on' : '')}
+                    onClick={() => {
+                      setTarget('team')
+                      setTeamPicked(true)
+                    }}
                     title="A real multi-agent team run — each role on its own model, one engine run, refused honestly if another run holds the engine"
                   >
                     team
@@ -1439,7 +1458,10 @@ export default function Workspace() {
                     aria-checked={target === 'agent'}
                     disabled={libraryAgents.length === 0}
                     className={'chat__routebtn mono' + (target === 'agent' ? ' chat__routebtn--on' : '')}
-                    onClick={() => setTarget('agent')}
+                    onClick={() => {
+                      setTarget('agent')
+                      setTeamPicked(false)
+                    }}
                     title={
                       libraryAgents.length === 0
                         ? 'no enabled agents in your library — add one on the Agents page'
@@ -1453,7 +1475,10 @@ export default function Workspace() {
                     role="radio"
                     aria-checked={target === 'propose'}
                     className={'chat__routebtn mono' + (target === 'propose' ? ' chat__routebtn--on' : '')}
-                    onClick={() => setTarget('propose')}
+                    onClick={() => {
+                      setTarget('propose')
+                      setTeamPicked(false)
+                    }}
                     title="Ask for a NEW agent. You get a proposal on your desk citing this request — nothing is created until you tap Create."
                   >
                     new agent
@@ -1464,7 +1489,10 @@ export default function Workspace() {
                     aria-checked={target === 'staff'}
                     disabled={!canStaff}
                     className={'chat__routebtn mono' + (target === 'staff' ? ' chat__routebtn--on' : '')}
-                    onClick={() => setTarget('staff')}
+                    onClick={() => {
+                      setTarget('staff')
+                      setTeamPicked(false)
+                    }}
                     title={
                       !staffProject
                         ? 'open a project first — a roster is staffed against ONE project'

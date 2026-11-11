@@ -159,3 +159,62 @@ describe('staffing a project from the composer', () => {
     expect(staff).toHaveAttribute('title', expect.stringContaining('open a project first'))
   })
 })
+
+// The owner, 2026-11-11: "Even on a hello or go or any small message, it
+// utilizes all three AIs. … Primary AI should do that." The team is the default
+// lane; a small message now goes to the manager alone, and the line says so
+// before the send. Picking the team by hand still wins.
+describe('a small message is not a team run', () => {
+  it('a greeting on the default lane goes to the manager, not the team', () => {
+    renderWorkspace()
+    sendDraft('hello')
+    expect(h.sendTeam).not.toHaveBeenCalled()
+    expect(h.send).toHaveBeenCalledTimes(1)
+    expect(h.send.mock.calls[0][0]).toBe('hello')
+  })
+
+  it('"go" is answered by the manager too', () => {
+    renderWorkspace()
+    sendDraft('go')
+    expect(h.sendTeam).not.toHaveBeenCalled()
+    expect(h.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('says who answers and why before the send, and stops claiming the team takes it', () => {
+    renderWorkspace()
+    expect(screen.getByText(/your team takes this/)).toBeInTheDocument()
+    type('hello')
+    expect(screen.getByLabelText('Who takes this, and why').textContent).toMatch(/a greeting, not a job/)
+    expect(screen.queryByText(/your team takes this/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/your manager staffs the team/)).not.toBeInTheDocument()
+  })
+
+  it('a real task on the default lane is still the team', () => {
+    renderWorkspace()
+    sendDraft('plan the SOC 2 compliance dashboard')
+    expect(h.sendTeam).toHaveBeenCalledTimes(1)
+    expect(h.send).not.toHaveBeenCalled()
+  })
+
+  it('picking the team by hand sends even a greeting to the team', () => {
+    renderWorkspace()
+    type('hello')
+    openComposerControls()
+    fireEvent.click(screen.getByRole('radio', { name: /^team$/i }))
+    expect(screen.getByText(/your team takes this/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    expect(h.sendTeam).toHaveBeenCalledTimes(1)
+    expect(h.send).not.toHaveBeenCalled()
+  })
+
+  it('the hand pick lasts one message: the next greeting goes back to the manager', () => {
+    renderWorkspace()
+    type('hello')
+    openComposerControls()
+    fireEvent.click(screen.getByRole('radio', { name: /^team$/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    sendDraft('thanks')
+    expect(h.sendTeam).toHaveBeenCalledTimes(1)
+    expect(h.send).toHaveBeenCalledTimes(1)
+  })
+})
