@@ -187,6 +187,29 @@ class TestLightRAGIndexesAndRetrieves(unittest.TestCase):
             self.assertGreaterEqual(h.score, 0.0)
         be.close()
 
+    # 2026-11-11, found on a real vault: LightRAG keys a document by its FILE
+    # NAME, so every second README.md / log.md / heartbeat.md was dropped as a
+    # "batch_duplicate" — eight of 81 notes never reached the graph. Each note
+    # is now handed over under a name made from its whole path.
+    def test_two_notes_with_the_same_file_name_are_both_indexed(self):
+        import json
+
+        vault = tempfile.mkdtemp()
+        for folder, word in (("alpha", "zorblat"), ("beta", "quixel")):
+            os.makedirs(os.path.join(vault, "projects", folder))
+            with open(os.path.join(vault, "projects", folder, "README.md"), "w", encoding="utf-8") as fh:
+                fh.write(f"# {folder}\n\nThe {word} plan for {folder}.\n")
+        be = self._backend(_offline_spy_gateway()).index_vault(vault)
+        with open(os.path.join(self._wd, "kv_store_doc_status.json"), encoding="utf-8") as fh:
+            status = json.load(fh)
+        failed = [k for k, v in status.items() if v.get("status") == "failed"]
+        self.assertEqual(failed, [], "a note was dropped as a duplicate of another")
+        self.assertEqual(len(status), 2)
+        # A reference to either one maps back to ITS OWN vault path.
+        self.assertEqual(be._docid_by_name[lightrag_backend.flat_name("projects/alpha/README.md")], "projects/alpha/README.md")
+        self.assertEqual(be._docid_by_name[lightrag_backend.flat_name("projects/beta/README.md")], "projects/beta/README.md")
+        be.close()
+
     def test_all_calls_route_through_the_gateway_no_direct_network(self):
         gw = _offline_spy_gateway()
         be = self._backend(gw).index_vault(self.vault)

@@ -83,6 +83,18 @@ def default_working_dir(env: Optional[Dict[str, str]] = None) -> str:
 LOCAL_ONLY_REASON = "vault text for the graph index -> kept local (no egress)"
 
 
+def flat_name(doc_id: str) -> str:
+    """The name a note is handed to LightRAG under: its WHOLE vault path, made
+    into one file name.
+
+    LightRAG keys a document by its file name alone, so every second
+    ``README.md`` (or ``log.md``, or two managers' ``heartbeat.md``) was dropped
+    as a "batch_duplicate" — found on a real vault, where eight of 81 notes
+    never reached the graph. A path is unique; its last segment is not.
+    """
+    return str(doc_id).replace("\\", "/").strip("/").replace("/", "__")
+
+
 # A RUN NEVER BUILDS THE GRAPH (2026-11-11). Building it reads every note
 # through the local model — minutes of work — so it is its own explicit step
 # (`build_index`), and it leaves a marker. A run only ATTACHES to a graph whose
@@ -521,6 +533,7 @@ class LightRAGBackend:
         for d in docs:
             self._docid_by_name[d.doc_id] = d.doc_id
             self._docid_by_name.setdefault(os.path.basename(d.doc_id), d.doc_id)
+            self._docid_by_name[flat_name(d.doc_id)] = d.doc_id
 
         async def _go() -> None:
             self._rag = await self._build()
@@ -547,6 +560,7 @@ class LightRAGBackend:
         for d in docs:
             self._docid_by_name[d.doc_id] = d.doc_id
             self._docid_by_name.setdefault(os.path.basename(d.doc_id), d.doc_id)
+            self._docid_by_name[flat_name(d.doc_id)] = d.doc_id
 
         async def _go() -> None:
             self._rag = await self._build()
@@ -557,8 +571,11 @@ class LightRAGBackend:
                 for d in docs
             ]
             ids = [d.doc_id for d in docs]
-            # file_paths == doc_ids so retrieved context maps straight back.
-            await self._rag.ainsert(contents, ids=ids, file_paths=ids)
+            # Each note goes in under its whole path as ONE file name
+            # (`flat_name`), and `_docid_by_name` maps that name straight back.
+            await self._rag.ainsert(
+                contents, ids=ids, file_paths=[flat_name(i) for i in ids]
+            )
 
         self._run(_go())
         self._indexed = True

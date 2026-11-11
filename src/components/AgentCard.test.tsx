@@ -12,7 +12,7 @@
 // mocked `readSpansTail` exactly as the engine writes them, and the card is
 // read out of the rendered Work page. A literal is never constructed.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -79,7 +79,17 @@ async function mounted() {
 // unchanged — so nothing here is dropped: every claim these tests protected is
 // re-asserted against the surface that now carries it.
 const liveCard = (): HTMLElement | null => document.querySelector('.lrun__card')
-const board = (): HTMLElement | null => document.querySelector('.crew')
+// The compact board lives in the CHAT view. Since 2026-11-11 a live team run
+// opens on the Stage (the run drawn to be watched), which draws the seats
+// itself; these tests are about the board, so they look at the Chat view.
+function showChatView() {
+  const tab = screen.queryByRole('button', { name: 'Chat' })
+  if (tab && tab.getAttribute('aria-pressed') !== 'true') fireEvent.click(tab)
+}
+const board = (): HTMLElement | null => {
+  showChatView()
+  return document.querySelector('.crew')
+}
 
 describe('Live agent surface — real runs only', () => {
   beforeEach(() => {

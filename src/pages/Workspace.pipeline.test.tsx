@@ -9,7 +9,7 @@
 //   rule 6  with 2+ runs in flight `currentRunSpans` returns [], so no crew of
 //           one run can ever appear under another.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Workspace from './Workspace'
 import { SettingsProvider } from '../lib/settings'
@@ -62,7 +62,17 @@ function renderWorkspace() {
 /** Queries scoped to the board — the live cards and the engine console name the
  *  same agents/models elsewhere on the page, and those are not what is under
  *  test here. */
-const board = () => within(document.querySelector('.crew') as HTMLElement)
+// The compact board lives in the CHAT view. Since 2026-11-11 a live team run
+// opens on the Stage (the run drawn to be watched), which draws the seats
+// itself; these tests are about the board, so they look at the Chat view.
+function showChatView() {
+  const tab = screen.queryByRole('button', { name: 'Chat' })
+  if (tab && tab.getAttribute('aria-pressed') !== 'true') fireEvent.click(tab)
+}
+const board = () => {
+  showChatView()
+  return within(document.querySelector('.crew') as HTMLElement)
+}
 
 async function mounted() {
   const view = renderWorkspace()
@@ -139,7 +149,7 @@ describe('Work page — the v2 board', () => {
     })
 
     // The crew cluster: one seat per agent that really has a model_call span.
-    expect(document.querySelectorAll('.crew__cluster .crew__mono')).toHaveLength(4)
+    expect((showChatView(), document).querySelectorAll('.crew__cluster .crew__mono')).toHaveLength(4)
     // The columns are the rounds the ENGINE reported, not phases we named.
     expect(board().getByText('Round 1')).toBeInTheDocument()
     expect(board().getByText('Pulling together')).toBeInTheDocument()
@@ -153,7 +163,7 @@ describe('Work page — the v2 board', () => {
     // The per-seat work line left the board with the rows; the dossier and the chat carry it.
     // rule 1 — the three OPEN spans pulse; the closed one does not.
     // Each seat is drawn once (clear-room 2026-11-09 §A3): the live coworkers pulse on their SEATS.
-    expect(document.querySelectorAll('.crew__cluster .crew__mono--pulse')).toHaveLength(3)
+    expect((showChatView(), document).querySelectorAll('.crew__cluster .crew__mono--pulse')).toHaveLength(3)
   })
 
   // rule 1 — the park (the regression fixed in 16182f2, restated for the board).
@@ -168,7 +178,7 @@ describe('Work page — the v2 board', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    expect(document.querySelectorAll('.crew__mono--pulse').length).toBeGreaterThan(0)
+    expect((showChatView(), document).querySelectorAll('.crew__mono--pulse').length).toBeGreaterThan(0)
 
     await act(async () => {
       captured.app!.pauseLiveRun(id, true)
@@ -186,7 +196,7 @@ describe('Work page — the v2 board', () => {
     await act(async () => {
       captured.app!.pauseLiveRun(id, false)
     })
-    expect(document.querySelectorAll('.crew__mono--pulse').length).toBeGreaterThan(0)
+    expect((showChatView(), document).querySelectorAll('.crew__mono--pulse').length).toBeGreaterThan(0)
   })
 
   // rule 6 — two runs in flight.

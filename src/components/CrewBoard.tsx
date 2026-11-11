@@ -101,6 +101,7 @@ export default function CrewBoard({
   runs,
   now: fixedNow,
   renderStageDetail,
+  hideSeats = false,
 }: {
   /** The spans honestly attributable to the current run — `currentRunSpans`,
    *  which is [] whenever 2+ runs are in flight (rule 6, and the reason this
@@ -121,6 +122,14 @@ export default function CrewBoard({
    * is no pipeline to open. Nothing is rendered unless a caller supplies this.
    */
   renderStageDetail?: (stage: PipelineStage) => ReactNode
+  /**
+   * The seats are being drawn elsewhere — by the animated stage (2026-11-11).
+   * The board then keeps everything that is NOT a seat: the count, the "no
+   * span for N s" line, the lock, the pipeline columns and "Your call". Each
+   * fact once: two drawings of the same seats would be the clutter the
+   * clear-room spec removed.
+   */
+  hideSeats?: boolean
 }) {
   // Which step's engine detail is open. Closed by default: the console is now
   // something the user ASKS for, never something the page keeps on screen.
@@ -166,7 +175,7 @@ export default function CrewBoard({
     <section className="crew" aria-label="Who is on this run">
       <div className="crew__head">
         <span className="crew__title">Who&rsquo;s on it</span>
-        {orbs.length > 0 && (
+        {orbs.length > 0 && !hideSeats && (
           <span className="crew__cluster">
             {orbs.map((o, i) => {
               const st = states.get(o.agent)

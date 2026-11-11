@@ -267,6 +267,25 @@ class TestBuildingTheGraphIsItsOwnStep(unittest.TestCase):
         self.assertIn("did not answer", obj["reason"])
         self.assertFalse(lightrag_backend.index_ready(self.workdir))
 
+    # A build that failed leaves the library's own half-written state behind —
+    # stand-in "extractions" it would treat as done and never redo. So a build
+    # always starts from an empty folder, and a failed one leaves an empty folder.
+    def test_a_build_starts_clean_and_a_failed_build_leaves_nothing_behind(self):
+        os.makedirs(self.workdir, exist_ok=True)
+        stale = os.path.join(self.workdir, "kv_store_doc_status.json")
+        with open(stale, "w", encoding="utf-8") as fh:
+            fh.write("{\"old\": true}")
+        code, _obj, _ = self._run(["graph-index", "--vault", self.vault], saw_real=False)
+        self.assertEqual(code, 1)
+        self.assertFalse(os.path.exists(stale), "the failed build left stale state behind")
+        os.makedirs(self.workdir, exist_ok=True)
+        with open(stale, "w", encoding="utf-8") as fh:
+            fh.write("{\"old\": true}")
+        code, _obj, _ = self._run(["graph-index", "--vault", self.vault])
+        self.assertEqual(code, 0)
+        self.assertFalse(os.path.exists(stale), "a build did not start from a clean folder")
+        self.assertTrue(lightrag_backend.index_ready(self.workdir))
+
     def test_no_local_model_is_refused_in_plain_words(self):
         code, obj, _ = self._run(["graph-index", "--vault", self.vault], has_local=False)
         self.assertEqual(code, 1)

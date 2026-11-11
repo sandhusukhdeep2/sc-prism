@@ -3,7 +3,9 @@ import { noticeParts } from '../lib/noticeParts'
 import { useNarrow } from '../lib/useNarrow'
 import { useSchedules } from '../lib/schedules'
 import { useManagers } from '../lib/managers'
-import { agentsInRun } from '../lib/agentDossier'
+import { agentDossier, agentsInRun } from '../lib/agentDossier'
+import RunStage from '../components/RunStage'
+import AgentDossierPanel from '../components/AgentDossierPanel'
 import { Link } from 'react-router-dom'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
 import ConnectivityBanner from '../components/ConnectivityBanner'
@@ -368,6 +370,19 @@ export default function Workspace() {
         ? finishedSpans
         : []
   const narration = narrationLines(liveSpans, 4)
+  // STAGE OR CHAT (2026-11-11). While a team is working the room shows the
+  // run drawn to be watched; when nothing is running the chat is the room. A
+  // pick made by hand holds until the next run starts — a new run takes the
+  // screen again, because that is when there is something to watch.
+  const hasCrew = agentsInRun(boardSpans).length > 0
+  const [viewPick, setViewPick] = useState<'chat' | 'stage' | null>(null)
+  const view: 'chat' | 'stage' = hasCrew ? (viewPick ?? (anyLive ? 'stage' : 'chat')) : 'chat'
+  useEffect(() => {
+    if (anyLive) setViewPick(null)
+  }, [anyLive])
+  // The seat opened from the stage, held by NAME (a crew can grow mid-run).
+  const [stageAgent, setStageAgent] = useState<string | null>(null)
+  const stageDossier = stageAgent ? agentDossier(boardSpans, stageAgent, anyLive) : null
   // (The active project's activity feed used to be piped into the console box
   // when idle. That box is gone — it is a pipeline step's `▸` detail now — and
   // the same real feed already has its own home in the project rail below,
@@ -879,10 +894,14 @@ export default function Workspace() {
                 signal, so a parked run's monogram cannot glow.
                 `renderStageDetail` is the engine console's new home: the `▸` on
                 a column opens THAT step's real spans, and nothing else. */}
-            <CrewBoard
+            {/* Each seat is drawn ONCE: while the Stage tab is up it draws
+                them, and the board keeps the rest — the count, the pipeline
+                columns, and anything parked on you. */}
+            {<CrewBoard
               spans={boardSpans}
               live={anyLive}
               runs={liveRuns}
+              hideSeats={view === 'stage'}
               renderStageDetail={(stage: PipelineStage) => (
                 <EngineConsole
                   label={stage.label}
@@ -891,12 +910,12 @@ export default function Workspace() {
                   vaultPath={settings.vaultPath}
                 />
               )}
-            />
+            />}
             {/* THE CREW STAYS ON SCREEN AFTER THE RUN. Nothing is claimed to be
                 happening — `live` is false above, so no monogram pulses — this
                 simply says who really did the last piece of work, which the
                 page used to forget the moment the run ended. */}
-            {!anyLive && showsLastCrew && (
+            {!anyLive && showsLastCrew && view !== 'stage' && (
               <div className="ws__lastcrew">
                 the last team run · nothing is running now
               </div>
@@ -904,7 +923,32 @@ export default function Workspace() {
           </div>
         <div className="chat">
           <div className="chat__tabs">
-            <span className="chat__tab is-active">Chat</span>
+            {/* THE STAGE (2026-11-11): while a team is working, the room shows
+                the run drawn to be watched; the conversation is one click
+                away. With no crew there is nothing to draw, so there is no
+                tab — the chat is the room. */}
+            {hasCrew ? (
+              <>
+                <button
+                  type="button"
+                  className={'chat__tab chat__tab--btn' + (view === 'stage' ? ' is-active' : '')}
+                  aria-pressed={view === 'stage'}
+                  onClick={() => setViewPick('stage')}
+                >
+                  Stage
+                </button>
+                <button
+                  type="button"
+                  className={'chat__tab chat__tab--btn' + (view === 'chat' ? ' is-active' : '')}
+                  aria-pressed={view === 'chat'}
+                  onClick={() => setViewPick('chat')}
+                >
+                  Chat
+                </button>
+              </>
+            ) : (
+              <span className="chat__tab is-active">Chat</span>
+            )}
             <Link to="/editor" className="chat__tab">Editor</Link>
             <span className="chat__spacer" />
             {activeProject && (
@@ -926,7 +970,24 @@ export default function Workspace() {
             )}
           </div>
 
-          <div className="chat__body" ref={bodyRef}>
+          {view === 'stage' && (
+            <div className="chat__body chat__body--stage">
+              <RunStage spans={boardSpans} live={anyLive} onOpenAgent={setStageAgent} />
+              <div className="chat__stageactions">
+                <button type="button" className="chat__stagelink" onClick={() => setViewPick('chat')}>
+                  Read the conversation
+                </button>
+                <details className="chat__stagesteps">
+                  <summary>Engine steps</summary>
+                  <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
+                </details>
+              </div>
+              {stageDossier && (
+                <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />
+              )}
+            </div>
+          )}
+          <div className="chat__body" ref={bodyRef} hidden={view === 'stage'}>
             {activeMessages(state).length === 0 && !state.running && (
               activeProject && nextSendMode(activeProject) === 'project-interview' ? (
                 <div className="chat__empty">

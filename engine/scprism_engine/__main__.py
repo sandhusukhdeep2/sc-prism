@@ -1621,19 +1621,33 @@ def _cmd_graph_index(args) -> int:
 
     from .bifrost_client import make_gateway
 
+    import shutil
+
+    def _wipe() -> None:
+        # The library keeps its own "already processed" state. Left over from a
+        # failed or older build it would be treated as done and never redone —
+        # so a build always starts from an empty folder, and a failed build
+        # leaves an empty folder.
+        shutil.rmtree(workdir, ignore_errors=True)
+
     started = time.time()
     try:
-        backend = lrb.LightRAGBackend(make_gateway())
+        gateway = make_gateway()
+        lrb.require_local(gateway)  # refuse BEFORE touching the old graph
+        _wipe()
+        backend = lrb.LightRAGBackend(gateway)
         backend.index_docs(notes)
     except lrb.LightRAGLocalOnly as exc:
         _emit({"ok": False, "reason": str(exc)})
         return 1
     except Exception as exc:  # noqa: BLE001 - report it; never a silent half-build
+        _wipe()
         _emit({"ok": False, "reason": f"the graph build stopped: {exc!r}"})
         return 1
     calls = int(getattr(backend.llm, "calls", 0) or 0)
     if not getattr(backend.llm, "saw_real", False):
         # Every model reply was a stand-in: nothing was really extracted.
+        _wipe()
         _emit({
             "ok": False,
             "reason": "the local model did not answer, so nothing was indexed — "
