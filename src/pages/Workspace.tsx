@@ -731,7 +731,7 @@ export default function Workspace() {
           </div>
         </div>
         <div className="ws__spacer" />
-        <div className="ws__kpis mono">
+        <div className="ws__kpis">
           <span className="ws__kpi">{statusChip}</span>
           <Link to="/stats" className="ws__statslink">
             Stats ›

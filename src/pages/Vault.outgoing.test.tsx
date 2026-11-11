@@ -80,4 +80,14 @@ describe('Vault — the open note reads', () => {
     expect(screen.getByText('Responsibility: own the lifecycle.')).toBeInTheDocument()
     expect(screen.queryByText(/--- name: archivist/)).toBeNull()
   })
+
+  it('shows a list value as its items, not as a line of YAML', () => {
+    // A new path: the sim store keeps the earlier test's note in memory.
+    simCreate('aab-listed.md', '---\nname: archivist\nskills: [file-management, archiving]\n---\n\nBody.\n')
+    renderVault()
+    fireEvent.click(screen.getByRole('button', { name: 'aab-listed.md' }))
+    const chips = [...document.querySelectorAll('.md__metachip')].map((c) => c.textContent)
+    expect(chips).toEqual(['file-management', 'archiving'])
+    expect(document.querySelector('.md__meta')!.textContent).not.toContain('[file-management')
+  })
 })

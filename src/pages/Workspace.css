@@ -55,7 +55,7 @@
    Stats owns all six, explains them, and is one click away.) */
 .ws__kpis { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; min-width: 0; }
 .ws__kpi {
-  font-size: 11px; padding: 5px 11px; border-radius: var(--v2-r-pill);
+  font-size: 12px; font-variant-numeric: tabular-nums; padding: 5px 11px; border-radius: var(--v2-r-pill);
   background: var(--v2-card); color: var(--v2-ink-2); white-space: nowrap;
   box-shadow: var(--v2-shadow-soft);
   overflow: hidden; text-overflow: ellipsis; max-width: 100%;

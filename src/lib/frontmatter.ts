@@ -24,3 +24,18 @@ export function splitFrontmatter(md: string): SplitNote {
   const body = lines.slice(close + 1).join('\n').replace(/^\n+/, '')
   return { meta, body }
 }
+
+/**
+ * An inline YAML list value (`[a, b, c]`) as its items, or null when the value
+ * is not one — then it is shown exactly as written. Display-only and shallow,
+ * like the split above: no nesting, no multi-line lists.
+ */
+export function metaList(value: string): string[] | null {
+  const v = value.trim()
+  if (!v.startsWith('[') || !v.endsWith(']')) return null
+  return v
+    .slice(1, -1)
+    .split(',')
+    .map((item) => item.trim().replace(/^(["'])(.*)\1$/, '$2'))
+    .filter((item) => item !== '')
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { splitFrontmatter } from '../lib/frontmatter'
+import { metaList, splitFrontmatter } from '../lib/frontmatter'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useSettings } from '../lib/settings'
@@ -144,7 +144,22 @@ function NoteBody({ content }: { content: string }) {
           {note.meta.map(([k, v]) => (
             <div key={k} className="md__metarow">
               <dt className="md__metakey mono">{k}</dt>
-              <dd className="md__metaval">{v}</dd>
+              <dd className="md__metaval">
+                {(() => {
+                  const items = metaList(v)
+                  if (!items) return v
+                  if (items.length === 0) return <span className="md__metanone">none</span>
+                  return (
+                    <span className="md__metachips">
+                      {items.map((item) => (
+                        <span key={item} className="md__metachip">
+                          {item}
+                        </span>
+                      ))}
+                    </span>
+                  )
+                })()}
+              </dd>
             </div>
           ))}
         </dl>
