@@ -9,7 +9,6 @@ import VerdictCard, { toVerdictView } from '../components/VerdictCard'
 import ConnectivityBanner from '../components/ConnectivityBanner'
 import Desk, { useDeskState } from '../components/Desk'
 import ErrorMessageCard from '../components/ErrorMessageCard'
-import LiveActivity from '../components/LiveActivity'
 import RunStream from '../components/RunStream'
 import ChatRunStream from '../components/ChatRunStream'
 import UserBubble from '../components/UserBubble'
@@ -1536,7 +1535,11 @@ export default function Workspace() {
                 <div className="ws__railname">{activeProject.name || '(untitled)'}</div>
                 <StatusChip status={activeProject.status} />
               </div>
-              {activeProject.goal && <div className="ws__railgoal">{activeProject.goal}</div>}
+              {activeProject.goal && (
+                <div className="ws__railgoal" title={activeProject.goal}>
+                  {activeProject.goal}
+                </div>
+              )}
               {/* NO TEAM ORBS HERE (2026-08-30 — Sukhdeep, comparing his two
                   screenshots: "the information you show on the sidebar is kind
                   of similar to Who's on it — remove that and utilize the
@@ -1546,7 +1549,6 @@ export default function Workspace() {
                   smaller. The rail now spends that space on what the stage
                   does NOT show: the plan's step-by-step progress below. */}
               <ProjectContextPanel project={activeProject} />
-              <LiveActivity project={activeProject} />
             </>
         </aside>
         )}

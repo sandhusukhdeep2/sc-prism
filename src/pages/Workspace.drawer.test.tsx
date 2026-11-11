@@ -85,15 +85,15 @@ describe('the Details drawer reads', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => localStorage.clear())
 
-  it('sets the description and the team line in body type, not monospace', async () => {
+  it('sets the description and the sections’ sentences in body type, not monospace', async () => {
     seed()
     renderWorkspace()
     const goal = await screen.findByText(/A one-file demo: hello\.md greeting the crew/)
     expect(goal.className).not.toMatch(/\bmono\b/)
-    const team = await screen.findByText(/Default team/)
-    expect(team.className).not.toMatch(/\bmono\b/)
-    // Every explanatory sentence in the drawer is a sentence, not code.
-    for (const re of [/No project-specific agents/, /the enabled system agents run this build/, /standing build\/test loops for this project/]) {
+    fireEvent.click(await screen.findByRole('button', { name: /^Team/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Loops/ }))
+    // Every explanatory sentence in the sidebar is a sentence, not code.
+    for (const re of [/Default team/, /the enabled system agents run this build/, /standing build\/test loops for this project/]) {
       expect((await screen.findByText(re)).className, String(re)).not.toMatch(/\bmono\b/)
     }
   })
@@ -159,5 +159,50 @@ describe('the drawer and the window width', () => {
     expect(document.querySelector('.ws__side--project')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /details ▸/ }))
     expect(document.querySelector('.ws__side--project')).not.toBeNull()
+  })
+})
+
+
+// THE SIDEBAR IS ONE-LINE SECTIONS (2026-11-11 — "sidebar is totally
+// cluttered"). Each block folds to a line with a summary read from the
+// stores; what needs the user stays visible above them; the folder path is
+// itself the reveal action; and the duplicate Team block is gone.
+describe('the sidebar folds to one-line sections', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('Team and Loops start folded with a summary, and open on a click', async () => {
+    seed()
+    renderWorkspace()
+    const team = await screen.findByRole('button', { name: /^Team/ })
+    const loops = screen.getByRole('button', { name: /^Loops/ })
+    expect(team).toHaveAttribute('aria-expanded', 'false')
+    expect(loops).toHaveAttribute('aria-expanded', 'false')
+    expect(loops.textContent).toMatch(/none|loop/)
+    // Folded means not there: nothing of the section's body is rendered.
+    expect(screen.queryByText(/standing build\/test loops for this project/)).toBeNull()
+    fireEvent.click(loops)
+    expect(loops).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(/standing build\/test loops for this project/)).toBeInTheDocument()
+  })
+
+  it('the Plan is folded once the project is done, and Last result stays open', async () => {
+    seed() // status: done
+    renderWorkspace()
+    const plan = await screen.findByRole('button', { name: /^Plan/ })
+    expect(plan).toHaveAttribute('aria-expanded', 'false')
+    expect(plan.textContent).toMatch(/1 step · done/)
+    expect(screen.getByRole('button', { name: /^Last result/ })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('the folder path is the one reveal action, and no second Team block follows', async () => {
+    const p = seed()
+    renderWorkspace()
+    const reveals = await screen.findAllByRole('button', { name: /reveal folder/i })
+    expect(reveals).toHaveLength(1)
+    expect(reveals[0].textContent).toContain('/tmp/drawer-target')
+    fireEvent.click(reveals[0])
+    expect(document.querySelector('.liveact')).toBeNull()
+    expect(p.id).toBeTruthy()
   })
 })

@@ -158,7 +158,8 @@ describe('the room Files panel', () => {
   it('lists real files with sizes and reveals one on click', async () => {
     seedProject('planned')
     renderWorkspace()
-    fireEvent.click(await screen.findByRole('button', { name: /Files · 1 ▸/ }))
+    // The Files line is one of the sidebar's folded sections (2026-11-11).
+    fireEvent.click(await screen.findByRole('button', { name: /^Files\s*1 file/ }))
     const row = await screen.findByTitle('open in the Editor')
     expect(row.textContent).toMatch(/1\.2 KB|1229 B/i)
     // 2026-08-31: the row routes into the project-aware EDITOR; ↗ reveals.

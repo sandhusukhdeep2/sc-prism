@@ -546,7 +546,11 @@
 .ws__raildelyes { color: var(--danger-warm); border-color: rgba(206, 105, 105,0.4); }
 .ws__raildelyes:hover { background: rgba(206, 105, 105,0.1); }
 .ws__raildelno:hover { background: rgba(128,128,128,0.12); }
-.ws__railgoal { font-size: 13px; line-height: 1.5; color: var(--ink-2); margin-top: 2px; }
+.ws__railgoal {
+  font-size: 13px; line-height: 1.5; color: var(--ink-2); margin-top: 2px;
+  /* Three lines, then the full text on hover: the sidebar opens calm. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
 
 /* ── engine console ─────────────────────────────────────────────
    No longer a permanent box under the chat: this is the expandable `▸` detail

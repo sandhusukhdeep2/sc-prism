@@ -4,6 +4,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import './Projects.css'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
 import ProjectRunStage from '../components/ProjectRunStage'
+import DrawerSection from '../components/DrawerSection'
+import { filesSummary, loopsSummary, planSummary, teamSummary, verdictsSummary } from '../lib/drawerSummary'
 import { useApp, isUsableProjectDir, latestNotice } from '../store/AppStore'
 import { agentActivity, agentsForProject, useAgents } from '../lib/agents'
 import { expandUserPath, listProjectFiles, pickFolder, revealPath, type ProjectFileMeta } from '../lib/nativeEngine'
@@ -227,17 +229,14 @@ function LastResult({ note }: { note: string }) {
   const [open, setOpen] = useState(false)
   const long = note.split('\n').length > 5 || note.length > 360
   return (
-    <section className={'proj__lastresult' + (long && !open ? ' is-clamped' : '')} aria-label="Last result">
-      <div className="proj__sectionhead">
-        <span className="proj__sectionkicker">Last result</span>
-      </div>
+    <div className={'proj__lastresult' + (long && !open ? ' is-clamped' : '')}>
       <div className="proj__lastresult__body">{renderChatMarkdown(note)}</div>
       {long && (
         <button type="button" className="proj__lastresult__more" onClick={() => setOpen((v) => !v)}>
           {open ? 'show less' : 'show all'}
         </button>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -279,20 +278,13 @@ function ProjectAgentsPanel({ project, verdicts }: { project: Project; verdicts:
   const assigned = agentsForProject(agents, project.id)
   const runningProjectId = project.status === 'running' ? project.id : undefined
 
+  // Inside the sidebar's Team section (2026-11-11): the section's own line
+  // says whose team it is, so there is no kicker here and no sentence for the
+  // empty case — the roster line below already says "Default team".
+  if (assigned.length === 0) return null
   return (
     <div className="proj__agents">
-      <div className="proj__sectionhead">
-        <span className="proj__sectionkicker">Agents</span>
-        <Link to="/agents" className="proj__agentslink">
-          manage on the Agents page →
-        </Link>
-      </div>
-      {assigned.length === 0 ? (
-        <div className="proj__agentsempty">
-          No project-specific agents — this build uses the default system team.
-        </div>
-      ) : (
-        <div className="proj__agentlist">
+      <div className="proj__agentlist">
           {assigned.map((a) => {
             const activity = agentActivity(a, verdicts, runningProjectId)
             return (
@@ -316,8 +308,7 @@ function ProjectAgentsPanel({ project, verdicts }: { project: Project; verdicts:
               </div>
             )
           })}
-        </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -447,11 +438,8 @@ export function ProjectLoops({ project }: { project: Project }) {
 
   return (
     <div className="proj__loops">
-      <div className="proj__sectionhead">
-        <span className="proj__sectionkicker">Loops</span>
-        <span className="proj__sectionhint">
-          standing build/test loops for this project — off until you add one
-        </span>
+      <div className="proj__sectionhint">
+        standing build/test loops for this project — off until you add one
       </div>
       <div className="proj__loopbtns">
         <button type="button" className="proj__loopbtn" onClick={addBuildLoop}>
@@ -520,7 +508,6 @@ function FilesPanel({ project }: { project: Project }) {
   const navigate = useNavigate()
   const [files, setFiles] = useState<ProjectFileMeta[]>([])
   const [dir, setDir] = useState('')
-  const [openList, setOpenList] = useState(false)
   const liveCount = state.liveRuns.length
   useEffect(() => {
     let cancelled = false
@@ -540,22 +527,10 @@ function FilesPanel({ project }: { project: Project }) {
   const shown = files.slice(0, 100)
   const fmt = (n: number) => (n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`)
   const fileCount = files.filter((f) => !f.dir).length
-  // Sprint E (2026-08-31, 'the sidebar shows way more than needed'): the list
-  // folds behind its count; one click opens it.
-  if (!openList) {
-    return (
-      <div className="proj__files">
-        <button type="button" className="proj__fileshead proj__fileshead--btn mono" onClick={() => setOpenList(true)}>
-          Files · {fileCount} ▸
-        </button>
-      </div>
-    )
-  }
+  // One of the sidebar's folded lines (2026-11-11): "Files · N files", open on
+  // demand — the same section every other block uses.
   return (
-    <div className="proj__files">
-      <button type="button" className="proj__fileshead proj__fileshead--btn mono" onClick={() => setOpenList(false)}>
-        Files · {fileCount} ▾
-      </button>
+    <DrawerSection title="Files" summary={filesSummary(fileCount)}>
       {shown.map((f) =>
         f.dir ? (
           <div key={f.path} className="proj__filerow proj__filerow--dir mono">
@@ -585,9 +560,9 @@ function FilesPanel({ project }: { project: Project }) {
         ),
       )}
       {files.length > shown.length && (
-        <div className="proj__filerow proj__filerow--dir mono">… {files.length - shown.length} more — Reveal folder for all</div>
+        <div className="proj__filerow proj__filerow--dir mono">… {files.length - shown.length} more — reveal the folder for all</div>
       )}
-    </div>
+    </DrawerSection>
   )
 }
 
@@ -642,23 +617,46 @@ export function ProjectContextPanel({ project }: { project: Project }) {
     if (isUsableProjectDir(dir)) void revealPath(dir)
   }
 
+  // THE SIDEBAR'S ONE-LINERS (2026-11-11): what each folded section says
+  // about itself, from the same resolution the build applies.
+  const assignedCount = agentsForProject(agents, project.id).length
+  const team = teamSummary({
+    assigned: assignedCount,
+    override: (project.roster ?? '').trim(),
+    seats: (proposedTeam.roster ?? '').split(',').filter((x) => x.trim()).length,
+    sitOut: proposedTeam.sitOut.length + proposedStaffing.unstaffed.length,
+    refused: proposalRefused,
+  })
+  useSchedules()
+  const loops = projectSchedules(project.id)
+
   return (
     <>
-      <div className="proj__viewmeta mono">
-        <span>{project.path}</span>
-        {project.verifyCommand && <span>verify: {project.verifyCommand}</span>}
+      {/* THE FOLDER IS THE REVEAL ACTION — one row, not a path and a button. */}
+      <div className="proj__viewmeta">
+        {Boolean(project.path) && (
+          <button
+            type="button"
+            className="proj__pathbtn mono"
+            aria-label="Reveal folder"
+            title="Reveal this folder in the Finder"
+            onClick={() => void revealProjectFolder()}
+          >
+            <span className="proj__pathtext">{project.path}</span>
+            <span className="proj__patharrow" aria-hidden="true">
+              ↗
+            </span>
+          </button>
+        )}
+        {project.verifyCommand && <span className="mono">verify: {project.verifyCommand}</span>}
         {project.runBranch && (
-          <span>
+          <span className="mono">
             {project.baseBranch || '(unknown)'} → {project.runBranch}
           </span>
         )}
       </div>
 
-      <FilesPanel project={project} />
-      <ProjectAgentsPanel project={project} verdicts={state.verdicts} />
-      <TeamRosterControl project={project} />
-      <ProjectLoops project={project} />
-
+      {/* WHAT NEEDS YOU — never folded: merge, start, approve, resume, answer. */}
       {mergeReadiness(project) === 'ready' && (
         <button
           type="button"
@@ -668,32 +666,8 @@ export function ProjectContextPanel({ project }: { project: Project }) {
           Merge {project.runBranch} into {project.baseBranch || '(unknown)'} →
         </button>
       )}
-
-      {/* Plan + run — the numbered build plan, Start build, and (once B5 lands)
-          the cinematic run stage. */}
       {project.plan.length > 0 && (
-        <section className="proj__plan">
-          <div className="proj__sectionhead">
-            <span className="proj__sectionkicker">Plan</span>
-            {project.brief && <span className="proj__sectionhint">{project.brief}</span>}
-          </div>
-          <ol className="proj__steps">
-            {project.plan.map((step, i) => {
-              const st: 'done' | 'current' | 'todo' =
-                project.status === 'done' || i < project.stepIndex
-                  ? 'done'
-                  : i === project.stepIndex && project.status !== 'planned'
-                    ? 'current'
-                    : 'todo'
-              return (
-                <li key={i} className={`proj__step proj__step--${st}`}>
-                  <span className="proj__stepnum mono">{i + 1}</span>
-                  <span className="proj__steplabel">{step}</span>
-                </li>
-              )
-            })}
-          </ol>
-
+        <div className="proj__actions">
           {/* MV5: only the INITIAL start is gated by approvalMode. Auto mode
               keeps today's behavior (Start build → runProject directly).
               Approve mode (default) proposes the real resolved team first;
@@ -767,12 +741,6 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               ⏳ running — step {Math.min(project.stepIndex + 1, project.plan.length)} of {project.plan.length}
             </div>
           )}
-          {Boolean(project.path) && (
-            <button type="button" className="proj__quietbtn" onClick={() => void revealProjectFolder()}>
-              Reveal folder
-            </button>
-          )}
-
           {project.status === 'awaiting' && (
             <div className="proj__askbanner">
               <div className="proj__askbannertext">
@@ -789,26 +757,62 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               </div>
             </div>
           )}
-
-          {project.lastNote && project.status !== 'awaiting' && <LastResult note={project.lastNote} />}
-
           <ProjectRunStage project={project} />
-
-          {projectVerdicts.length > 0 && (
-            <div className="proj__verdicts">
-              <div className="proj__sectionkicker">Verdicts</div>
-              <div className="proj__verdictlist">
-                {projectVerdicts.map((v) => (
-                  <VerdictCard key={v.taskId} v={toVerdictView(v)} />
-                ))}
-              </div>
-            </div>
-          )}
-
-        </section>
+        </div>
       )}
+
+      {/* THE FACTS — one line each, open on demand. */}
+      <div className="proj__sections">
+        {project.plan.length > 0 && (
+          <DrawerSection title="Plan" summary={planSummary(project)} defaultOpen={project.status !== 'done'}>
+            {project.brief && <div className="proj__sectionhint">{project.brief}</div>}
+            <ol className="proj__steps">
+              {project.plan.map((step, i) => {
+                const st: 'done' | 'current' | 'todo' =
+                  project.status === 'done' || i < project.stepIndex
+                    ? 'done'
+                    : i === project.stepIndex && project.status !== 'planned'
+                      ? 'current'
+                      : 'todo'
+                return (
+                  <li key={i} className={`proj__step proj__step--${st}`}>
+                    <span className="proj__stepnum mono">{i + 1}</span>
+                    <span className="proj__steplabel">{step}</span>
+                  </li>
+                )
+              })}
+            </ol>
+          </DrawerSection>
+        )}
+        {project.lastNote && project.status !== 'awaiting' && (
+          <DrawerSection title="Last result" defaultOpen>
+            <LastResult note={project.lastNote} />
+          </DrawerSection>
+        )}
+        <DrawerSection title="Team" summary={team.text} warn={team.warn}>
+          <ProjectAgentsPanel project={project} verdicts={state.verdicts} />
+          <TeamRosterControl project={project} />
+          <Link to="/agents" className="proj__agentslink">
+            manage on the Agents page →
+          </Link>
+        </DrawerSection>
+        <FilesPanel project={project} />
+        <DrawerSection title="Loops" summary={loopsSummary(loops)}>
+          <ProjectLoops project={project} />
+        </DrawerSection>
+        {projectVerdicts.length > 0 && (
+          <DrawerSection title="Verdicts" summary={verdictsSummary(projectVerdicts.length)}>
+            <div className="proj__verdictlist">
+              {projectVerdicts.map((v) => (
+                <VerdictCard key={v.taskId} v={toVerdictView(v)} />
+              ))}
+            </div>
+          </DrawerSection>
+        )}
+      </div>
+
       {/* The one delete, small, at the very end — whatever the project's
-          state, and never beside Reveal. */}
+          state. */}
       <DeleteProjectControl projectId={project.id} />
     </>
   )

@@ -187,7 +187,7 @@ describe('primary surfaces drive their fill from tokens, not raw light literals'
     'src/components/AgentCard.css',
     'src/pages/Memory.css',
     'src/components/Desk.css',
-    'src/components/LiveActivity.css',
+    'src/components/DrawerSection.css',
     'src/pages/Stats.css',
     'src/pages/Console.css',
   ]

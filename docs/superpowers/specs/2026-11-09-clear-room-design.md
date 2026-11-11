@@ -108,3 +108,29 @@ blocks scroll inside their own container.
 
 Each slice ends with two screenshots from the installed app (wide and
 narrow) and a line in the ledger saying what was seen.
+
+## Addendum — the sidebar folds (2026-11-11)
+
+Sukhdeep, looking at the Details drawer after slices 1–5: *"Sidebar is totally
+cluttered. It's not working good. It's not looks good."* Readable type was not
+enough: the drawer still showed every block at full height — description,
+path, files, agents, a team paragraph, an override link, a hint, loops with
+three buttons and a row, the plan, a reveal button, the last result, verdicts.
+
+The sidebar is now three zones:
+
+1. **The folder.** Name, status, description (three lines, full text on
+   hover), and the path — which is itself the reveal action.
+2. **What needs you**, never folded: merge, Start build / Approve, Resume,
+   the running note, a waiting question, the run stage.
+3. **The facts**, one line each, open on demand (`DrawerSection`): Plan (open
+   until the project is done), Last result (open), Team, Files, Loops,
+   Verdicts. Each line carries a summary read from the stores
+   (`lib/drawerSummary.ts`): *default team · 5 seats*, *1 loop · off*,
+   *1 step · done*. A folded line never hides a problem: a seat that sits out
+   or a team nobody can staff shows in the Team line itself, in coral.
+
+Folded means not rendered. The second "Team" block at the bottom of the
+drawer (five rows repeating one model-wide number) is removed; the roster
+line inside Team is the one statement of who will run. Delete stays last and
+small.

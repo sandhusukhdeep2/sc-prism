@@ -243,3 +243,25 @@
 .proj__lastresult__body { font-size: 13px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
 .proj__lastresult.is-clamped .proj__lastresult__body { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; }
 .proj__lastresult__more { font: inherit; font-size: 12px; color: var(--v2-blue-ink); background: none; border: 0; padding: 0; cursor: pointer; align-self: flex-start; text-decoration: underline; text-underline-offset: 2px; }
+
+/* THE SIDEBAR, UNCLUTTERED (2026-11-11). Top: the folder (its path IS the
+   reveal action). Then what needs the user, never folded. Then the facts,
+   one line each (DrawerSection). Last: one small delete. */
+.proj__viewmeta { margin-top: 0; gap: 6px 14px; align-items: baseline; }
+.proj__pathbtn {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%;
+  font-size: 11.5px; color: var(--v2-muted); background: none; border: 0; padding: 2px 0;
+  cursor: pointer; text-align: left;
+}
+.proj__pathtext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj__patharrow { flex: 0 0 auto; color: var(--v2-blue-ink); }
+.proj__pathbtn:hover .proj__pathtext { color: var(--v2-ink); text-decoration: underline; text-underline-offset: 2px; }
+.proj__pathbtn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; border-radius: 6px; }
+.proj__actions { display: flex; flex-direction: column; gap: 10px; }
+.proj__actions:empty { display: none; }
+.proj__sections { display: flex; flex-direction: column; }
+.proj__sections .proj__agents,
+.proj__sections .proj__team,
+.proj__sections .proj__loops { margin-top: 0; padding-top: 0; border-top: 0; }
+.proj__sections .proj__verdictlist { display: flex; flex-direction: column; gap: 10px; }
+.proj__sections .proj__agentslink { align-self: flex-start; }

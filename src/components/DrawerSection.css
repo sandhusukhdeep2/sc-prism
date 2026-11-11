@@ -1,0 +1,26 @@
+/* The sidebar's folded sections: hairline-separated rows, one line each. */
+.dsec { border-bottom: 1px solid var(--v2-line); }
+.dsec:first-child { border-top: 1px solid var(--v2-line); }
+.dsec__head {
+  width: 100%; display: flex; align-items: baseline; gap: 10px;
+  padding: 11px 2px; background: none; border: 0; cursor: pointer;
+  font: inherit; color: var(--v2-ink); text-align: left; border-radius: 8px;
+}
+.dsec__head:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.dsec__title { flex: 0 0 auto; font-size: 13px; font-weight: 600; }
+.dsec__summary {
+  flex: 1 1 auto; min-width: 0; text-align: right; font-size: 12px; color: var(--v2-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dsec__summary.is-warn { color: var(--v2-coral-ink); font-weight: 600; }
+.dsec__chev {
+  flex: 0 0 auto; align-self: center; font-size: 15px; line-height: 1; color: var(--v2-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.dsec.is-open > .dsec__head .dsec__chev { transform: rotate(90deg); }
+.dsec__head:hover .dsec__title { text-decoration: underline; text-underline-offset: 3px; }
+.dsec__body {
+  display: flex; flex-direction: column; gap: 10px; padding: 0 2px 14px; min-width: 0;
+  animation: dsecIn var(--dur) var(--ease-out) both;
+}
+@keyframes dsecIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
