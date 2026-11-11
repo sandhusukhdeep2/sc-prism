@@ -10,6 +10,8 @@ import {
   type EngineSpan,
   type OkfReport,
 } from '../lib/nativeEngine'
+import { okfGroups, whereLine, type OkfGroup } from '../lib/okfReport'
+import DrawerSection from '../components/DrawerSection'
 import { heroSaves, localShare, pendingHero } from '../lib/engineStats'
 import { staleNote, useLiveDashboard } from '../lib/liveDashboard'
 import { useSpanTail } from '../lib/engineConsole'
@@ -27,6 +29,52 @@ export function okfStatus(loading: boolean, errored: boolean, report: OkfReport 
   if (errored) return 'error'
   if (!report) return 'checking'
   return report.ok ? 'ok' : 'issues'
+}
+
+// A path the validator reported is a note in the vault unless it is the vault
+// folder itself (not-a-directory / empty-bundle report the folder's own path).
+function isVaultNote(path: string): boolean {
+  return path.endsWith('.md') && !path.startsWith('/')
+}
+
+function OkfGroupRow({ group, level }: { group: OkfGroup; level: 'err' | 'warn' }) {
+  return (
+    <DrawerSection title={group.title} summary={whereLine(group)} className={`okf__group okf__group--${level}`}>
+      <ul className="okf__files">
+        {group.items.map((it, n) => (
+          <li key={n} className="okf__file">
+            {isVaultNote(it.path) ? (
+              <Link className="okf__path mono" to={`/library?tab=vault&file=${encodeURIComponent(it.path)}`}>
+                {it.path}
+              </Link>
+            ) : (
+              <span className="okf__path mono">{it.path}</span>
+            )}
+            {group.showReasons && it.message && <span className="okf__reason">{it.message}</span>}
+          </li>
+        ))}
+      </ul>
+    </DrawerSection>
+  )
+}
+
+// What the validator found, said once per cause (2026-11-11): a count, the
+// cause as a sentence, and where the files sit. The files themselves stay
+// folded until a cause is opened; each one opens in the Vault.
+export function OkfIssues({ report }: { report: OkfReport }) {
+  const errors = useMemo(() => okfGroups(report.issues), [report])
+  const warnings = useMemo(() => okfGroups(report.warnings), [report])
+  if (errors.length + warnings.length === 0) return null
+  return (
+    <div className="okf__groups">
+      {errors.map((g) => (
+        <OkfGroupRow key={`e-${g.code}`} group={g} level="err" />
+      ))}
+      {warnings.map((g) => (
+        <OkfGroupRow key={`w-${g.code}`} group={g} level="warn" />
+      ))}
+    </div>
+  )
 }
 
 // OKF (Open Knowledge Format) health of the vault — the knowledge layer the
@@ -91,34 +139,24 @@ function OkfCard() {
         </div>
       </div>
       {status === 'error' ? (
-        <div className="okf__errnote mono">
+        <div className="okf__errnote">
           couldn&apos;t validate the vault — the engine returned no readable report. Re-check to try
           again.
         </div>
       ) : (
-      <div className="okf__stats mono">
-        <span>{report?.doc_count ?? 0} concepts</span>
-        <span className={errs ? 'okf__err' : ''}>{errs} errors</span>
-        <span className={warns ? 'okf__warn' : ''}>{warns} warnings (broken links)</span>
+      <div className="okf__stats">
+        <span>{report?.doc_count ?? 0} notes checked</span>
+        <span className={errs ? 'okf__err' : ''}>
+          {errs} error{errs === 1 ? '' : 's'}
+        </span>
+        <span className={warns ? 'okf__warn' : ''}>
+          {warns} warning{warns === 1 ? '' : 's'}
+        </span>
       </div>
       )}
-      {report && (errs > 0 || warns > 0) && (
-        <div className="okf__list">
-          {report.issues.slice(0, 4).map((i, n) => (
-            <div key={`e${n}`} className="okf__item okf__item--err mono">
-              ✕ {i.path}
-              {i.message ? `: ${i.message}` : ' — the validator returned no detail for this file'}
-            </div>
-          ))}
-          {report.warnings.slice(0, 4).map((w, n) => (
-            <div key={`w${n}`} className="okf__item okf__item--warn mono">
-              ⚠ {w.path}: {w.message}
-            </div>
-          ))}
-        </div>
-      )}
+      {report && status !== 'error' && <OkfIssues report={report} />}
       {report?.ok && errs === 0 && warns === 0 && (
-        <div className="okf__clean mono">
+        <div className="okf__clean">
           every concept has frontmatter + a body, links resolve, history is dated — your vault is
           clean, retrievable knowledge.
         </div>
@@ -410,7 +448,7 @@ export default function Memory() {
               </>
             ) : (
               <>
-                <div className="mem-share__tokens mono">
+                <div className="mem-share__empty">
                   {share.loading
                     ? 'reading the engine…'
                     : 'no model call measured yet — nothing to divide'}
@@ -456,10 +494,10 @@ export default function Memory() {
               </div>
               <div className="mem-saves__num">{hero.pending ? '—' : hero.saves}</div>
               <div className="mem-saves__sub">failures blocked before eval tokens</div>
-              <div className="mem-saves__note mono">{hero.note}</div>
+              <div className="mem-saves__note">{hero.note}</div>
               {/* Runs the gate could not RUN are not saves — said out loud. */}
               {hero.unverifiedNote && (
-                <div className="mem-saves__note mono">{hero.unverifiedNote}</div>
+                <div className="mem-saves__note">{hero.unverifiedNote}</div>
               )}
             </div>
 

@@ -10,6 +10,7 @@ export default function DrawerSection({
   summary,
   warn = false,
   defaultOpen = false,
+  className = '',
   children,
 }: {
   title: string
@@ -18,6 +19,8 @@ export default function DrawerSection({
   /** The summary reports a problem (a seat sits out, nobody can be staffed). */
   warn?: boolean
   defaultOpen?: boolean
+  /** Extra class for a page that tones its rows (the vault card's error dot). */
+  className?: string
   children: ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -28,7 +31,7 @@ export default function DrawerSection({
   }, [defaultOpen])
   const bodyId = useId()
   return (
-    <section className={'dsec' + (open ? ' is-open' : '')}>
+    <section className={'dsec' + (open ? ' is-open' : '') + (className ? ` ${className}` : '')}>
       <button
         type="button"
         className="dsec__head"

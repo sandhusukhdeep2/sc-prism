@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { splitFrontmatter } from '../lib/frontmatter'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useSettings } from '../lib/settings'
 import {
   deleteVaultFile,
@@ -278,6 +278,7 @@ export default function Vault() {
   const native = isNative()
   const { settings } = useSettings()
   const simStore = useVault() // browser fallback only
+  const [searchParams] = useSearchParams()
 
   const [vaultDir, setVaultDir] = useState('')
   const [paths, setPaths] = useState<string[]>([])
@@ -317,6 +318,17 @@ export default function Vault() {
   useEffect(() => {
     if (!selected && paths.length > 0) setSelected(paths[0])
   }, [paths, selected])
+
+  // A link can name one note (`?file=<path in the vault>`): the Memory card's
+  // list of notes to fix opens each one here. Applied once per named file, so
+  // a later click in the tree is never pulled back to it.
+  const wanted = searchParams.get('file') ?? ''
+  const appliedWanted = useRef('')
+  useEffect(() => {
+    if (!wanted || appliedWanted.current === wanted || !paths.includes(wanted)) return
+    appliedWanted.current = wanted
+    setSelected(wanted)
+  }, [wanted, paths])
 
   // ---- load the selected file + its REAL backlinks ----
   useEffect(() => {

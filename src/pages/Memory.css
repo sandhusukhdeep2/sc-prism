@@ -60,6 +60,7 @@
 .mem-share__seg--local { background: var(--v2-local); }
 .mem-share__seg--cloud { background: var(--v2-blue); }
 .mem-share__tokens { font-size: 10.5px; color: var(--muted-2); margin-top: 8px; }
+.mem-share__empty { font-size: 12px; color: var(--muted-2); margin-top: 8px; }
 .mem-share__caption { font-size: 12px; color: var(--ink-3); margin-top: auto; padding-top: 12px; line-height: 1.55; }
 .mem-share__caption b { color: var(--eval-ink); }
 .mem-legend { display: flex; gap: 14px; margin-top: 8px; font-size: 10.5px; color: var(--muted); font-family: var(--font-mono); }
@@ -80,7 +81,7 @@
 .mem-saves__kicker { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--on-dark-muted); font-weight: 600; }
 .mem-saves__num { font-size: 52px; font-weight: 300; color: var(--on-dark); font-family: var(--font-mono); margin-top: 10px; line-height: 1; }
 .mem-saves__sub { font-size: 11.5px; color: var(--on-dark-muted); margin-top: 8px; }
-.mem-saves__note { font-size: 10.5px; color: var(--on-dark-muted); margin-top: 6px; line-height: 1.5; }
+.mem-saves__note { font-size: 11.5px; color: var(--on-dark-muted); margin-top: 6px; line-height: 1.5; }
 
 .mem-cost {
   flex: 1; border-radius: var(--r-card); background: var(--card-solid); padding: 20px 22px;
@@ -134,18 +135,38 @@
 .okf__badge--checking { background: var(--hair); color: var(--muted); }
 /* P8: a failed validation is a distinct, visible error state (not a stuck spinner). */
 .okf__badge--error { background: rgba(206, 105, 105, 0.14); color: var(--danger-ink); }
-.okf__errnote { margin-top: 10px; font-size: 11.5px; color: var(--danger-ink); line-height: 1.55; }
+.okf__errnote { margin-top: 10px; font-size: 12px; color: var(--danger-ink); line-height: 1.55; }
 .okf__recheck {
   border: 1px solid var(--track); border-radius: var(--v2-r-chip); background: none;
   padding: 5px 12px; font: inherit; font-size: 11.5px; color: var(--muted); cursor: pointer;
 }
 .okf__recheck:hover { color: var(--ink); }
 .okf__recheck:disabled { opacity: 0.5; cursor: default; }
-.okf__stats { display: flex; gap: 18px; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+.okf__stats { display: flex; gap: 18px; margin-top: 10px; font-size: 12px; color: var(--muted); }
 .okf__err { color: var(--danger-ink); }
 .okf__warn { color: var(--warn-ink-2); }
-.okf__list { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
-.okf__item { font-size: 11px; line-height: 1.5; }
-.okf__item--err { color: var(--danger-ink); }
-.okf__item--warn { color: var(--warn-ink-2); }
-.okf__clean { margin-top: 10px; font-size: 11.5px; color: var(--muted-2); line-height: 1.55; }
+/* What the validator found, one row per cause (2026-11-11). The row is the
+   shared fold (DrawerSection): the cause as a sentence, where its files sit,
+   and the files themselves only once it is opened. An error carries a filled
+   dot and a warning a ring, so the two differ by form and not by colour. */
+.okf__stats { font-variant-numeric: tabular-nums; flex-wrap: wrap; row-gap: 4px; }
+.okf__groups { margin-top: 12px; }
+.okf__group .dsec__head { flex-wrap: wrap; row-gap: 2px; }
+.okf__group .dsec__title { flex: 0 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
+.okf__group .dsec__title::before {
+  content: ''; display: inline-block; box-sizing: border-box; width: 8px; height: 8px;
+  margin-right: 9px; border-radius: 50%; vertical-align: 1px;
+}
+.okf__group--err .dsec__title::before { background: var(--v2-coral); }
+.okf__group--warn .dsec__title::before { border: 2px solid var(--v2-coral); }
+.okf__group .dsec__summary { font-variant-numeric: tabular-nums; }
+.okf__files {
+  list-style: none; margin: 0; padding: 0 0 0 17px; display: flex; flex-direction: column; gap: 4px;
+  max-height: 232px; overflow-y: auto;
+}
+.okf__file { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; row-gap: 1px; min-width: 0; }
+.okf__path { font-size: 11.5px; color: var(--v2-ink-2); overflow-wrap: anywhere; text-decoration: none; }
+a.okf__path:hover { color: var(--v2-ink); text-decoration: underline; text-underline-offset: 3px; }
+a.okf__path:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; border-radius: 4px; }
+.okf__reason { font-size: 12px; color: var(--v2-muted); overflow-wrap: anywhere; }
+.okf__clean { margin-top: 10px; font-size: 12px; color: var(--muted-2); line-height: 1.55; }

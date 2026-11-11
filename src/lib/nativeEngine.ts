@@ -10,6 +10,7 @@
 // transparently fall back to the in-browser simulation.
 
 import { invoke } from '@tauri-apps/api/core'
+import { normalizeOkfReport, type OkfReport } from './okfReport'
 import { appDataDir, homeDir, join } from '@tauri-apps/api/path'
 import type {
   Dashboard,
@@ -853,22 +854,16 @@ export async function runNativeExport(vault: string): Promise<string | null> {
   }
 }
 
-/** OKF v0.1 validation report for the vault. */
-export interface OkfReport {
-  ok: boolean
-  issues: { path: string; code: string; message: string }[]
-  warnings: { path: string; code: string; message: string }[]
-  doc_count: number
-}
+/** OKF v0.1 validation report for the vault (shape and reader: lib/okfReport). */
+export type { OkfReport } from './okfReport'
 
 /** Validate the vault against the OKF contract (native engine). */
 export async function runNativeOkf(vault: string): Promise<OkfReport | null> {
   if (!isNative()) return null
   try {
     const json = await invoke<string>('run_engine_okf', { vault })
-    const r = JSON.parse(json) as OkfReport
-    if (typeof r?.ok !== 'boolean') return null
-    return r
+    // The engine names each reason `detail`; the reader maps it to `message`.
+    return normalizeOkfReport(JSON.parse(json))
   } catch {
     return null
   }
