@@ -65,6 +65,40 @@ from .retrieval import (
 _ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_WORKING_DIR = os.path.join(_ENGINE_DIR, ".lightrag")
 
+
+def default_working_dir(env: Optional[Dict[str, str]] = None) -> str:
+    """Where the graph index is kept. In an installed app ``engine/`` is inside
+    the read-only bundle, so the app names a writable folder (``extdata``);
+    in a checkout it is ``engine/.lightrag`` as before."""
+    from .extdata import ENGINE_DIR, ext_data_dir
+
+    base = ext_data_dir(env)
+    return os.path.join(base, ".lightrag" if base == ENGINE_DIR else "lightrag")
+
+
+# THE GRAPH INDEX NEVER LEAVES THIS MAC (2026-11-11). LightRAG reads every note
+# to extract entities and relations. That text is vault content, so its model
+# calls obey the vault's egress floor: the LOCAL route, or nothing. They used
+# to follow the gateway's normal routing — the cloud primary on most installs.
+LOCAL_ONLY_REASON = "vault text for the graph index -> kept local (no egress)"
+
+
+class LightRAGLocalOnly(RuntimeError):
+    """There is no local model, so the graph index cannot be built or queried:
+    vault text is never sent to a cloud model to build it."""
+
+
+def require_local(gateway: Any) -> Any:
+    """The LOCAL route for a graph-index model call, or ``LightRAGLocalOnly``."""
+    local_route_for = getattr(gateway, "local_route_for", None)
+    decision = local_route_for(LOCAL_ONLY_REASON) if callable(local_route_for) else None
+    if decision is None:
+        raise LightRAGLocalOnly(
+            "no local model is connected — the graph index reads your notes, "
+            "and note text is never sent to a cloud model to build it"
+        )
+    return decision
+
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 # ascii_colors (LightRAG's logger) — keep it quiet by default.
 os.environ.setdefault("LOG_LEVEL", os.environ.get("LIGHTRAG_LOG_LEVEL", "ERROR"))
@@ -250,7 +284,8 @@ class GatewayLLM:
                 messages.append({"role": m["role"], "content": str(m["content"])})
         messages.append({"role": "user", "content": str(prompt)})
 
-        decision = self.gateway.route(str(prompt))  # gateway is authoritative
+        # LOCAL, always (see LOCAL_ONLY_REASON): the prompt carries note text.
+        decision = require_local(self.gateway)
         res = self.gateway.model_call(messages, decision)
         self.calls += 1
         self.tokens_in += int(getattr(res, "tokens_in", 0))
@@ -372,8 +407,11 @@ class LightRAGBackend:
                 "LightRAGBackend requires a gateway — LLM/embedding calls must "
                 "route through it (core invariant)."
             )
+        # No local model -> no graph index at all (LightRAGLocalOnly), decided
+        # here so nothing is created or read first.
+        require_local(gateway)
         self.gateway = gateway
-        self.working_dir = working_dir or _DEFAULT_WORKING_DIR
+        self.working_dir = working_dir or default_working_dir(env)
         self.embedding_dim = int(embedding_dim)
         self.llm = GatewayLLM(gateway)
         self.embedding = GatewayEmbedding(gateway, dim=self.embedding_dim)

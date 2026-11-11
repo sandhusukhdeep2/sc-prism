@@ -198,3 +198,38 @@ describe('the no-judge flag rides the manager’s run', () => {
     expect(sent()?.noJudge).toBe(false)
   })
 })
+
+// 2026-11-11: the screen switches reach the bridge on every kind of run.
+describe('the screen switches ride a launch', () => {
+  beforeEach(() => {
+    goNative()
+    invokeMock.mockReset()
+    invokeMock.mockImplementation(async () => {
+      throw new Error('stop after capture')
+    })
+  })
+  afterEach(() => {
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+  })
+  const sent = (cmd: string): Record<string, unknown> | undefined =>
+    invokeMock.mock.calls.find((c) => c[0] === cmd)?.[1] as Record<string, unknown> | undefined
+  const on = { localVision: true, screenToCloud: true } as never
+
+  it('on the manager’s run, a team run and a project step', async () => {
+    const { runNativeTask, runNativeTeam, runNativeProject } = await import('./nativeEngine')
+    await runNativeTask('task', '/vault', on)
+    await runNativeTeam('task', '/vault', on, 'lead:local')
+    await runNativeProject('task', '/proj', '/vault', on)
+    for (const cmd of ['run_engine_task', 'run_engine_team', 'run_engine_project']) {
+      expect(sent(cmd)?.localVision, cmd).toBe(true)
+      expect(sent(cmd)?.screenToCloud, cmd).toBe(true)
+    }
+  })
+
+  it('are off for a caller that sets neither', async () => {
+    const { runNativeTask } = await import('./nativeEngine')
+    await runNativeTask('task', '/vault', {} as never)
+    expect(sent('run_engine_task')?.localVision).toBe(false)
+    expect(sent('run_engine_task')?.screenToCloud).toBe(false)
+  })
+})

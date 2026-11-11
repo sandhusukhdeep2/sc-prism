@@ -66,12 +66,34 @@ code, not from the docs:
 | Terminal | works behind its grant: bounded, kills the process group | — |
 | Skills | work: matched skills are disclosed into the prompt; usage is counted | — |
 | Team seats | real: each seat runs on its own model with its own grants | the composer's single-`agent` target is a brief on the primary, not a runner |
-| Computer control | five tools exist (screenshot, open app, click, type, key) behind a strict opt-in | **the screenshot comes back as a file path and no model is shown the image**, so a seat acts blind; needs a see → act loop on a vision route, and the OS permissions are the owner's to grant |
+| Computer control | five tools behind a strict opt-in; since 2026-11-11 the screenshot is SHOWN to the model (resampled to screen points, so a click lands where it is seen) and obeys the vault's egress floor — it keeps the run local, is withheld when there is no local model, and reaches a cloud model only behind the owner's explicit switch. Settings has the three switches | a live proof: needs the owner's Screen Recording + Accessibility grants and a local model that can see |
 | Browser control | **absent** — the web tools fetch and search; nothing drives a page (navigate, click, fill) | a governed browser tool source |
 | Plugins (MCP servers) | registered in Settings; since 2026-11-11 the registered names ride the manager's run and team runs (`settings.mcpServers` → `--mcp-server`) and lift the capability ceiling to `tools` | project runs (the engine's `project` command takes no `--mcp-server`); a live proof with a registered server |
 
 Order of work: (1) plugins reach real runs — done for the manager's run and
-team runs; (2) computer use that can see — screenshot as an image block on a
-vision route, one action per turn, every action through the approval gate;
+team runs; (2) computer use that can see — built, not yet proven live;
 (3) a browser tool source; (4) a per-agent runner for the composer's `agent`
 target. Each needs a real run in the installed app as its proof.
+
+## The optional libraries ship with the app (2026-11-11)
+
+The owner: *"use or install or include these libraries in the package, because
+these are the main functionality of the application."* All three read "not
+installed here" in the installed app.
+
+- **Prism Gateway (the Go daemon)** had been in the bundle all along; the
+  availability check only looked at a developer checkout.
+- **LightRAG and DeepEval** are installed together, at pinned versions, into
+  one environment built with the app's own portable Python
+  (`scripts/build-extensions.sh` → `engine/.venv-ext`), and `prep-bundle.sh`
+  stages its site-packages at `resources/ext/site-packages`. The bridge adds
+  that folder to the engine's import path for a run that switches one on, so
+  both can be on at once.
+- Their data (LightRAG's graph index, DeepEval's cache) lives in
+  `<vault>/.scprism/ext` (`SCPRISM_EXT_DATA`) — the engine folder is inside the
+  signed bundle in an installed app.
+- **LightRAG reads note text, so its model calls are local only.** They used
+  to follow the gateway's normal routing (the cloud primary on most installs).
+  With no local model the graph index is not built and the built-in recall
+  answers. A real run now gets the graph retriever when the switch is on; the
+  first such run indexes every note on the local model.

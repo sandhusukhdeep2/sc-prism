@@ -52,9 +52,19 @@ os.environ.setdefault("DEEPEVAL_UPDATE_WARNING_OPT_IN", "NO")
 # ``.deepeval`` folder in CWD — which would land outside engine/**). Read at
 # import of deepeval.constants, so this MUST precede the import below.
 _ENGINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.environ.setdefault(
-    "DEEPEVAL_CACHE_FOLDER", os.path.join(_ENGINE_DIR, ".deepeval")
-)
+
+
+def deepeval_cache_dir(env: Optional[Dict[str, str]] = None) -> str:
+    """Where DeepEval's cache is kept. In an installed app ``engine/`` is inside
+    the read-only bundle, so the app names a writable folder (``extdata``); in
+    a checkout it is ``engine/.deepeval`` as before."""
+    from .extdata import ENGINE_DIR, ext_data_dir
+
+    base = ext_data_dir(env)
+    return os.path.join(base, ".deepeval" if base == ENGINE_DIR else "deepeval")
+
+
+os.environ.setdefault("DEEPEVAL_CACHE_FOLDER", deepeval_cache_dir())
 
 try:  # DeepEval lives only in engine/.venv (opt-in); guard so system python is fine.
     from deepeval.models.base_model import DeepEvalBaseLLM

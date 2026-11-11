@@ -69,6 +69,43 @@ else
   echo "WARN: engine/bifrost/bifrostd not built — the packaged app will run without the Bifrost router/cache" >&2
 fi
 
+# --- (d) the optional libraries: LightRAG + DeepEval (2026-11-11) -------------
+# Built by scripts/build-extensions.sh into engine/.venv-ext with the SAME
+# portable Python staged above, so their compiled wheels match the bundled
+# interpreter. Only the site-packages are staged (resources/ext/site-packages);
+# the bridge adds that folder to the engine's import path when an extension is
+# switched on. Missing -> WARN, and the app honestly reports them unavailable.
+EXT_SITE_SRC="$PROJECT_ROOT/engine/.venv-ext/lib/python3.12/site-packages"
+RES_EXT="$RES_DIR/ext/site-packages"
+if [ -d "$EXT_SITE_SRC/lightrag" ] && [ -d "$EXT_SITE_SRC/deepeval" ]; then
+  echo "==> Staging optional libraries (engine/.venv-ext -> resources/ext/site-packages) ..."
+  mkdir -p "$RES_EXT"
+  ditto "$EXT_SITE_SRC" "$RES_EXT"
+  # Not needed at run time: the installer itself, and every bytecode cache
+  # (a .pyc records the absolute path it was compiled from).
+  rm -rf "$RES_EXT"/pip "$RES_EXT"/pip-*.dist-info "$RES_EXT"/setuptools "$RES_EXT"/setuptools-*.dist-info \
+         "$RES_EXT"/_distutils_hack "$RES_EXT"/distutils-precedence.pth "$RES_EXT"/pkg_resources
+  find "$RES_EXT" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+  find "$RES_EXT" -name '*.pyc' -delete 2>/dev/null || true
+  # The build machine's home must not ride along in any staged text file.
+  if grep -rIl -- "$HOME" "$RES_EXT" >/dev/null 2>&1; then
+    echo "ERROR: staged optional libraries mention the build machine's home folder:" >&2
+    grep -rIl -- "$HOME" "$RES_EXT" | head -5 >&2
+    exit 1
+  fi
+  echo "==> Smoke test: staged python imports the staged optional libraries ..."
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$RES_ENGINE:$RES_EXT" "$RES_PYTHON/bin/python3" -B -c "
+from scprism_engine import lightrag_backend, deepeval_backend
+assert lightrag_backend.lightrag_available(), lightrag_backend.runnable_error()
+assert deepeval_backend.deepeval_available()
+print('   staged LightRAG + DeepEval import OK')
+"
+  find "$RES_DIR" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+  find "$RES_DIR" -name '*.pyc' -delete 2>/dev/null || true
+else
+  echo "WARN: engine/.venv-ext not built (scripts/build-extensions.sh) — the packaged app will run without LightRAG and DeepEval" >&2
+fi
+
 # --- smoke: the staged interpreter can import the staged engine (no repo on path) ---
 # -B / PYTHONDONTWRITEBYTECODE: this import used to run AFTER the bytecode strip
 # above and silently undo it — importing the engine compiles it and every stdlib

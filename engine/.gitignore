@@ -11,3 +11,5 @@
 
 # LightRAG's on-disk index/cache dir, pinned here via _DEFAULT_WORKING_DIR.
 .lightrag/
+# LightRAG + DeepEval for the packaged app (scripts/build-extensions.sh)
+.venv-ext/

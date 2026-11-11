@@ -677,6 +677,10 @@ export function buildEngineProviders(
   // Registered plugin (MCP) servers reach the run (2026-11-11): the cached
   // names become `--mcp-server`. None registered -> '' -> no flag.
   providers.mcpServers = mcpServersArg(settings.mcpServers ?? [])
+  // Who may be shown the screen (2026-11-11). The cloud switch means nothing
+  // without computer control itself, so it is never forwarded alone.
+  providers.localVision = settings.localVision === true
+  providers.screenToCloud = settings.computerControl === true && settings.screenToCloud === true
   providers.searchApiKey = settings.searchApiKey
   providers.searchEndpoint = settings.searchEndpoint
   // Tool posture + mid-run blocking approval (companion grants): 'ask' rides

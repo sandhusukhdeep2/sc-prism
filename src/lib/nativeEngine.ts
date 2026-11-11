@@ -725,6 +725,11 @@ export interface EngineProviders {
    */
   userCapabilities?: string
   agentCapabilities?: string
+  /** A local model that can see images (→ SCPRISM_LOCAL_VISION). */
+  localVision?: boolean
+  /** The owner's switch: a cloud model may be shown a screenshot
+   *  (→ SCPRISM_SCREEN_TO_CLOUD). Off keeps a screenshot local. */
+  screenToCloud?: boolean
   /** Registered plugin (MCP) server names as a comma list (→ `--mcp-server`).
    *  ''/absent → the bridge passes no flag and the run is byte-identical. */
   mcpServers?: string
@@ -1901,6 +1906,8 @@ export async function runNativeTask(
       flagBifrost: providers?.flagBifrost ?? false,
       // Web research (opt-in): the Rust bridge only threads `--web` when true.
       web: providers?.webResearch ?? false,
+      localVision: providers?.localVision ?? false,
+      screenToCloud: providers?.screenToCloud ?? false,
       // Tool posture + mid-run blocking approval (companion grant).
       approval: providers?.mcpApproval === 'ask' ? 'all' : undefined,
       approvalBlocking: providers?.approvalBlocking ?? false,
@@ -2035,6 +2042,8 @@ export async function runNativeProject(
       flagBifrost: providers.flagBifrost ?? false,
       // Web research (opt-in): the Rust bridge only threads `--web` when true.
       web: providers.webResearch ?? false,
+      localVision: providers.localVision ?? false,
+      screenToCloud: providers.screenToCloud ?? false,
       searchApiKey: providers.searchApiKey ?? '',
       searchEndpoint: providers.searchEndpoint ?? '',
       userCapabilities: providers.userCapabilities ?? '',
@@ -2262,6 +2271,8 @@ export async function runNativeTeam(
       flagBifrost: providers.flagBifrost ?? false,
       // Web research (opt-in): the Rust bridge only threads `--web` when true.
       web: providers.webResearch ?? false,
+      localVision: providers.localVision ?? false,
+      screenToCloud: providers.screenToCloud ?? false,
       // Tool posture + mid-run blocking approval (companion grant).
       approval: providers.mcpApproval === 'ask' ? 'all' : undefined,
       approvalBlocking: providers.approvalBlocking ?? false,

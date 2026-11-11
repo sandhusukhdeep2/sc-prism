@@ -164,9 +164,14 @@ class RetrievalAgent:
         if not _lrb.lightrag_selected(self.backend) or not _lrb.lightrag_available():
             return None
         if self._lightrag_be is None:
-            self._lightrag_be = _lrb.LightRAGBackend.from_index(
-                self.gateway, self.index
-            )
+            try:
+                self._lightrag_be = _lrb.LightRAGBackend.from_index(
+                    self.gateway, self.index
+                )
+            except _lrb.LightRAGLocalOnly:
+                # No local model: the graph index is never built from a cloud
+                # model. The built-in cascade answers instead.
+                return None
         return self._lightrag_be
 
     # -- cache hit-rate (mirrors the gateway's cache-warmth view) ----------

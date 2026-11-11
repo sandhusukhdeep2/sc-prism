@@ -86,3 +86,24 @@ describe('buildEngineProviders — registered plugin servers', () => {
     expect(providers.mcpServers).toBe('files')
   })
 })
+
+// 2026-11-11: who may be shown the screen. Both ride the provider bundle to the
+// bridge, which turns them into SCPRISM_LOCAL_VISION / SCPRISM_SCREEN_TO_CLOUD.
+describe('buildEngineProviders — the screen switches', () => {
+  it('are off unless the setting is on', () => {
+    const { providers } = buildEngineProviders(makeSettings({}))
+    expect(providers.localVision ?? false).toBe(false)
+    expect(providers.screenToCloud ?? false).toBe(false)
+  })
+  it('forward each setting as it is', () => {
+    const { providers } = buildEngineProviders(makeSettings({ localVision: true, screenToCloud: false }))
+    expect(providers.localVision).toBe(true)
+    expect(providers.screenToCloud).toBe(false)
+  })
+  it('never forward the cloud switch when computer control itself is off', () => {
+    const { providers } = buildEngineProviders(
+      makeSettings({ screenToCloud: true, computerControl: false }),
+    )
+    expect(providers.screenToCloud).toBe(false)
+  })
+})

@@ -139,6 +139,9 @@ struct EngineRuntime {
     python: Option<PathBuf>,
     /// Directory containing the `scprism_engine` package.
     engine_dir: PathBuf,
+    /// The packaged optional libraries (LightRAG + DeepEval), added to the
+    /// engine's import path for a run that switched one on. `None` otherwise.
+    ext_site: Option<PathBuf>,
 }
 
 fn has_pkg(p: &PathBuf) -> bool {
@@ -175,7 +178,7 @@ fn resolve_engine_runtime(app: &tauri::AppHandle) -> Option<EngineRuntime> {
         if let Some(parent) = manifest.parent() {
             let p = parent.join("engine");
             if has_pkg(&p) {
-                return Some(EngineRuntime { python: None, engine_dir: p });
+                return Some(EngineRuntime { python: None, engine_dir: p, ext_site: None });
             }
         }
     }
@@ -187,7 +190,7 @@ fn resolve_engine_runtime(app: &tauri::AppHandle) -> Option<EngineRuntime> {
             let python = bundled_python(&res_dir.join("resources").join("python"));
             // Bundled engine present: use it, with the bundled python when it is
             // also present (falls back to ambient python3 only if missing).
-            return Some(EngineRuntime { python, engine_dir });
+            return Some(EngineRuntime { python, engine_dir, ext_site: None });
         }
     }
 
@@ -195,7 +198,7 @@ fn resolve_engine_runtime(app: &tauri::AppHandle) -> Option<EngineRuntime> {
     if let Ok(dir) = std::env::var("SCPRISM_ENGINE_DIR") {
         let p = PathBuf::from(dir);
         if has_pkg(&p) {
-            return Some(EngineRuntime { python: None, engine_dir: p });
+            return Some(EngineRuntime { python: None, engine_dir: p, ext_site: None });
         }
     }
 
@@ -211,7 +214,7 @@ fn resolve_engine_runtime(app: &tauri::AppHandle) -> Option<EngineRuntime> {
         if let Some(parent) = manifest.parent() {
             let p = parent.join("engine");
             if has_pkg(&p) {
-                return Some(EngineRuntime { python: None, engine_dir: p });
+                return Some(EngineRuntime { python: None, engine_dir: p, ext_site: None });
             }
         }
     }
@@ -220,7 +223,7 @@ fn resolve_engine_runtime(app: &tauri::AppHandle) -> Option<EngineRuntime> {
     if let Ok(cwd) = std::env::current_dir() {
         let p = cwd.join("engine");
         if has_pkg(&p) {
-            return Some(EngineRuntime { python: None, engine_dir: p });
+            return Some(EngineRuntime { python: None, engine_dir: p, ext_site: None });
         }
     }
 
@@ -323,10 +326,89 @@ fn engine_command(rt: &EngineRuntime, args: &[&str]) -> Command {
     for a in args {
         cmd.arg(a);
     }
-    cmd.env("PYTHONPATH", &rt.engine_dir)
+    cmd.env("PYTHONPATH", engine_python_path(&rt.engine_dir, rt.ext_site.as_deref()))
         .env("PATH", engine_path_env())
         .current_dir(&rt.engine_dir);
     cmd
+}
+
+/// The engine's import path: its own folder, then the packaged optional
+/// libraries when a run switched one on.
+fn engine_python_path(engine_dir: &std::path::Path, ext_site: Option<&std::path::Path>) -> std::ffi::OsString {
+    let mut path = engine_dir.as_os_str().to_os_string();
+    if let Some(site) = ext_site {
+        path.push(":");
+        path.push(site.as_os_str());
+    }
+    path
+}
+
+/// The packaged optional libraries beside a BUNDLED engine
+/// (`resources/ext/site-packages` next to `resources/engine`), if staged.
+fn bundled_ext_site(engine_dir: &std::path::Path) -> Option<PathBuf> {
+    let site = engine_dir.parent()?.join("ext").join("site-packages");
+    if site.is_dir() { Some(site) } else { None }
+}
+
+/// Which optional extensions exist beside this engine folder. In a packaged
+/// app that is the bundle: the Go daemon staged in `engine/bifrost`, and the
+/// LightRAG + DeepEval libraries staged in `ext/site-packages`.
+fn bundled_extensions(engine_dir: &std::path::Path) -> (bool, bool, bool) {
+    let site = bundled_ext_site(engine_dir);
+    let has = |name: &str| site.as_ref().is_some_and(|s| s.join(name).is_dir());
+    (
+        has("deepeval"),
+        has("lightrag"),
+        engine_dir.join("bifrost").join("bifrostd").is_file(),
+    )
+}
+
+/// Run the engine with an optional library switched on (2026-11-11).
+/// PACKAGED: both libraries live in one folder on the bundled interpreter, so
+/// that folder joins the import path and both can be on at once. DEV: the
+/// per-extension virtualenvs, as before (LightRAG wins if both are asked for).
+fn apply_extension_runtime(rt: &mut EngineRuntime, want_rag: bool, want_eval: bool) {
+    if !(want_rag || want_eval) {
+        return;
+    }
+    if let Some(site) = bundled_ext_site(&rt.engine_dir) {
+        rt.ext_site = Some(site);
+        return;
+    }
+    if let Some(dev) = dev_engine_dir() {
+        let rag_py = dev.join(".venv-rag/bin/python3");
+        let eval_py = dev.join(".venv/bin/python3");
+        if want_rag && rag_py.is_file() {
+            rt.python = Some(rag_py);
+        } else if want_eval && eval_py.is_file() {
+            rt.python = Some(eval_py);
+        }
+    }
+}
+
+/// Who may be shown the screen (2026-11-11). Environment only, and only when
+/// on: `SCPRISM_LOCAL_VISION=1` tells the engine the local model can see;
+/// `SCPRISM_SCREEN_TO_CLOUD=1` is the owner's explicit switch that lets a
+/// cloud model be shown a screenshot. Absent, a screenshot keeps a run local.
+fn set_screen_env(cmd: &mut Command, local_vision: Option<bool>, screen_to_cloud: Option<bool>) {
+    if local_vision.unwrap_or(false) {
+        cmd.env("SCPRISM_LOCAL_VISION", "1");
+    }
+    if screen_to_cloud.unwrap_or(false) {
+        cmd.env("SCPRISM_SCREEN_TO_CLOUD", "1");
+    }
+}
+
+/// Where the optional libraries may write (LightRAG's graph index, DeepEval's
+/// cache): a hidden folder in the vault. A packaged engine sits inside the
+/// signed, read-only bundle, so it can never be the engine folder there.
+fn set_ext_data_env(cmd: &mut Command, rt: &EngineRuntime, vault: &str) {
+    if rt.ext_site.is_some() && !vault.trim().is_empty() {
+        cmd.env(
+            "SCPRISM_EXT_DATA",
+            PathBuf::from(vault.trim()).join(".scprism").join("ext"),
+        );
+    }
 }
 
 /// Forward the optional web_search config (web design, 2026-07-23) to the engine
@@ -429,6 +511,9 @@ async fn run_engine_task(
     flag_bifrost: Option<bool>,
     token_budget: u32,
     web: Option<bool>,
+    // Who may be shown the screen (see `set_screen_env`).
+    local_vision: Option<bool>,
+    screen_to_cloud: Option<bool>,
     approval: Option<String>,
     approval_blocking: Option<bool>,
     search_api_key: Option<String>,
@@ -464,17 +549,11 @@ async fn run_engine_task(
     // LightRAG needs the py3.12 .venv-rag, DeepEval the .venv. When a flag is
     // on AND the venv exists, run the engine under that interpreter (LightRAG
     // wins if both — DeepEval then falls back to the built-in judge).
-    if let Some(dev) = dev_engine_dir() {
-        let want_rag = flag_lightrag.unwrap_or(false);
-        let want_eval = flag_deepeval.unwrap_or(false);
-        let rag_py = dev.join(".venv-rag/bin/python3");
-        let eval_py = dev.join(".venv/bin/python3");
-        if want_rag && rag_py.is_file() {
-            rt.python = Some(rag_py);
-        } else if want_eval && eval_py.is_file() {
-            rt.python = Some(eval_py);
-        }
-    }
+    apply_extension_runtime(
+        &mut rt,
+        flag_lightrag.unwrap_or(false),
+        flag_deepeval.unwrap_or(false),
+    );
 
     // The user's OWN verify command becomes the deterministic Tier-1 gate —
     // run in the PROJECT's directory, never the engine's own. See the doc
@@ -612,6 +691,8 @@ async fn run_engine_task(
         args.push(image_path.trim());
     }
     let mut cmd = engine_command(&rt, &args);
+    set_ext_data_env(&mut cmd, &rt, &vault);
+    set_screen_env(&mut cmd, local_vision, screen_to_cloud);
     set_search_env(&mut cmd, &search_api_key, &search_endpoint);
     if flag_deepeval.unwrap_or(false) {
         cmd.env("SCPRISM_DEEPEVAL", "1");
@@ -738,17 +819,11 @@ async fn run_engine_verify(
     // LightRAG needs the py3.12 .venv-rag, DeepEval the .venv. When a flag is
     // on AND the venv exists, run the engine under that interpreter (LightRAG
     // wins if both — DeepEval then falls back to the built-in judge).
-    if let Some(dev) = dev_engine_dir() {
-        let want_rag = flag_lightrag.unwrap_or(false);
-        let want_eval = flag_deepeval.unwrap_or(false);
-        let rag_py = dev.join(".venv-rag/bin/python3");
-        let eval_py = dev.join(".venv/bin/python3");
-        if want_rag && rag_py.is_file() {
-            rt.python = Some(rag_py);
-        } else if want_eval && eval_py.is_file() {
-            rt.python = Some(eval_py);
-        }
-    }
+    apply_extension_runtime(
+        &mut rt,
+        flag_lightrag.unwrap_or(false),
+        flag_deepeval.unwrap_or(false),
+    );
 
     // The project's OWN verify command becomes the deterministic Tier-1
     // gate, run inside `project_dir` via `--tier1-cwd` — the test-loop seam
@@ -763,6 +838,7 @@ async fn run_engine_verify(
     args.push("--tier1-cwd");
     args.push(&project_dir);
     let mut cmd = engine_command(&rt, &args);
+    set_ext_data_env(&mut cmd, &rt, &vault);
     if flag_deepeval.unwrap_or(false) {
         cmd.env("SCPRISM_DEEPEVAL", "1");
     }
@@ -882,6 +958,9 @@ async fn run_engine_project(
     flag_lightrag: Option<bool>,
     flag_bifrost: Option<bool>,
     web: Option<bool>,
+    // Who may be shown the screen (see `set_screen_env`).
+    local_vision: Option<bool>,
+    screen_to_cloud: Option<bool>,
     search_api_key: Option<String>,
     search_endpoint: Option<String>,
     project_context: String,
@@ -912,17 +991,11 @@ async fn run_engine_project(
     // LightRAG needs the py3.12 .venv-rag, DeepEval the .venv. When a flag is
     // on AND the venv exists, run the engine under that interpreter (LightRAG
     // wins if both — DeepEval then falls back to the built-in judge).
-    if let Some(dev) = dev_engine_dir() {
-        let want_rag = flag_lightrag.unwrap_or(false);
-        let want_eval = flag_deepeval.unwrap_or(false);
-        let rag_py = dev.join(".venv-rag/bin/python3");
-        let eval_py = dev.join(".venv/bin/python3");
-        if want_rag && rag_py.is_file() {
-            rt.python = Some(rag_py);
-        } else if want_eval && eval_py.is_file() {
-            rt.python = Some(eval_py);
-        }
-    }
+    apply_extension_runtime(
+        &mut rt,
+        flag_lightrag.unwrap_or(false),
+        flag_deepeval.unwrap_or(false),
+    );
 
     // The user's OWN verify command becomes the deterministic Tier-1 gate.
     // Per-agent CAPABILITIES (Sukh-orchestrates design, 2026-08-15). These
@@ -1040,6 +1113,8 @@ async fn run_engine_project(
         args.push("--web");
     }
     let mut cmd = engine_command(&rt, &args);
+    set_ext_data_env(&mut cmd, &rt, &vault);
+    set_screen_env(&mut cmd, local_vision, screen_to_cloud);
     set_search_env(&mut cmd, &search_api_key, &search_endpoint);
     if flag_deepeval.unwrap_or(false) {
         cmd.env("SCPRISM_DEEPEVAL", "1");
@@ -1239,6 +1314,9 @@ async fn run_engine_team(
     flag_bifrost: Option<bool>,
     token_budget: u32,
     web: Option<bool>,
+    // Who may be shown the screen (see `set_screen_env`).
+    local_vision: Option<bool>,
+    screen_to_cloud: Option<bool>,
     approval: Option<String>,
     approval_blocking: Option<bool>,
     search_api_key: Option<String>,
@@ -1259,17 +1337,11 @@ async fn run_engine_team(
         // Same dev-venv selection as run_engine_task/run_engine_project — a
         // team's Tier-2 judge (evals.evaluate) honors SCPRISM_DEEPEVAL just
         // like a single task's does.
-        if let Some(dev) = dev_engine_dir() {
-            let want_rag = flag_lightrag.unwrap_or(false);
-            let want_eval = flag_deepeval.unwrap_or(false);
-            let rag_py = dev.join(".venv-rag/bin/python3");
-            let eval_py = dev.join(".venv/bin/python3");
-            if want_rag && rag_py.is_file() {
-                rt.python = Some(rag_py);
-            } else if want_eval && eval_py.is_file() {
-                rt.python = Some(eval_py);
-            }
-        }
+        apply_extension_runtime(
+            &mut rt,
+            flag_lightrag.unwrap_or(false),
+            flag_deepeval.unwrap_or(false),
+        );
 
         let rounds_s = rounds.max(1).to_string();
         let token_budget_s = token_budget.to_string();
@@ -1336,6 +1408,8 @@ async fn run_engine_team(
             args.push("300");
         }
         let mut cmd = engine_command(&rt, &args);
+        set_ext_data_env(&mut cmd, &rt, &vault);
+        set_screen_env(&mut cmd, local_vision, screen_to_cloud);
         set_search_env(&mut cmd, &search_api_key, &search_endpoint);
         if flag_deepeval.unwrap_or(false) {
             cmd.env("SCPRISM_DEEPEVAL", "1");
@@ -1528,22 +1602,28 @@ fn dev_engine_dir() -> Option<PathBuf> {
     }
 }
 
-/// Which optional engine extensions are AVAILABLE on this machine (dev
-/// runtimes: per-extension virtualenvs + the compiled bifrostd). The installed
-/// app does not bundle them, so this honestly reports false there.
+/// Which optional engine extensions are AVAILABLE here.
+///
+/// PACKAGED app: what is staged in the bundle — the Go daemon beside the
+/// engine, and the LightRAG + DeepEval libraries in `ext/site-packages`. This
+/// used to look only at a developer checkout, so every installed app said "not
+/// installed here" — including for the daemon, which had been in the bundle
+/// all along. DEV: the per-extension virtualenvs + the compiled daemon.
 #[tauri::command]
-async fn check_extensions() -> serde_json::Value {
-    tauri::async_runtime::spawn_blocking(|| {
-        let Some(dir) = dev_engine_dir() else {
-            return serde_json::json!({
-                "deepeval": false, "lightrag": false, "llm": false, "bifrost": false
-            });
-        };
+async fn check_extensions(app: tauri::AppHandle) -> serde_json::Value {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (mut deepeval, mut lightrag, mut bifrost) = resolve_engine_runtime(&app)
+            .map(|rt| bundled_extensions(&rt.engine_dir))
+            .unwrap_or((false, false, false));
+        let mut llm = false;
+        if let Some(dir) = dev_engine_dir() {
+            deepeval = deepeval || dir.join(".venv/bin/python3").is_file();
+            lightrag = lightrag || dir.join(".venv-rag/bin/python3").is_file();
+            llm = dir.join(".venv-llm/bin/python3").is_file();
+            bifrost = bifrost || dir.join("bifrost/bifrostd").is_file();
+        }
         serde_json::json!({
-            "deepeval": dir.join(".venv/bin/python3").is_file(),
-            "lightrag": dir.join(".venv-rag/bin/python3").is_file(),
-            "llm": dir.join(".venv-llm/bin/python3").is_file(),
-            "bifrost": dir.join("bifrost/bifrostd").is_file(),
+            "deepeval": deepeval, "lightrag": lightrag, "llm": llm, "bifrost": bifrost
         })
     })
     .await
@@ -3413,6 +3493,90 @@ fn mcp_server_arg(raw: Option<&str>) -> Option<String> {
 /// conversation. A task is always judged.
 fn wants_no_judge(mode: &str, no_judge: Option<bool>) -> bool {
     mode == "converse" && no_judge.unwrap_or(false)
+}
+
+#[cfg(test)]
+mod extension_runtime_tests {
+    use super::*;
+
+    fn tmp(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "scprism-ext-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A packaged layout: resources/{engine,ext/site-packages}.
+    fn bundle(with_ext: bool, with_daemon: bool) -> (PathBuf, PathBuf) {
+        let root = tmp("bundle");
+        let engine = root.join("engine");
+        std::fs::create_dir_all(engine.join("scprism_engine")).unwrap();
+        if with_daemon {
+            std::fs::create_dir_all(engine.join("bifrost")).unwrap();
+            std::fs::write(engine.join("bifrost").join("bifrostd"), b"x").unwrap();
+        }
+        if with_ext {
+            let site = root.join("ext").join("site-packages");
+            std::fs::create_dir_all(site.join("lightrag")).unwrap();
+            std::fs::create_dir_all(site.join("deepeval")).unwrap();
+        }
+        (root, engine)
+    }
+
+    #[test]
+    fn a_packaged_app_reports_the_extensions_that_are_in_its_bundle() {
+        let (root, engine) = bundle(true, true);
+        assert_eq!(bundled_extensions(&engine), (true, true, true));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn it_reports_none_when_nothing_was_staged() {
+        let (root, engine) = bundle(false, false);
+        assert_eq!(bundled_extensions(&engine), (false, false, false));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn the_daemon_alone_is_reported_alone() {
+        let (root, engine) = bundle(false, true);
+        assert_eq!(bundled_extensions(&engine), (false, false, true));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn switching_an_extension_on_adds_the_packaged_libraries_to_the_import_path() {
+        let (root, engine) = bundle(true, false);
+        let mut rt = EngineRuntime { python: None, engine_dir: engine.clone(), ext_site: None };
+        apply_extension_runtime(&mut rt, true, false);
+        let site = root.join("ext").join("site-packages");
+        assert_eq!(rt.ext_site.as_deref(), Some(site.as_path()));
+        let path = engine_python_path(&rt.engine_dir, rt.ext_site.as_deref());
+        assert_eq!(
+            path.to_string_lossy(),
+            format!("{}:{}", engine.display(), site.display())
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn with_no_extension_on_the_import_path_is_the_engine_alone() {
+        let (root, engine) = bundle(true, false);
+        let mut rt = EngineRuntime { python: None, engine_dir: engine.clone(), ext_site: None };
+        apply_extension_runtime(&mut rt, false, false);
+        assert!(rt.ext_site.is_none());
+        assert_eq!(
+            engine_python_path(&rt.engine_dir, None).to_string_lossy(),
+            engine.display().to_string()
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
 
 #[cfg(test)]

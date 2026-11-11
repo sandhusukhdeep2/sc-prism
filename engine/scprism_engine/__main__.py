@@ -1041,6 +1041,41 @@ def _apply_approval_gate(args, tool_source):
     return tool_source, True
 
 
+def _build_retriever(vault: str, *, gateway, env=None):
+    """The graph retriever for a real run, or None (2026-11-11).
+
+    Only when the LightRAG switch is on AND the library is runnable here AND a
+    local model exists (the graph index reads note text, which never goes to a
+    cloud model). It is built over the user's own notes — machine-written
+    files are left out, as they are from recall. None keeps the run exactly as
+    it was: memory's built-in full-text recall still answers.
+    """
+    from . import lightrag_backend
+    from .agentic_retrieval import RetrievalAgent
+    from .memory import MAX_INDEXED_DOCS, _is_machine_written
+    from .retrieval import RetrievalIndex, _parse_vault
+
+    if not lightrag_backend.lightrag_selected(None, env):
+        return None
+    if not lightrag_backend.lightrag_available():
+        return None
+    try:
+        lightrag_backend.require_local(gateway)
+    except lightrag_backend.LightRAGLocalOnly:
+        return None
+    try:
+        docs = [
+            d
+            for d in _parse_vault(vault)
+            if not _is_machine_written(getattr(d, "relpath", "") or getattr(d, "doc_id", ""))
+        ]
+    except OSError:
+        return None
+    if not docs or len(docs) > MAX_INDEXED_DOCS:
+        return None
+    return RetrievalAgent(RetrievalIndex(docs), gateway=gateway, backend="lightrag")
+
+
 def _cmd_run(args) -> int:
     import os
     from contextlib import ExitStack
@@ -1148,6 +1183,21 @@ def _cmd_run(args) -> int:
         # byte-identical); 'local'/'cloud' -> a request the gateway grants only
         # within the sensitivity floor.
         route_hint = None if args.route == "auto" else args.route
+        # The GRAPH retriever (2026-11-11): built only when the LightRAG switch
+        # is on, the library is runnable here and a local model exists. It
+        # shares ONE gateway with the run so its model calls are audited in the
+        # same place. Otherwise nothing is passed and the run is byte-identical.
+        graph_kwargs = {}
+        if store is not None:
+            from . import lightrag_backend as _lrb
+
+            if _lrb.lightrag_selected(None):
+                from .bifrost_client import make_gateway
+
+                shared_gateway = make_gateway()
+                graph_retriever = _build_retriever(args.vault, gateway=shared_gateway)
+                if graph_retriever is not None:
+                    graph_kwargs = {"gateway": shared_gateway, "retriever": graph_retriever}
         verdict = run(
             contract,
             vault=args.vault,
@@ -1155,6 +1205,7 @@ def _cmd_run(args) -> int:
             tier1_cwd=args.tier1_cwd,
             skill_catalog=skill_catalog,
             memory=store,
+            **graph_kwargs,
             emit_workflow=args.emit_workflow,
             telemetry=telemetry,
             mcp_client=tool_source,

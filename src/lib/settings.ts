@@ -125,6 +125,14 @@ export interface Settings {
   /** Agents may run terminal commands — strict opt-in; every command rides
    *  the approval gate and lands as one recorded span (command, cwd, exit). */
   terminalControl: boolean
+  /** "My local model can see images." The engine assumes a local model cannot
+   *  unless told; with this on, a local model is shown image attachments and
+   *  screenshots. Only a literal true turns it on. */
+  localVision: boolean
+  /** The owner's explicit switch to let a CLOUD model be shown a screenshot.
+   *  Off (the default), a screenshot keeps the run on the local model, exactly
+   *  as vault content does; with no local model it is withheld. */
+  screenToCloud: boolean
   /** Names of the plugin (MCP) servers registered in `<vault>/mcp-servers.json`
    *  — a cached copy, so the capability ceiling and a launch can read them
    *  without vault I/O. The Settings panel and the app-start sync keep it true
@@ -474,6 +482,8 @@ export const DEFAULT_SETTINGS: Settings = {
   computerControl: false, // strict opt-in — controlling the PC never defaults on
   terminalControl: false, // strict opt-in — running commands never defaults on
   mcpServers: [], // nothing registered until the user registers one
+  localVision: false, // a local model is assumed blind until the user says otherwise
+  screenToCloud: false, // the screen never goes to a cloud model by default
   companyMode: 'solo',
   companyCode: '',
   searchApiKey: '',
@@ -566,6 +576,9 @@ export function normalizeSettings(parsed: Partial<Settings> | null | undefined):
     computerControl: parsed.computerControl === true,
     terminalControl: parsed.terminalControl === true,
     mcpServers: mcpServerNames(parsed.mcpServers),
+    // Only the literal true shows a picture to the local model / the cloud.
+    localVision: parsed.localVision === true,
+    screenToCloud: parsed.screenToCloud === true,
     // Only the literal 'host' hosts; anything else is solo (today's app).
     companyMode: parsed.companyMode === 'host' ? 'host' : 'solo',
     companyCode: typeof parsed.companyCode === 'string' ? parsed.companyCode : '',
@@ -864,6 +877,8 @@ export interface SettingsContextValue {
   setWebResearch: (on: boolean) => void
   setComputerControl: (on: boolean) => void
   setTerminalControl: (on: boolean) => void
+  setLocalVision: (on: boolean) => void
+  setScreenToCloud: (on: boolean) => void
   /** Cache the registered plugin-server names (see `Settings.mcpServers`). */
   setMcpServers: (names: readonly string[]) => void
   /** Choose solo or host. Choosing 'host' the first time generates the join
@@ -978,6 +993,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setWebResearch: (webResearch) => setSettings((s) => ({ ...s, webResearch })),
       setComputerControl: (computerControl) => setSettings((s) => ({ ...s, computerControl })),
       setTerminalControl: (terminalControl) => setSettings((s) => ({ ...s, terminalControl })),
+      setLocalVision: (localVision) => setSettings((s) => ({ ...s, localVision })),
+      setScreenToCloud: (screenToCloud) => setSettings((s) => ({ ...s, screenToCloud })),
       setMcpServers: (names) =>
         setSettings((s) => {
           const mcpServers = mcpServerNames(names)

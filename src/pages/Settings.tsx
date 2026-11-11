@@ -845,12 +845,15 @@ function EngineExtensions() {
     {
       key: 'lightrag',
       name: 'LightRAG (graph retrieval)',
-      desc: 'graph-RAG over your vault · runs on the py3.12 runtime',
+      // What it really does when on (2026-11-11): a graph index over the
+      // user's notes, built on the LOCAL model only — note text is never sent
+      // to a cloud model to build it — and the first run pays for the build.
+      desc: 'a graph index over your notes, built on your local model only · the first run reads every note, so it takes minutes',
     },
     {
       key: 'deepeval',
       name: 'DeepEval (LLM judge)',
-      desc: 'Tier-2 judged evals via DeepEval · built-in judge otherwise',
+      desc: 'the Tier-2 judge scores each run with DeepEval’s metrics · the built-in judge otherwise',
     },
     {
       key: 'bifrost',
@@ -899,7 +902,7 @@ function EngineExtensions() {
               <span className="settings__status mono">checking…</span>
             ) : available ? (
               <span className="settings__status settings__status--ok mono">
-                <span className="settings__statusdot" />available on this Mac
+                <span className="settings__statusdot" />included with the app
               </span>
             ) : (
               <span className="settings__status settings__status--auth mono">
@@ -922,10 +925,10 @@ function EngineExtensions() {
           {records === null ? '…' : `${records} record${records === 1 ? '' : 's'} collected`}
         </span>
       </div>
-      {settings.engineFlags.lightrag && settings.engineFlags.deepeval && (
+      {settings.engineFlags.lightrag && settings.engineFlags.bifrost && (
         <div className="settings__resethint">
-          Note: LightRAG and DeepEval use different runtimes — with both on, LightRAG&rsquo;s
-          runtime wins and DeepEval falls back to the built-in judge for that run.
+          Note: with the Prism Gateway daemon on there is no local-only route to build the graph
+          index on, so LightRAG sits out and the built-in recall answers for that run.
         </div>
       )}
     </div>
@@ -2051,6 +2054,104 @@ function WebResearchCard() {
   )
 }
 
+/** One switch row of a Settings tools card. A disabled switch keeps its place
+ *  and says why in its hint; a click on it does nothing. */
+function ToolSwitch({
+  label,
+  hint,
+  on,
+  disabled = false,
+  onChange,
+}: {
+  label: string
+  hint: string
+  on: boolean
+  disabled?: boolean
+  onChange: (next: boolean) => void
+}) {
+  const flip = () => {
+    if (!disabled) onChange(!on)
+  }
+  return (
+    <div className="settings__prow settings__extrow">
+      <span
+        className={
+          'settings__toggle ' +
+          (on ? 'settings__toggle--on' : 'settings__toggle--off') +
+          (disabled ? ' settings__toggle--disabled' : '')
+        }
+        role="switch"
+        aria-checked={on}
+        aria-disabled={disabled}
+        aria-label={label}
+        tabIndex={0}
+        onClick={flip}
+        onKeyDown={onActivate(flip)}
+      >
+        <span className={'settings__knob' + (on ? '' : ' settings__knob--off')} />
+      </span>
+      <div className="settings__extinfo">
+        <span className="settings__pname">{label}</span>
+        <span className="settings__clihint">{hint}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Computer control and who may see the screen (2026-11-11). Computer control
+ * could only be granted in the first-run wizard, and nothing could say "my
+ * local model can see images" or "a cloud AI may be shown my screen" — so the
+ * engine's see-then-act path could not be switched on from the app at all.
+ *
+ * The cloud switch is the owner's explicit choice and never rides alone:
+ * turning computer control off takes it off too.
+ */
+function ComputerControlCard() {
+  const { settings, setComputerControl, setLocalVision, setScreenToCloud } = useSettings()
+  const on = settings.computerControl
+  return (
+    <div className="settings__provider">
+      <div className="settings__prow">
+        <span className="settings__kicker">Tools · Computer control</span>
+        <span className="settings__spacer" />
+        <span className="settings__instant">{on ? 'on · every action is gated + recorded' : 'off by default'}</span>
+      </div>
+      <ToolSwitch
+        label="Let agents control this Mac"
+        hint="screenshots, opening apps, clicks and typing — only for an agent whose own file asks for it, and every action is one recorded step"
+        on={on}
+        onChange={(next) => {
+          setComputerControl(next)
+          if (!next) setScreenToCloud(false)
+        }}
+      />
+      <ToolSwitch
+        label="My local model can see images"
+        hint="turn this on only if your local model really is a vision model — it is then shown screenshots and attached images, and nothing leaves this Mac"
+        on={settings.localVision}
+        onChange={setLocalVision}
+      />
+      <ToolSwitch
+        label="A cloud AI may be shown my screen"
+        hint={
+          on
+            ? 'off: a screenshot keeps the run on your local model, and is withheld if there is none · on: a cloud model that can see is sent the picture'
+            : 'turn computer control on first'
+        }
+        on={on && settings.screenToCloud}
+        disabled={!on}
+        onChange={setScreenToCloud}
+      />
+      <div className="settings__resethint">
+        macOS decides the rest, and only you can grant it: System Settings → Privacy &amp; Security
+        → <b>Screen Recording</b> (to take a screenshot) and <b>Accessibility</b> (to click and
+        type), each for SC Prism.
+      </div>
+    </div>
+  )
+}
+
 function ResetSetup() {
   const { reset } = useOnboarding()
   const navigate = useNavigate()
@@ -2425,6 +2526,7 @@ export default function Settings() {
           <McpServers />
 
           <WebResearchCard />
+          <ComputerControlCard />
 
           {/* appearance preview */}
           <div className="settings__provider" id="sec-appearance">

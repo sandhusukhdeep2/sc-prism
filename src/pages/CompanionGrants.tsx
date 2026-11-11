@@ -245,8 +245,9 @@ export default function CompanionGrants() {
           <p className="grants__ask">
             Screenshots, opening apps, clicks and typing — only for an agent whose own definition
             asks for it AND only after this grant: both doors must be open. Every action is one
-            recorded span in the run stream; a screenshot stays a local file unless a later step
-            explicitly reads it; macOS&rsquo;s own permission prompts still apply on top. This is
+            recorded span in the run stream; a screenshot is shown only to a model on this Mac
+            unless you switch on showing your screen to a cloud AI in Settings; macOS&rsquo;s own
+            permission prompts still apply on top. This is
             the one grant that never defaults on.
           </p>
           <div className="grants__actions">
