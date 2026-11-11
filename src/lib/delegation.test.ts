@@ -567,3 +567,16 @@ describe('decideRouting — a small message is not staffed', () => {
     expect(choice.small).toBe('a greeting')
   })
 })
+
+// 2026-11-11: the ceiling counted zero plugin servers no matter what was
+// registered, so no seat could ever be granted `tools`.
+describe('appRunCapabilities — plugin servers lift the ceiling', () => {
+  const base = { webResearch: false, projectWrites: false, computerControl: false, terminalControl: false }
+  it('holds `tools` when at least one server is registered', () => {
+    expect(appRunCapabilities({ ...base, mcpServers: ['files'] })).toEqual(['vault', 'tools'])
+  })
+  it('does not hold it when none is', () => {
+    expect(appRunCapabilities({ ...base, mcpServers: [] })).toEqual(['vault'])
+    expect(appRunCapabilities(base)).toEqual(['vault'])
+  })
+})

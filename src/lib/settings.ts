@@ -2,6 +2,7 @@
 // A tiny React Context store backed by localStorage under `scprism.settings`.
 // Written as a .ts module (no JSX) so it uses createElement directly.
 
+import { mcpServerNames } from './mcpServers'
 import { clampBudget } from './budget'
 import { clampBrandBudget } from './providerBudget'
 import {
@@ -124,6 +125,11 @@ export interface Settings {
   /** Agents may run terminal commands — strict opt-in; every command rides
    *  the approval gate and lands as one recorded span (command, cwd, exit). */
   terminalControl: boolean
+  /** Names of the plugin (MCP) servers registered in `<vault>/mcp-servers.json`
+   *  — a cached copy, so the capability ceiling and a launch can read them
+   *  without vault I/O. The Settings panel and the app-start sync keep it true
+   *  to the file; the engine resolves each name against the file itself. */
+  mcpServers: string[]
   /** Company mode (phase A): 'solo' (default, today's app) or 'host' — this
    *  machine runs the company gateway teammates will join. */
   companyMode: 'solo' | 'host'
@@ -467,6 +473,7 @@ export const DEFAULT_SETTINGS: Settings = {
   webResearch: true,
   computerControl: false, // strict opt-in — controlling the PC never defaults on
   terminalControl: false, // strict opt-in — running commands never defaults on
+  mcpServers: [], // nothing registered until the user registers one
   companyMode: 'solo',
   companyCode: '',
   searchApiKey: '',
@@ -558,6 +565,7 @@ export function normalizeSettings(parsed: Partial<Settings> | null | undefined):
     // Only the literal true grants PC control — garbage/missing stays OFF.
     computerControl: parsed.computerControl === true,
     terminalControl: parsed.terminalControl === true,
+    mcpServers: mcpServerNames(parsed.mcpServers),
     // Only the literal 'host' hosts; anything else is solo (today's app).
     companyMode: parsed.companyMode === 'host' ? 'host' : 'solo',
     companyCode: typeof parsed.companyCode === 'string' ? parsed.companyCode : '',
@@ -856,6 +864,8 @@ export interface SettingsContextValue {
   setWebResearch: (on: boolean) => void
   setComputerControl: (on: boolean) => void
   setTerminalControl: (on: boolean) => void
+  /** Cache the registered plugin-server names (see `Settings.mcpServers`). */
+  setMcpServers: (names: readonly string[]) => void
   /** Choose solo or host. Choosing 'host' the first time generates the join
    *  code (crypto-random, stored once, never regenerated silently). */
   setCompanyMode: (mode: 'solo' | 'host') => void
@@ -968,6 +978,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setWebResearch: (webResearch) => setSettings((s) => ({ ...s, webResearch })),
       setComputerControl: (computerControl) => setSettings((s) => ({ ...s, computerControl })),
       setTerminalControl: (terminalControl) => setSettings((s) => ({ ...s, terminalControl })),
+      setMcpServers: (names) =>
+        setSettings((s) => {
+          const mcpServers = mcpServerNames(names)
+          // Same list -> same object: the app-start sync must not re-render
+          // every consumer of settings when nothing changed.
+          return mcpServers.join(',') === s.mcpServers.join(',') ? s : { ...s, mcpServers }
+        }),
       setCompanyMode: (companyMode) =>
         setSettings((s) => ({
           ...s,

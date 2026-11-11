@@ -65,3 +65,24 @@ describe('buildEngineProviders — web research launch flag', () => {
     )
   })
 })
+
+// 2026-11-11: registered plugin (MCP) servers reach a run. `settings.mcpServers`
+// is the cached list of registered names; `providers.mcpServers` is what the
+// run functions map to the invoke `mcpServers` field, which the bridge turns
+// into `--mcp-server`. Empty stays empty: no flag, byte-identical.
+describe('buildEngineProviders — registered plugin servers', () => {
+  it('forwards nothing when no server is registered', () => {
+    expect(buildEngineProviders(makeSettings({})).providers.mcpServers ?? '').toBe('')
+    expect(buildEngineProviders(makeSettings({ mcpServers: [] })).providers.mcpServers ?? '').toBe('')
+  })
+  it('forwards the registered names as one comma list', () => {
+    const { providers } = buildEngineProviders(makeSettings({ mcpServers: ['files', 'github'] }))
+    expect(providers.mcpServers).toBe('files,github')
+  })
+  it('never forwards a name that is not a safe single token', () => {
+    const { providers } = buildEngineProviders(
+      makeSettings({ mcpServers: ['files', '--flag', 'a b'] as unknown as string[] }),
+    )
+    expect(providers.mcpServers).toBe('files')
+  })
+})

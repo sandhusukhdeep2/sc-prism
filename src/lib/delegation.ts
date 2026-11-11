@@ -150,9 +150,19 @@ export interface UserGrantState {
  * poll is the only native read that page is allowed to make.
  */
 export function appRunCapabilities(
-  settings: Pick<Settings, 'webResearch' | 'projectWrites' | 'computerControl' | 'terminalControl'>,
+  settings: Pick<Settings, 'webResearch' | 'projectWrites' | 'computerControl' | 'terminalControl'> & {
+    /** The registered plugin-server names cached in settings (absent = none). */
+    mcpServers?: readonly string[]
+  },
 ): Capability[] {
-  return userCapabilities({ settings, vaultToolsGranted: true, mcpServers: 0 })
+  // The count is the cached list of REGISTERED servers (settings.mcpServers),
+  // the same list the launch passes as `--mcp-server` — so `tools` is held
+  // exactly when a run will really be given a server. It was a hard-coded 0.
+  return userCapabilities({
+    settings,
+    vaultToolsGranted: true,
+    mcpServers: settings.mcpServers?.length ?? 0,
+  })
 }
 
 export function userCapabilities(state: UserGrantState): Capability[] {

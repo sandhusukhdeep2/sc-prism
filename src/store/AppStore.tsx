@@ -2,6 +2,7 @@
 // Holds chat messages, produced verdicts, the live agent(s), and running stats.
 // sendIntent drives the simulated engine and dispatches its streamed events.
 
+import { mcpServersArg } from '../lib/mcpServers'
 import { clampBudget } from '../lib/budget'
 import {
   createContext,
@@ -672,6 +673,9 @@ export function buildEngineProviders(
   // web_fetch/web_search tool source; the search key travels env-only. Off →
   // `webResearch` is false and the bridge omits `--web` (byte-identical run).
   providers.webResearch = settings.webResearch
+  // Registered plugin (MCP) servers reach the run (2026-11-11): the cached
+  // names become `--mcp-server`. None registered -> '' -> no flag.
+  providers.mcpServers = mcpServersArg(settings.mcpServers ?? [])
   providers.searchApiKey = settings.searchApiKey
   providers.searchEndpoint = settings.searchEndpoint
   // Tool posture + mid-run blocking approval (companion grants): 'ask' rides

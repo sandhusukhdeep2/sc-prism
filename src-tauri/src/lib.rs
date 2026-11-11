@@ -437,6 +437,9 @@ async fn run_engine_task(
     image: Option<String>,
     user_capabilities: Option<String>,
     agent_capabilities: Option<String>,
+    // Registered plugin (MCP) server names, comma-separated. Empty/absent ->
+    // no `--mcp-server`, byte-identical (see `mcp_server_arg`).
+    mcp_servers: Option<String>,
     tool_turns: Option<u32>,
     // Contract mode (`--mode`). The chat path passes "converse" so the engine
     // plans the turn as one reply and judges it as one — before this, a chat
@@ -483,12 +486,20 @@ async fn run_engine_task(
     // it. Both empty -> no flags -> no gate at all, byte-identical.
     let user_caps = user_capabilities.unwrap_or_default();
     let agent_caps = agent_capabilities.unwrap_or_default();
+    // Plugin (MCP) servers the user registered (2026-11-11): the names ride
+    // `--mcp-server`; the engine resolves each against <vault>/mcp-servers.json
+    // and governs every call. Declared before `args` so the borrow outlives it.
+    let mcp_list = mcp_server_arg(mcp_servers.as_deref());
     let mut args: Vec<&str> = vec!["run", &intent, "--vault", &vault];
     if !user_caps.is_empty() || !agent_caps.is_empty() {
         args.push("--user-capabilities");
         args.push(&user_caps);
         args.push("--agent-capabilities");
         args.push(&agent_caps);
+    }
+    if let Some(list) = mcp_list.as_deref() {
+        args.push("--mcp-server");
+        args.push(list);
     }
     let tier1_cmd = tier1.unwrap_or_default();
     let tier1_dir = tier1_cwd.unwrap_or_default().trim().to_string();
@@ -1219,6 +1230,9 @@ async fn run_engine_team(
     search_endpoint: Option<String>,
     user_capabilities: Option<String>,
     agent_capabilities: Option<String>,
+    // Registered plugin (MCP) server names, comma-separated. Empty/absent ->
+    // no `--mcp-server`, byte-identical (see `mcp_server_arg`).
+    mcp_servers: Option<String>,
     tool_turns: Option<u32>,
 ) -> Result<String, String> {
     // Clone the shared run map out of state so it can move into the worker.
@@ -1255,9 +1269,15 @@ async fn run_engine_team(
         // it. Both empty -> no flags -> no gate at all, byte-identical.
         let user_caps = user_capabilities.unwrap_or_default();
         let agent_caps = agent_capabilities.unwrap_or_default();
+        // Plugin (MCP) servers — same contract as `run` (see `mcp_server_arg`).
+        let mcp_list = mcp_server_arg(mcp_servers.as_deref());
         let mut args: Vec<&str> = vec![
             "team", &intent, "--vault", &vault, "--agents", &agents, "--rounds", &rounds_s,
         ];
+        if let Some(list) = mcp_list.as_deref() {
+            args.push("--mcp-server");
+            args.push(list);
+        }
     // Same whitelist-omission discipline as `run` — a conversational team
     // (the composer's team target) stops reaching the judge dressed as a
     // research task. Absent -> byte-identical argv, the read default.
@@ -3241,6 +3261,58 @@ async fn sleep_secs(secs: u64) {
 /// Finding 0 — the verify PATH. A GUI-launched app inherits `/usr/bin:/bin`,
 /// which cannot see this user's nvm-installed npm; Tier-1 then failed 51 runs
 /// with "npm: command not found". These pin the PATH assembly.
+/// The value for the engine's `--mcp-server`, or None when there is nothing
+/// safe to pass. The app sends the registered plugin-server NAMES as a comma
+/// list; each must be one plain token (letters, digits, `_ . -`, not starting
+/// with a symbol), so a name can never become a flag or a second argument.
+/// Anything else is dropped, duplicates collapse, order is kept.
+fn mcp_server_arg(raw: Option<&str>) -> Option<String> {
+    let mut names: Vec<&str> = Vec::new();
+    for name in raw.unwrap_or("").split(',').map(str::trim) {
+        let ok = !name.is_empty()
+            && name.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-');
+        if ok && !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    if names.is_empty() {
+        None
+    } else {
+        Some(names.join(","))
+    }
+}
+
+#[cfg(test)]
+mod mcp_arg_tests {
+    use super::mcp_server_arg;
+
+    #[test]
+    fn nothing_registered_passes_no_flag() {
+        assert_eq!(mcp_server_arg(None), None);
+        assert_eq!(mcp_server_arg(Some("")), None);
+        assert_eq!(mcp_server_arg(Some(" , ,")), None);
+    }
+
+    #[test]
+    fn registered_names_become_one_comma_list_in_order_once_each() {
+        assert_eq!(
+            mcp_server_arg(Some("files, github,files")),
+            Some("files,github".to_string())
+        );
+    }
+
+    #[test]
+    fn a_name_can_never_become_a_flag_or_a_second_argument() {
+        assert_eq!(
+            mcp_server_arg(Some("--vault,ok-1,a b,../up,x.y_z,-dash")),
+            Some("ok-1,x.y_z".to_string())
+        );
+    }
+}
+
 #[cfg(test)]
 mod path_tests {
     use super::*;

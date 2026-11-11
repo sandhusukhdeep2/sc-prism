@@ -68,10 +68,10 @@ code, not from the docs:
 | Team seats | real: each seat runs on its own model with its own grants | the composer's single-`agent` target is a brief on the primary, not a runner |
 | Computer control | five tools exist (screenshot, open app, click, type, key) behind a strict opt-in | **the screenshot comes back as a file path and no model is shown the image**, so a seat acts blind; needs a see → act loop on a vision route, and the OS permissions are the owner's to grant |
 | Browser control | **absent** — the web tools fetch and search; nothing drives a page (navigate, click, fill) | a governed browser tool source |
-| Plugins (MCP servers) | can be registered and tested in Settings | **never reach a run**: the app's bridge passes no `--mcp-server`, and the capability ceiling hard-codes zero servers |
+| Plugins (MCP servers) | registered in Settings; since 2026-11-11 the registered names ride the manager's run and team runs (`settings.mcpServers` → `--mcp-server`) and lift the capability ceiling to `tools` | project runs (the engine's `project` command takes no `--mcp-server`); a live proof with a registered server |
 
-Order of work: (1) plugins reach real runs — wiring only, the engine side
-exists; (2) computer use that can see — screenshot as an image block on a
+Order of work: (1) plugins reach real runs — done for the manager's run and
+team runs; (2) computer use that can see — screenshot as an image block on a
 vision route, one action per turn, every action through the approval gate;
 (3) a browser tool source; (4) a per-agent runner for the composer's `agent`
 target. Each needs a real run in the installed app as its proof.

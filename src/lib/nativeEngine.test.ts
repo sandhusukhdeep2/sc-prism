@@ -403,6 +403,19 @@ describe('routeReasonLabel (honest route label from the real reason)', () => {
     expect(s).not.toContain('routed to your primary')
   })
 
+  // 2026-11-11: a "hello" the manager answered alone was labelled "heavy
+  // reasoning — routed to your primary". The engine's reason for a route the
+  // composer set is "you chose cloud for this message"; nothing matched it, so
+  // the fallback invented a reason.
+  it('a route chosen before the send is labelled as that, never as heavy reasoning', () => {
+    const cloud = routeReasonLabel(true, ['you chose cloud for this message'])
+    expect(cloud).toBe('routed to your primary — chosen before the send')
+    expect(cloud).not.toContain('heavy reasoning')
+    expect(routeReasonLabel(false, ['you chose local for this message'])).toBe(
+      'kept local — chosen before the send',
+    )
+  })
+
   it('falls back to built-in labels when no reason was carried (older verdict)', () => {
     expect(routeReasonLabel(false, [])).toBe('kept local — cheap inference, zero egress')
     expect(routeReasonLabel(true, [])).toBe('heavy reasoning — routed to your primary')

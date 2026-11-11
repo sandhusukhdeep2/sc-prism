@@ -130,3 +130,42 @@ describe('MCP servers — native shell (real invoke mapping)', () => {
     expect(result).toEqual({ ok: false, error: 'unexpected response from the engine' })
   })
 })
+
+// 2026-11-11: a registered server reaches the run. The provider bundle's
+// `mcpServers` (a comma list of registered names) is forwarded to the bridge on
+// the manager's run and on a team run; the bridge turns it into `--mcp-server`.
+describe('registered plugin servers ride a launch', () => {
+  beforeEach(() => {
+    goNative()
+    invokeMock.mockReset()
+    // The launch itself is not under test: the first call is captured, then the
+    // run "fails" and the function returns null.
+    invokeMock.mockImplementation(async () => {
+      throw new Error('stop after capture')
+    })
+  })
+  afterEach(() => {
+    delete (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+  })
+
+  const sent = (cmd: string): Record<string, unknown> | undefined =>
+    invokeMock.mock.calls.find((c) => c[0] === cmd)?.[1] as Record<string, unknown> | undefined
+
+  it('a team run carries the registered names', async () => {
+    const { runNativeTeam } = await import('./nativeEngine')
+    await runNativeTeam('task', '/vault', { mcpServers: 'files,github' } as never, 'lead:local')
+    expect(sent('run_engine_team')?.mcpServers).toBe('files,github')
+  })
+
+  it('the manager’s run carries them too', async () => {
+    const { runNativeTask } = await import('./nativeEngine')
+    await runNativeTask('task', '/vault', { mcpServers: 'files' } as never)
+    expect(sent('run_engine_task')?.mcpServers).toBe('files')
+  })
+
+  it('with none registered the field is empty, so the bridge passes no flag', async () => {
+    const { runNativeTeam } = await import('./nativeEngine')
+    await runNativeTeam('task', '/vault', {} as never, 'lead:local')
+    expect(sent('run_engine_team')?.mcpServers).toBe('')
+  })
+})

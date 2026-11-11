@@ -373,6 +373,14 @@ export function routeReasonLabel(isCloud: boolean, reasons: readonly string[]): 
     if (/reasoning keyword/i.test(pick)) return 'heavy reasoning — routed to your primary'
     if (/per user selection/i.test(pick)) return 'routed to your chosen primary'
   }
+  // A route set before the send — the manager's stated choice or the user's
+  // own override, both shown above the composer. The engine records it as
+  // "you chose cloud for this message"; without this the fallback below
+  // labelled a "hello" as heavy reasoning (2026-11-11).
+  if (reasons.some((r) => /^you chose (cloud|local) for this message/i.test(r)))
+    return isCloud
+      ? 'routed to your primary — chosen before the send'
+      : 'kept local — chosen before the send'
   return isCloud
     ? 'heavy reasoning — routed to your primary'
     : 'kept local — cheap inference, zero egress'
@@ -717,6 +725,9 @@ export interface EngineProviders {
    */
   userCapabilities?: string
   agentCapabilities?: string
+  /** Registered plugin (MCP) server names as a comma list (→ `--mcp-server`).
+   *  ''/absent → the bridge passes no flag and the run is byte-identical. */
+  mcpServers?: string
 }
 
 /** Availability of the optional engine extensions on this machine. */
@@ -1862,6 +1873,7 @@ export async function runNativeTask(
       searchEndpoint: providers?.searchEndpoint ?? '',
       userCapabilities: providers?.userCapabilities ?? '',
       agentCapabilities: providers?.agentCapabilities ?? '',
+      mcpServers: providers?.mcpServers ?? '',
       // Per-message route hint (composer local/cloud/auto). Only local/cloud are
       // sent; auto/undefined → undefined, so the Rust bridge omits `--route` and
       // the run is byte-identical to no hint. The gateway keeps sensitive content
@@ -2218,6 +2230,7 @@ export async function runNativeTeam(
       searchEndpoint: providers.searchEndpoint ?? '',
       userCapabilities: providers.userCapabilities ?? '',
       agentCapabilities: providers.agentCapabilities ?? '',
+      mcpServers: providers.mcpServers ?? '',
     })
     const raw = JSON.parse(json) as Record<string, unknown>
     if (typeof raw?.run_id !== 'string' || !Array.isArray(raw.board)) return null

@@ -3,6 +3,7 @@ import { useSettings } from '../lib/settings'
 import { initialsOf } from '../lib/initials'
 import { syncVaultAgents } from '../lib/agents'
 import { syncVaultSkills } from '../lib/skills'
+import { syncMcpServers } from '../lib/mcpSync'
 import { NavLink, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { settingsNav, sideNav } from '../lib/nav'
 import { useOnboarding } from '../lib/onboarding'
@@ -29,7 +30,7 @@ import './AppShell.css'
 // rail. Until first-run setup is complete, the whole app redirects to
 // onboarding.
 export default function AppShell() {
-  const { settings: shellSettings } = useSettings()
+  const { settings: shellSettings, setMcpServers } = useSettings()
   // Vault folders sync at APP START (2026-08-29): the agents and skills
   // migrations used to fire only on their pages' mounts, so a folder could
   // stay missing for as long as a page went unvisited (Sukhdeep found
@@ -38,6 +39,9 @@ export default function AppShell() {
   useEffect(() => {
     void syncVaultAgents(shellSettings.vaultPath).catch(() => {})
     void syncVaultSkills(shellSettings.vaultPath).catch(() => {})
+    // The registered plugin (MCP) servers, cached so a launch and the
+    // capability ceiling read them without a vault read (2026-11-11).
+    void syncMcpServers(shellSettings.vaultPath, setMcpServers).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

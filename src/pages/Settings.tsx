@@ -1,3 +1,4 @@
+import { mcpServerNames } from '../lib/mcpServers'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -1403,7 +1404,7 @@ function summarizeTools(tools: McpToolInfo[]): string {
  * list or a fake "connected" status.
  */
 function McpServers() {
-  const { settings, setMcpApproval } = useSettings()
+  const { settings, setMcpApproval, setMcpServers } = useSettings()
   const [vault, setVault] = useState('')
   const [servers, setServers] = useState<McpServerConfig[]>([])
   const [approvals, setApprovals] = useState<McpApprovalPolicy>({ require: [], granted: [] })
@@ -1433,6 +1434,8 @@ function McpServers() {
         setVault(v)
         const list = await readMcpServers(v)
         if (!cancelled) setServers(list)
+        // The cached names a launch reads follow the file (2026-11-11).
+        if (!cancelled) setMcpServers(mcpServerNames(list))
         const policy = await readMcpApprovals(v)
         if (!cancelled) setApprovals(policy)
       })
@@ -1514,6 +1517,7 @@ function McpServers() {
       return
     }
     setServers(next)
+    setMcpServers(mcpServerNames(next))
     // S1: a saved (possibly renamed) entry's OLD handshake result is now stale —
     // clear the entry's key AND the renamed-from key so no untested command
     // shows a live-looking green result.
@@ -1529,6 +1533,7 @@ function McpServers() {
       setFormError(`couldn't remove "${s.name}" — try again`)
       return
     }
+    setMcpServers(mcpServerNames(next))
     setFormError(null)
     setServers(next)
     setTests((t) => {
