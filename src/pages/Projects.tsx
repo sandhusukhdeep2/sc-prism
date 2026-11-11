@@ -9,7 +9,17 @@ import DrawerSection from '../components/DrawerSection'
 import { filesSummary, loopsSummary, planSummary, teamSummary, verdictsSummary } from '../lib/drawerSummary'
 import { useApp, isUsableProjectDir, latestNotice } from '../store/AppStore'
 import { agentActivity, agentsForProject, useAgents } from '../lib/agents'
-import { expandUserPath, listProjectFiles, pickFolder, revealPath, type ProjectFileMeta } from '../lib/nativeEngine'
+import {
+  expandUserPath,
+  isNative,
+  listProjectFiles,
+  openInTerminal,
+  pickFolder,
+  resolveVaultDir,
+  revealPath,
+  trashProjectFolder,
+  type ProjectFileMeta,
+} from '../lib/nativeEngine'
 import { useSettings } from '../lib/settings'
 import { useConnectivity } from '../lib/connectivity'
 import { allowAllProviders, filterRoster, reassignLine, rosterGate, sitOutLine } from '../lib/roster'
@@ -21,6 +31,7 @@ import {
   defaultProjectPath,
   projectBuildRoster,
   removeProject,
+  renameProject,
   slugify,
   staffRoster,
   updateProject,
@@ -241,10 +252,34 @@ function LastResult({ note }: { note: string }) {
   )
 }
 
-function DeleteProjectControl({ projectId }: { projectId: string }) {
+export function DeleteProjectControl({ projectId }: { projectId: string }) {
   const [arming, setArming] = useState(false)
+  // Deleting a project removes it from SC Prism. Moving its FOLDER to the
+  // Trash is a second, explicit choice (2026-11-11) — never the default, and
+  // the bridge refuses a home folder, a top-level folder or the vault.
+  const [alsoTrash, setAlsoTrash] = useState(false)
+  const [refusal, setRefusal] = useState('')
+  const [busy, setBusy] = useState(false)
   const { state, setActiveProject } = useApp()
-  const remove = () => {
+  const { settings } = useSettings()
+  const { projects } = useProjects()
+  const project = projects.find((p) => p.id === projectId)
+  const remove = async () => {
+    setRefusal('')
+    if (alsoTrash && project?.path) {
+      setBusy(true)
+      const [dir, vault] = await Promise.all([
+        expandUserPath(project.path),
+        resolveVaultDir(settings.vaultPath),
+      ])
+      const res = await trashProjectFolder(dir, [vault])
+      setBusy(false)
+      if (!res.ok) {
+        // The folder stayed, so the project stays too: nothing half-deleted.
+        setRefusal(res.reason)
+        return
+      }
+    }
     removeProject(projectId)
     // Deleting the room you are standing in returns you to the Manager —
     // never a ghost thread with no project behind it.
@@ -259,11 +294,34 @@ function DeleteProjectControl({ projectId }: { projectId: string }) {
   }
   return (
     <span className="proj__deleteconfirm">
-      <span className="proj__deletenote">removes it from SC Prism — the folder on disk is untouched</span>
+      <span className="proj__deletenote">
+        {alsoTrash
+          ? 'removes it from SC Prism and moves its folder to the Trash — you can put it back from the Finder'
+          : 'removes it from SC Prism — the folder on disk is untouched'}
+      </span>
+      {isNative() && Boolean(project?.path) && (
+        <label className="proj__deletetrash">
+          <input
+            type="checkbox"
+            checked={alsoTrash}
+            onChange={(e) => {
+              setAlsoTrash(e.target.checked)
+              setRefusal('')
+            }}
+          />
+          also move the folder to the Trash
+        </label>
+      )}
+      {refusal && (
+        <span className="proj__deleterefusal" role="alert">
+          the folder was not moved: {refusal}
+        </span>
+      )}
       <button
         type="button"
         className="proj__startbtn proj__deletebtn proj__deletebtn--armed"
-        onClick={remove}
+        disabled={busy}
+        onClick={() => void remove()}
       >
         Really delete
       </button>
@@ -271,6 +329,64 @@ function DeleteProjectControl({ projectId }: { projectId: string }) {
         Keep it
       </button>
     </span>
+  )
+}
+
+/** The folder zone's quiet actions: rename the project, open a Terminal in its
+ *  folder. What any editor offers for an open project (2026-11-11). */
+function ProjectQuickActions({ project }: { project: Project }) {
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState(project.name)
+  const save = () => {
+    if (renameProject(project.id, name)) setRenaming(false)
+  }
+  if (renaming) {
+    return (
+      <form
+        className="proj__rename"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+      >
+        <input
+          className="proj__forminput"
+          value={name}
+          aria-label="Project name"
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button type="submit" className="proj__quicklink" disabled={!name.trim()}>
+          Save
+        </button>
+        <button
+          type="button"
+          className="proj__quicklink"
+          onClick={() => {
+            setName(project.name)
+            setRenaming(false)
+          }}
+        >
+          Cancel
+        </button>
+      </form>
+    )
+  }
+  return (
+    <div className="proj__quick">
+      <button type="button" className="proj__quicklink" onClick={() => setRenaming(true)}>
+        Rename
+      </button>
+      {isNative() && Boolean(project.path) && (
+        <button
+          type="button"
+          className="proj__quicklink"
+          onClick={() => void expandUserPath(project.path).then((dir) => openInTerminal(dir))}
+        >
+          Open in Terminal
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -656,6 +772,8 @@ export function ProjectContextPanel({ project }: { project: Project }) {
           </span>
         )}
       </div>
+
+      <ProjectQuickActions project={project} />
 
       {/* WHAT NEEDS YOU — never folded: merge, start, approve, resume, answer. */}
       {mergeReadiness(project) === 'ready' && (

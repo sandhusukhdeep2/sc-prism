@@ -32,7 +32,7 @@ import { useConnectivity } from '../lib/connectivity'
 import { filterRoster, rosterGate, sitOutLine } from '../lib/roster'
 import Icon from '../components/Icon'
 import { greeting, statusLine, deskSummary } from '../lib/desk'
-import { isNative, pickFile, readImageBase64, readTextFile, revealVaultNote, revealPath } from '../lib/nativeEngine'
+import { isNative, pickFile, pickFolder, readImageBase64, readTextFile, revealVaultNote, revealPath } from '../lib/nativeEngine'
 import { composeWithAttachments, displayLine, type ChatAttachment } from '../lib/attachments'
 import { useSpanTail } from '../lib/engineConsole'
 import { stageSpans, type PipelineStage,
@@ -53,7 +53,7 @@ import { runsPill } from '../lib/runsPill'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
-import { useProjects, useProjectsHydrated, nextSendMode } from '../lib/projects'
+import { useProjects, useProjectsHydrated, nextSendMode, openFolderAsProject } from '../lib/projects'
 import { NewProjectForm, ProjectContextPanel, StatusChip } from './Projects'
 import './Projects.css'
 import './Workspace.css'
@@ -823,9 +823,30 @@ export default function Workspace() {
                 }}
               />
             ) : settings.projectWrites ? (
-              <button type="button" className="ws__navnew" onClick={() => setShowNewForm(true)}>
-                ＋ New project
-              </button>
+              <>
+                <button type="button" className="ws__navnew" onClick={() => setShowNewForm(true)}>
+                  ＋ New project
+                </button>
+                {/* Work on a folder that already exists (2026-11-11): one
+                    click picks it, and it becomes a room. A folder that is
+                    already a project just opens its room. */}
+                <button
+                  type="button"
+                  className="ws__navnew ws__navopen"
+                  onClick={() =>
+                    void pickFolder('Choose the folder to work in').then((picked) => {
+                      if (!picked) return
+                      try {
+                        pickRoom(openFolderAsProject(picked).project.id)
+                      } catch {
+                        /* not an absolute folder path — the picker never returns one */
+                      }
+                    })
+                  }
+                >
+                  Open folder…
+                </button>
+              </>
             ) : (
               // Companion grant denied: no fake affordance — say why + where.
               <div className="ws__navempty">projects off — grant file writes in Settings</div>

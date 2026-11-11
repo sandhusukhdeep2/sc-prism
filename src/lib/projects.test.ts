@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   addProject,
   appendTurn,
@@ -15,6 +15,8 @@ import {
   unstaffedRefusal,
   updateProject,
   type Project,
+  openFolderAsProject,
+  renameProject,
 } from './projects'
 import type { StoredAgent } from './agents'
 import { allowAllProviders } from './roster'
@@ -544,5 +546,65 @@ describe('defaultProjectPath — vault-homed', () => {
   })
   it('falls back to the classic home when no vault is known', () => {
     expect(defaultProjectPath('site-launch')).toBe('~/SC Projects/site-launch')
+  })
+})
+
+// 2026-11-11, the owner: "work on an already existing project — user needs to
+// select the directory… delete project and other stuff." Attaching existed, but
+// behind a second tab of the New project form. Opening a folder is one action.
+describe('opening an existing folder as a project', () => {
+  beforeEach(() => {
+    for (const p of getProjects().projects) removeProject(p.id)
+  })
+
+  it('names the project after the folder and keeps the folder as its path', () => {
+    const { project, existing } = openFolderAsProject('/Users/me/dev/my-repo')
+    expect(existing).toBe(false)
+    expect(project.name).toBe('my-repo')
+    expect(project.path).toBe('/Users/me/dev/my-repo')
+    expect(project.mode).toBe('existing')
+    expect(getProjects().projects.map((p) => p.id)).toContain(project.id)
+  })
+
+  it('a trailing slash is the same folder', () => {
+    const { project } = openFolderAsProject('/Users/me/dev/my-repo/')
+    expect(project.path).toBe('/Users/me/dev/my-repo')
+    expect(project.name).toBe('my-repo')
+  })
+
+  it('opening a folder that is already a project returns that project, never a second one', () => {
+    const first = openFolderAsProject('/Users/me/dev/my-repo').project
+    const again = openFolderAsProject('/Users/me/dev/my-repo/')
+    expect(again.existing).toBe(true)
+    expect(again.project.id).toBe(first.id)
+    expect(getProjects().projects).toHaveLength(1)
+  })
+
+  it('refuses a path that is not an absolute folder path', () => {
+    expect(() => openFolderAsProject('relative/dir')).toThrow()
+    expect(() => openFolderAsProject('   ')).toThrow()
+    expect(() => openFolderAsProject('/')).toThrow()
+    expect(getProjects().projects).toHaveLength(0)
+  })
+})
+
+describe('renaming a project', () => {
+  beforeEach(() => {
+    for (const p of getProjects().projects) removeProject(p.id)
+  })
+
+  it('changes the name and nothing else', () => {
+    const p = openFolderAsProject('/Users/me/dev/my-repo').project
+    expect(renameProject(p.id, '  Billing rewrite ')).toBe(true)
+    const after = getProjects().projects.find((x) => x.id === p.id)!
+    expect(after.name).toBe('Billing rewrite')
+    expect(after.path).toBe('/Users/me/dev/my-repo')
+    expect(after.slug).toBe(p.slug)
+  })
+
+  it('an empty name is refused and the old name stays', () => {
+    const p = openFolderAsProject('/Users/me/dev/my-repo').project
+    expect(renameProject(p.id, '   ')).toBe(false)
+    expect(getProjects().projects.find((x) => x.id === p.id)!.name).toBe('my-repo')
   })
 })

@@ -471,6 +471,39 @@ export function attachProject(name: string, path: string, goal: string, verifyCo
   return project
 }
 
+/** A folder path as projects store it: trimmed, no trailing slash. */
+function folderPath(raw: string): string {
+  return raw.trim().replace(/\/+$/, '')
+}
+
+/**
+ * Open an EXISTING folder as a project, in one step (2026-11-11). The project
+ * takes the folder's own name; its goal comes later, in the room. A folder
+ * that is already a project is returned as it is — opening it twice never
+ * makes a second project on the same folder. Throws on anything that is not
+ * an absolute folder path.
+ */
+export function openFolderAsProject(path: string): { project: Project; existing: boolean } {
+  const clean = folderPath(path)
+  if (!clean.startsWith('/') || clean === '') {
+    throw new Error('a project folder must be an absolute path')
+  }
+  const already = state.projects.find((p) => folderPath(p.path) === clean)
+  if (already) return { project: already, existing: true }
+  const name = clean.split('/').filter(Boolean).pop() ?? clean
+  return { project: attachProject(name, clean, '', ''), existing: false }
+}
+
+/** Rename a project. The folder, the slug and everything else stay; an empty
+ *  name is refused (false) and the old name stays. */
+export function renameProject(id: string, name: string): boolean {
+  const next = name.trim()
+  if (!next) return false
+  if (!state.projects.some((p) => p.id === id)) return false
+  updateProject(id, { name: next })
+  return true
+}
+
 export function updateProject(id: string, patch: Partial<Project>): void {
   setState({
     ...state,

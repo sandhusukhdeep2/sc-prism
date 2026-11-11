@@ -173,6 +173,8 @@
   margin-top: 6px; padding: 9px 14px; border-radius: var(--v2-r-pill); cursor: pointer;
   background: transparent; border: 1px dashed var(--edge); font: inherit; color: var(--v2-ink-2); opacity: 0.85;
 }
+/* Open an existing folder: the same quiet row as New project, one step below. */
+.ws__navopen { margin-top: 6px; }
 .ws__navnew:hover { opacity: 1; }
 .chat__begin { padding: 8px 14px; border-radius: var(--v2-r-chip); border: 1px solid var(--scrollbar); background: transparent; cursor: pointer; font: inherit; }
 .chat__beginhint { margin-top: 8px; font-size: 12px; opacity: 0.6; }

@@ -1747,6 +1747,36 @@ export async function revealPath(path: string): Promise<void> {
   }
 }
 
+/** Open a Terminal window in a folder (native only). False when it could not. */
+export async function openInTerminal(path: string): Promise<boolean> {
+  if (!isNative()) return false
+  try {
+    await invoke('open_in_terminal', { path })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Move a project's folder to the Trash (recoverable in the Finder). The bridge
+ * refuses a home folder, a top-level folder, a whole disk, or any folder that
+ * holds one of `protect` (the vault) — and the refusal comes back as a sentence
+ * to show as it is.
+ */
+export async function trashProjectFolder(
+  path: string,
+  protect: readonly string[],
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!isNative()) return { ok: false, reason: 'moving a folder to the Trash needs the installed app' }
+  try {
+    await invoke('trash_project_folder', { path, protect: [...protect] })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, reason: typeof e === 'string' ? e : 'could not move the folder to the Trash' }
+  }
+}
+
 /**
  * Run one task through the real Python engine via the Rust bridge and return a
  * mapped client `Verdict`. Returns `null` when not native or on any error
@@ -1826,11 +1856,16 @@ export async function runNativeTask(
   // produced no files. Omitted/empty → the invoke field is undefined, the Rust
   // bridge pushes no flag, and every existing caller is byte-identical.
   mode?: 'read' | 'write' | 'converse',
+  // Small talk (2026-11-11): answer and record the reply, but do not spend a
+  // judge call grading a greeting. The engine honours it ONLY on a converse
+  // turn. false (the default) → the bridge pushes no flag, byte-identical.
+  noJudge = false,
 ): Promise<Verdict | null> {
   if (!isNative()) return null
   const started = Date.now()
   try {
     const json = await invoke<string>('run_engine_task', {
+      noJudge,
       // Cancellation handle: the Rust bridge retains the spawned child under
       // this id so `cancelEngineRun(runId)` can kill it on a client timeout.
       // Empty ('') → the bridge runs it uncancellable, byte-identical to before.
@@ -1953,6 +1988,9 @@ export async function runNativeProject(
     neverTouch?: string[]
     runBranch?: string
     roster?: string
+    /** The FIRST step of a build: the engine discards the working memory the
+     *  previous build left, so each build starts clean (2026-11-11). */
+    workingReset?: boolean
     /** Hard token cap for this step's contract envelope. 0/absent -> the
      *  engine's contract default (100k). A four-seat board step measured
      *  105,843 tokens on 2026-08-29 and failed the ENVELOPE with a judge
@@ -2011,6 +2049,7 @@ export async function runNativeProject(
       neverTouch: opts?.neverTouch ?? [],
       runBranch: opts?.runBranch ?? '',
       roster: opts?.roster ?? '',
+      workingReset: opts?.workingReset ?? false,
       tokenBudget: opts?.tokenBudget ?? 0,
     })
     const raw = JSON.parse(json) as RawVerdict

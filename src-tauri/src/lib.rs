@@ -448,6 +448,8 @@ async fn run_engine_task(
     // omits the flag entirely (same discipline as `--route`), so every
     // existing caller is byte-identical.
     mode: Option<String>,
+    // Small talk: skip the Tier-2 judge on a converse turn (see `wants_no_judge`).
+    no_judge: Option<bool>,
 ) -> Result<String, String> {
     // Clone the shared run map out of Tauri state so the retained-child handle
     // can move into the blocking worker (State is not 'static / Send-into-move).
@@ -592,6 +594,12 @@ async fn run_engine_task(
     if mode_arg == "read" || mode_arg == "write" || mode_arg == "converse" {
         args.push("--mode");
         args.push(&mode_arg);
+    }
+    // Small talk (2026-11-11): a converse turn the client marked as a greeting
+    // is answered but not judged. The engine honours the flag only on a
+    // converse turn; the bridge does not even send it on anything else.
+    if wants_no_judge(&mode_arg, no_judge) {
+        args.push("--no-judge");
     }
     // Image attach: forward the picked file PATH as `--image <path>`. The engine
     // reads + validates + base64s it (png/jpeg/gif/webp, <=5 MB) and builds the
@@ -889,6 +897,8 @@ async fn run_engine_project(
     user_capabilities: Option<String>,
     agent_capabilities: Option<String>,
     token_budget: Option<i64>,
+    // The first step of a build: discard the previous build's working memory.
+    working_reset: Option<bool>,
 ) -> Result<String, String> {
     // Clone the shared run map out of state so it can move into the worker.
     let runs = runs.inner().clone();
@@ -995,6 +1005,11 @@ async fn run_engine_project(
     if !run_branch_trim.is_empty() {
         args.push("--run-branch");
         args.push(run_branch_trim);
+    }
+    // L2 working memory (2026-11-11): the first step of a build discards what
+    // the previous build left. Absent/false -> no flag, the build continues.
+    if working_reset.unwrap_or(false) {
+        args.push("--working-reset");
     }
     // P1-3: an optional roster string (`name:provider,name:provider`) becomes
     // `--agents <roster>`, the same empty-omission discipline as slug/
@@ -2454,6 +2469,113 @@ fn reveal_path(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Open a Terminal window in a project folder (macOS `open -a Terminal <dir>`).
+/// Absolute paths only, and the folder must exist — the same discipline as
+/// `reveal_path`, so `open` can never be steered at an app name or a flag.
+#[tauri::command]
+fn open_in_terminal(path: String) -> Result<(), String> {
+    if !path.starts_with('/') {
+        return Err("only absolute paths are allowed".into());
+    }
+    if !std::path::Path::new(&path).is_dir() {
+        return Err("no such folder".into());
+    }
+    std::process::Command::new("open")
+        .arg("-a")
+        .arg("Terminal")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| format!("open failed: {e}"))?;
+    Ok(())
+}
+
+/// Why a folder must NOT be moved to the Trash, or None when it may be.
+/// Deleting a project can also move its folder to the Trash (2026-11-11); this
+/// is the guard that keeps that from ever taking a home folder, a system
+/// folder, or the vault with it. `path`, `home` and each `protect` entry are
+/// absolute, already-resolved paths without a trailing slash.
+fn trash_refusal(path: &str, home: &str, protect: &[String]) -> Option<String> {
+    let path = path.trim_end_matches('/');
+    let home = home.trim_end_matches('/');
+    if !path.starts_with('/') || path.is_empty() {
+        return Some("only an absolute folder path can be moved to the Trash".into());
+    }
+    let inside = |outer: &str, inner: &str| inner == outer || inner.starts_with(&format!("{outer}/"));
+    for kept in protect {
+        let kept = kept.trim_end_matches('/');
+        if !kept.is_empty() && inside(path, kept) {
+            return Some("this folder holds your vault — it stays where it is".into());
+        }
+    }
+    if !home.is_empty() && inside(path, home) {
+        return Some("this is your home folder (or a folder above it) — it stays where it is".into());
+    }
+    let depth_under = |root: &str| -> Option<usize> {
+        let rest = path.strip_prefix(&format!("{root}/"))?;
+        Some(rest.split('/').filter(|c| !c.is_empty()).count())
+    };
+    if !home.is_empty() {
+        if let Some(depth) = depth_under(home) {
+            return if depth >= 2 {
+                None
+            } else {
+                Some("this is one of your top-level folders — it stays where it is".into())
+            };
+        }
+    }
+    if let Some(depth) = depth_under("/Volumes") {
+        return if depth >= 2 {
+            None
+        } else {
+            Some("this is a whole disk — it stays where it is".into())
+        };
+    }
+    Some("only a folder inside your home folder or on an external disk can be moved to the Trash".into())
+}
+
+/// Move a project's folder to the Trash (recoverable from the Finder). Guarded
+/// by `trash_refusal`; `protect` carries the vault folder. Returns the refusal
+/// or failure as a plain sentence — the app shows it as it is.
+#[tauri::command]
+fn trash_project_folder(path: String, protect: Vec<String>) -> Result<(), String> {
+    let real = std::fs::canonicalize(&path).map_err(|_| "no such folder".to_string())?;
+    if !real.is_dir() {
+        return Err("no such folder".into());
+    }
+    let real_s = real.to_string_lossy().to_string();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let home_real = std::fs::canonicalize(&home)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or(home);
+    let protect_real: Vec<String> = protect
+        .iter()
+        .map(|p| {
+            std::fs::canonicalize(p)
+                .map(|c| c.to_string_lossy().to_string())
+                .unwrap_or_else(|_| p.clone())
+        })
+        .collect();
+    if let Some(why) = trash_refusal(&real_s, &home_real, &protect_real) {
+        return Err(why);
+    }
+    let tool = std::path::Path::new("/usr/bin/trash");
+    if !tool.is_file() {
+        return Err("this macOS has no Trash tool — remove the folder in the Finder".into());
+    }
+    let out = std::process::Command::new(tool)
+        .arg(&real_s)
+        .output()
+        .map_err(|e| format!("could not move the folder to the Trash: {e}"))?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "could not move the folder to the Trash: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ))
+    }
+}
+
 /// Append one chat turn (user message + assistant reply) to the vault's running
 /// conversation log at `<vault>/conversations/chat-log.md` as markdown. Creates
 /// the `conversations` directory if needed. Best-effort note write-back.
@@ -3184,6 +3306,8 @@ pub fn run() {
             detect_obsidian_vaults,
             open_url,
             reveal_path,
+            open_in_terminal,
+            trash_project_folder,
             append_chat_note,
             write_vault_note,
             append_vault_note,
@@ -3282,6 +3406,68 @@ fn mcp_server_arg(raw: Option<&str>) -> Option<String> {
         None
     } else {
         Some(names.join(","))
+    }
+}
+
+/// Whether `--no-judge` is sent: only when asked for AND the turn is a
+/// conversation. A task is always judged.
+fn wants_no_judge(mode: &str, no_judge: Option<bool>) -> bool {
+    mode == "converse" && no_judge.unwrap_or(false)
+}
+
+#[cfg(test)]
+mod no_judge_tests {
+    use super::wants_no_judge;
+
+    #[test]
+    fn only_a_converse_turn_that_asked_skips_the_judge() {
+        assert!(wants_no_judge("converse", Some(true)));
+        assert!(!wants_no_judge("converse", Some(false)));
+        assert!(!wants_no_judge("converse", None));
+        assert!(!wants_no_judge("write", Some(true)));
+        assert!(!wants_no_judge("", Some(true)));
+    }
+}
+
+#[cfg(test)]
+mod trash_guard_tests {
+    use super::trash_refusal;
+
+    const HOME: &str = "/Users/me";
+
+    #[test]
+    fn a_project_folder_two_levels_into_home_may_go() {
+        assert_eq!(trash_refusal("/Users/me/dev/my-repo", HOME, &[]), None);
+        assert_eq!(trash_refusal("/Users/me/Desktop/site/", HOME, &[]), None);
+    }
+
+    #[test]
+    fn home_its_parents_and_its_top_level_folders_never_go() {
+        for p in ["/", "/Users", "/Users/me", "/Users/me/Desktop", "/Users/me/Documents"] {
+            assert!(trash_refusal(p, HOME, &[]).is_some(), "{p} must be refused");
+        }
+    }
+
+    #[test]
+    fn system_folders_and_whole_disks_never_go() {
+        for p in ["/Applications", "/usr/local/thing/deep", "/Volumes", "/Volumes/Backup"] {
+            assert!(trash_refusal(p, HOME, &[]).is_some(), "{p} must be refused");
+        }
+        assert_eq!(trash_refusal("/Volumes/Backup/projects/site", HOME, &[]), None);
+    }
+
+    #[test]
+    fn a_folder_that_holds_the_vault_never_goes_but_a_project_inside_the_vault_may() {
+        let vault = vec!["/Users/me/sc-vault".to_string()];
+        assert!(trash_refusal("/Users/me/sc-vault", HOME, &vault).is_some());
+        assert!(trash_refusal("/Users/me/work/holder", HOME, &["/Users/me/work/holder/vault".to_string()]).is_some());
+        assert_eq!(trash_refusal("/Users/me/sc-vault/projects/site", HOME, &vault), None);
+    }
+
+    #[test]
+    fn a_relative_path_never_goes() {
+        assert!(trash_refusal("dev/my-repo", HOME, &[]).is_some());
+        assert!(trash_refusal("", HOME, &[]).is_some());
     }
 }
 
