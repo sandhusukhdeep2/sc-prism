@@ -71,8 +71,9 @@
    lines with a real ellipsis — it used to run 9 lines and cut mid-word, which
    read as broken (his screenshot, 2026-08-31). Full text on hover. */
 .agent-tile__idcol { min-width: 0; flex: 1 1 auto; }
+/* The role is a sentence: body type (2026-11-11), not code. */
 .agent-tile__sub {
-  font-size: 11px; color: var(--muted); font-family: var(--font-mono);
+  font-size: 12.5px; line-height: 1.4; color: var(--muted);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden; overflow-wrap: anywhere;
 }
@@ -131,7 +132,7 @@
 
 .agent-usage {
   display: flex; align-items: center; gap: 8px; margin-top: 12px;
-  font-size: 10.5px; color: var(--muted-2); font-family: var(--font-mono);
+  font-size: 11.5px; line-height: 1.4; color: var(--muted-2);
 }
 .agent-usage__dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; background: var(--dot-idle); }
 .agent-usage__dot--idle { background: var(--dot-idle); }
@@ -141,7 +142,8 @@
 .agent-usage__dot--failed { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
 /* ATTENTION — checks passed, reviewer dissented. Neither green nor red. */
 .agent-usage__dot--attention { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
-.agent-usage__label { flex: 0 1 auto; }
+/* A line of counts reads as text; the figures still line up. */
+.agent-usage__label { flex: 0 1 auto; font-variant-numeric: tabular-nums; }
 .agent-usage__spacer { flex: 1; }
 
 .agtoggle {
@@ -479,7 +481,7 @@
 /* The proof row: chip left, action right; the button drops to its own line
    when a long cause and a long cloud label cannot share one. */
 .agent-tile__proofrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 10px 0 12px; }
-.agent-tile__proof { font-size: 10.5px; color: var(--v2-muted); flex: 1 1 140px; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.agent-tile__proof { font-size: 11.5px; color: var(--v2-muted); flex: 1 1 140px; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .agent-tile__proof.is-proven { color: var(--v2-local-ink); animation: proofPop var(--dur) var(--ease-out) both; }
 @keyframes proofPop { from { transform: scale(0.94); opacity: 0.4; } to { transform: none; opacity: 1; } }
 /* While a proof runs, the button shows it is doing something: a light sweep. */

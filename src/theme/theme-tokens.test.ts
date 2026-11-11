@@ -373,3 +373,23 @@ describe('the stage is never squeezed to a sliver', () => {
     expect(rule).toMatch(/overflow-y: auto/)
   })
 })
+
+// READING COMFORT AND SENTENCE TYPE, CONTINUED (2026-11-11).
+describe('wide windows and sentences', () => {
+  it('a chat bubble stops at a readable measure however wide the window is', () => {
+    const ws = read('src/pages/Workspace.css')
+    expect(ws).toMatch(/\.msg__bubble \{[^}]*max-width: min\(72%, \d\dch\)/)
+  })
+  it('an open sidebar section keeps its chevron at the right edge', () => {
+    expect(read('src/components/DrawerSection.css')).toMatch(/\.dsec__chev \{[^}]*margin-left: auto/)
+  })
+  it('an agent tile sets its role, proof and activity lines as text, with aligned figures', () => {
+    const css = read('src/pages/Agents.css')
+    const sub = css.match(/\.agent-tile__sub \{[^}]*\}/)?.[0] ?? ''
+    expect(sub).not.toMatch(/font-mono/)
+    expect(css).toMatch(/\.agent-usage__label \{[^}]*font-variant-numeric: tabular-nums/)
+    const tsx = read('src/pages/Agents.tsx')
+    expect(tsx).not.toContain("'agent-tile__proof mono'")
+    expect(tsx).not.toContain('agent-usage__label mono')
+  })
+})

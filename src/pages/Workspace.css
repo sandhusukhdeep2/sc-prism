@@ -264,8 +264,10 @@
   font-size: 11.5px; font-weight: 700; color: var(--v2-on-fill);
   font-family: var(--font-body); letter-spacing: 0;
 }
+/* A readable measure however wide the window: 72% of the column, and never
+   past ~78 characters a line (full-screen it ran to 150). */
 .msg__bubble {
-  max-width: 72%; padding: 13px 17px; border-radius: var(--v2-r-chip) var(--v2-r-card) var(--v2-r-card) var(--v2-r-card);
+  max-width: min(72%, 78ch); padding: 13px 17px; border-radius: var(--v2-r-chip) var(--v2-r-card) var(--v2-r-card) var(--v2-r-card);
   background: var(--input-fill); font-size: 14px; line-height: 1.55; color: var(--bubble-ink);
   box-shadow: var(--v2-shadow);
 }
@@ -710,4 +712,13 @@
      stage to a sliver instead — the opposite failure. The cap scrolls inside. */
   .ws__stage--live:not(:empty) { flex: 0 0 auto; max-height: 46%; }
   .ws__chatcol { min-height: 260px; }
+}
+
+/* SENTENCES AS TEXT (2026-11-11): the hints, captions and empty states that
+   left monospace read at one comfortable size, and their figures still line
+   up. Monospace stays for paths, ids, commands and records. */
+.ws__desksummary, .ws__navempty, .ws__lastcrew, .ws__statslink,
+.chat__empty, .chat__metertext, .chat__targethint, .chat__routing, .chat__whohint,
+.chat__hint, .chat__confirmq, .chat__imagenote, .chat__attacherror, .chat__override-btn {
+  font-size: 12px; font-variant-numeric: tabular-nums;
 }

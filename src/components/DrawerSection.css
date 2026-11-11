@@ -14,7 +14,7 @@
 }
 .dsec__summary.is-warn { color: var(--v2-coral-ink); font-weight: 600; }
 .dsec__chev {
-  flex: 0 0 auto; align-self: center; font-size: 15px; line-height: 1; color: var(--v2-muted);
+  flex: 0 0 auto; align-self: center; margin-left: auto; font-size: 15px; line-height: 1; color: var(--v2-muted);
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .dsec.is-open > .dsec__head .dsec__chev { transform: rotate(90deg); }

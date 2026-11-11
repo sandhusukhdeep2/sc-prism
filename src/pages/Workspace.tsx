@@ -716,7 +716,7 @@ export default function Workspace() {
         <div className="ws__spacer" />
         <div className="ws__kpis mono">
           <span className="ws__kpi">{statusChip}</span>
-          <Link to="/stats" className="ws__statslink mono">
+          <Link to="/stats" className="ws__statslink">
             Stats ›
           </Link>
         </div>
@@ -744,7 +744,7 @@ export default function Workspace() {
               decision" on it promised the click would reveal the decision,
               which lives in the always-visible rail above. A label may only
               advertise what its own click shows. */}
-          <span className="ws__desksummary mono">
+          <span className="ws__desksummary">
             {deskOpen ? '' : deskSummary(managersForDesk, schedulesForDesk, projects)}
           </span>
           <span className="ws__deskchev">{deskOpen ? '▾' : '▸'}</span>
@@ -771,7 +771,7 @@ export default function Workspace() {
             <span className="ws__navname">Manager</span>
           </button>
           <div className="ws__navlabel mono">Projects</div>
-          {projects.length === 0 && <div className="ws__navempty mono">no projects yet</div>}
+          {projects.length === 0 && <div className="ws__navempty">no projects yet</div>}
           {projects.map((p) => (
             <button
               key={p.id}
@@ -797,7 +797,7 @@ export default function Workspace() {
               </button>
             ) : (
               // Companion grant denied: no fake affordance — say why + where.
-              <div className="ws__navempty mono">projects off — grant file writes in Settings</div>
+              <div className="ws__navempty">projects off — grant file writes in Settings</div>
             ))}
         </nav>
 
@@ -844,7 +844,7 @@ export default function Workspace() {
                 simply says who really did the last piece of work, which the
                 page used to forget the moment the run ended. */}
             {!anyLive && showsLastCrew && (
-              <div className="ws__lastcrew mono">
+              <div className="ws__lastcrew">
                 the last team run · nothing is running now
               </div>
             )}
@@ -876,14 +876,14 @@ export default function Workspace() {
           <div className="chat__body" ref={bodyRef}>
             {activeMessages(state).length === 0 && !state.running && (
               activeProject && nextSendMode(activeProject) === 'project-interview' ? (
-                <div className="chat__empty mono">
+                <div className="chat__empty">
                   <button type="button" className="chat__begin" onClick={() => void send('')}>
                     Begin interview →
                   </button>
                   <div className="chat__beginhint">a few questions about “{activeProject.name}”, then a plan</div>
                 </div>
               ) : (
-                <div className="chat__empty mono">
+                <div className="chat__empty">
                   {activeProject
                     ? `“${activeProject.name}” — describe the next step and ${primaryName} takes it from there`
                     : `no messages yet — describe what you want to build below and ${primaryName} takes it from there`}
@@ -926,7 +926,7 @@ export default function Workspace() {
                     {m.text ? (
                       <span className="msg__stream">{renderChatMarkdown(m.text)}</span>
                     ) : (
-                      <span className="msg__typing mono">{thinkingLabel}</span>
+                      <span className="msg__typing">{thinkingLabel}</span>
                     )}
                     {m.text && <CopyButton text={m.text} />}
                   </div>
@@ -1143,11 +1143,11 @@ export default function Workspace() {
               {/* Honesty: when the primary can't see images, say so plainly — the
                   model will be TOLD an image was attached, never shown a fake one. */}
               {image && !visionCapable && (
-                <span className="chat__imagenote mono">
+                <span className="chat__imagenote">
                   this model can't see images — it'll be told an image was attached
                 </span>
               )}
-              {attachError && <span className="chat__attacherror mono">{attachError}</span>}
+              {attachError && <span className="chat__attacherror">{attachError}</span>}
             </div>
           )}
 
@@ -1163,7 +1163,7 @@ export default function Workspace() {
               {/* P10: scoped label — this is the app's per-THREAD budget, not a
                   model's context window (the old "context %" implied the latter). */}
               <span
-                className="chat__metertext mono"
+                className="chat__metertext"
                 title="How full this thread is against the app's per-thread budget — not a model's context window."
               >
                 memory {meter.pct}% full
@@ -1182,7 +1182,7 @@ export default function Workspace() {
               {confirmNewSession ? (
                 <span className="chat__confirm">
                   <span
-                    className="chat__confirmq mono"
+                    className="chat__confirmq"
                     title="The current conversation is saved to your vault, then cleared here."
                   >
                     New session? saved to vault
@@ -1229,12 +1229,12 @@ export default function Workspace() {
             <div className="chat__targetbar">
               {target === 'propose' ? (
                 <>
-                  <span className="chat__targethint mono">
+                  <span className="chat__targethint">
                     you get a PROPOSAL to review under &ldquo;Needs you&rdquo; — nothing is added to
                     your agents until you tap Create
                   </span>
                   {!proposalCanRun && (
-                    <span className="chat__targethint chat__targethint--warn mono">
+                    <span className="chat__targethint chat__targethint--warn">
                       no real AI is connected — this send is simulated, so no proposal will be
                       recorded
                     </span>
@@ -1242,17 +1242,17 @@ export default function Workspace() {
                 </>
               ) : target === 'team' ? (
                 <>
-                  <span className="chat__targethint mono">
+                  <span className="chat__targethint">
                     your manager staffs the team — who really worked shows in the run, seat by
                     seat
                   </span>
                   {teamSitOut && (
-                    <span className="chat__targethint chat__targethint--warn mono">
+                    <span className="chat__targethint chat__targethint--warn">
                       {teamSitOut}
                     </span>
                   )}
                   {image && (
-                    <span className="chat__targethint chat__targethint--warn mono">
+                    <span className="chat__targethint chat__targethint--warn">
                       a team run takes text only — the attached image won&rsquo;t be sent
                     </span>
                   )}
@@ -1274,7 +1274,7 @@ export default function Workspace() {
                         </option>
                       ))}
                     </select>
-                    <span className="chat__targethint mono">
+                    <span className="chat__targethint">
                       briefed on your primary AI — the app has no per-agent runner, so this is{' '}
                       {chosenAgent.name}&rsquo;s role in the brief, not a separate model
                     </span>
@@ -1299,7 +1299,7 @@ export default function Workspace() {
           {draft.trim() !== '' && (
             <div
               className={
-                'chat__routing mono' + (routing.floor ? ' chat__routing--floor' : '')
+                'chat__routing' + (routing.floor ? ' chat__routing--floor' : '')
               }
               aria-label="Who takes this, and why"
             >
@@ -1490,10 +1490,10 @@ export default function Workspace() {
                     reports the target really selected — nothing is predicted,
                     and the routing line above adds the reason the moment there
                     is a job to route. */}
-                <span className="chat__whohint mono">{targetSentence}</span>
+                <span className="chat__whohint">{targetSentence}</span>
                 <button
                   type="button"
-                  className={'chat__override-btn mono' + (overrideOpen ? ' is-open' : '')}
+                  className={'chat__override-btn' + (overrideOpen ? ' is-open' : '')}
                   aria-expanded={overrideOpen}
                   aria-label="Change who takes this, and where it runs"
                   title="Pick a different coworker, or force this one message local or cloud. Both reset after the send."
@@ -1501,7 +1501,7 @@ export default function Workspace() {
                 >
                   Change {overrideOpen ? '▾' : '▸'}
                 </button>
-                <span className="chat__hint mono">Enter to send</span>
+                <span className="chat__hint">Enter to send</span>
                 <button
                   type="button"
                   className="chat__send"

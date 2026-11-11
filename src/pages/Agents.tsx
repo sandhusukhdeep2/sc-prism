@@ -1214,7 +1214,7 @@ function AgentTile({
           a nested interactive, and beside the name it squeezed "Researcher"
           into "Research / er" at the default window (installed app, 2026-11-09). */}
       <div className="agent-tile__proofrow">
-        <div className={'agent-tile__proof mono' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')} title={a.proof?.reason || undefined}>
+        <div className={'agent-tile__proof' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')} title={a.proof?.reason || undefined}>
           {proofChipText(a.proof)}
         </div>
         <button
@@ -1285,7 +1285,7 @@ function AgentTile({
 
       <div className="agent-usage">
         <span className={`agent-usage__dot agent-usage__dot--${shown.state}`} />
-        <span className="agent-usage__label mono">{shown.label}</span>
+        <span className="agent-usage__label">{shown.label}</span>
         <span className="agent-usage__spacer" />
         <button
           type="button"
