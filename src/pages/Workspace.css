@@ -722,3 +722,22 @@
 .chat__hint, .chat__confirmq, .chat__imagenote, .chat__attacherror, .chat__override-btn {
   font-size: 12px; font-variant-numeric: tabular-nums;
 }
+
+/* BELOW 820px THE ROOM LIST IS A MENU (clear-room spec §C): a "Rooms" button
+   beside the room's name, and the list opens over the page instead of taking
+   a column the window does not have. */
+.ws__roomsbtn {
+  align-self: flex-start; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--v2-ink);
+  padding: 5px 12px; border-radius: var(--v2-r-pill); border: 1px solid var(--v2-line);
+  background: var(--v2-card); cursor: pointer; margin-bottom: 6px;
+}
+.ws__roomsbtn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.ws__main { position: relative; }
+.ws__nav--menu {
+  position: absolute; z-index: 30; top: 0; left: 0;
+  width: min(280px, calc(100% - 16px)); flex: none; max-height: 70vh;
+  padding: 10px; border-radius: var(--v2-r-inner); background: var(--v2-card);
+  box-shadow: var(--v2-shadow); border: 1px solid var(--v2-line);
+  animation: wsMenuIn var(--dur) var(--ease-out) both;
+}
+@keyframes wsMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

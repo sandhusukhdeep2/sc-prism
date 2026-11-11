@@ -305,6 +305,13 @@ export default function Workspace() {
   // Narrow (≤1180px) the drawer starts closed and opens from `details ▸` — the
   // chat is the hero and needs the width (clear-room 2026-11-09 §A5/§C).
   const narrow = useNarrow()
+  // Below 820px the room list is a menu beside the room's name (§C).
+  const tight = useNarrow('(max-width: 820px)')
+  const [roomsOpen, setRoomsOpen] = useState(false)
+  const pickRoom = (id: string) => {
+    setActiveProject(id)
+    setRoomsOpen(false)
+  }
   const railVisible = railChoice === 'open' || (railChoice === 'auto' && !anyLive && !narrow)
 
   // ONE span tail for the whole page (console body, orbs, cards, narration).
@@ -699,6 +706,16 @@ export default function Workspace() {
           leaving a confident-looking blank. */}
       <section className="ws__strip">
         <div className="ws__titlecol">
+          {tight && (
+            <button
+              type="button"
+              className="ws__roomsbtn"
+              aria-expanded={roomsOpen}
+              onClick={() => setRoomsOpen((v) => !v)}
+            >
+              Rooms <span aria-hidden="true">{roomsOpen ? '▴' : '▾'}</span>
+            </button>
+          )}
           <h1 className="ws__hello">
             {activeProject ? activeProject.name || '(untitled project)' : 'Manager'}
           </h1>
@@ -761,11 +778,12 @@ export default function Workspace() {
         {/* left sidebar: switches between the Universal chat and each
             project's own chat session — no route change, setActiveProject
             just re-points this same page at a different thread (P1-1). */}
-        <nav className="ws__nav" aria-label="Chats and projects">
+        {(!tight || roomsOpen) && (
+        <nav className={'ws__nav' + (tight ? ' ws__nav--menu' : '')} aria-label="Chats and projects">
           <button
             type="button"
             className={`ws__navitem ${!state.activeProjectId ? 'is-active' : ''}`}
-            onClick={() => setActiveProject('')}
+            onClick={() => pickRoom('')}
           >
             <span className="ws__navorb" />
             <span className="ws__navname">Manager</span>
@@ -777,7 +795,7 @@ export default function Workspace() {
               key={p.id}
               type="button"
               className={`ws__navitem ${state.activeProjectId === p.id ? 'is-active' : ''}`}
-              onClick={() => setActiveProject(p.id)}
+              onClick={() => pickRoom(p.id)}
             >
               <span className="ws__navname">{p.name || '(untitled)'}</span>
               <StatusChip status={p.status} />
@@ -788,7 +806,7 @@ export default function Workspace() {
               <NewProjectForm
                 onDone={(p) => {
                   setShowNewForm(false)
-                  setActiveProject(p.id)
+                  pickRoom(p.id)
                 }}
               />
             ) : settings.projectWrites ? (
@@ -800,6 +818,7 @@ export default function Workspace() {
               <div className="ws__navempty">projects off — grant file writes in Settings</div>
             ))}
         </nav>
+        )}
 
         {/* CHAT COLUMN — region 2 of 3, and the hero. It does NOT scroll: it
             holds a bounded "what is running" stage and the chat card, and the
