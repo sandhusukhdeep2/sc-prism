@@ -690,6 +690,8 @@
    conversation keeps a floor tall enough for its last lines and the composer. */
 @media (max-width: 1180px), (max-height: 820px) {
   .ws__stage { max-height: 46%; }
-  .ws__stage--live:not(:empty) { flex: 0 1 auto; max-height: 46%; }
+  /* Cap, do not shrink: with shrink allowed the chat (flex 1) squeezed the
+     stage to a sliver instead — the opposite failure. The cap scrolls inside. */
+  .ws__stage--live:not(:empty) { flex: 0 0 auto; max-height: 46%; }
   .ws__chatcol { min-height: 260px; }
 }

@@ -85,11 +85,13 @@ describe('the Details drawer reads', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => localStorage.clear())
 
-  it('sets the description in body type, not monospace', async () => {
+  it('sets the description and the team line in body type, not monospace', async () => {
     seed()
     renderWorkspace()
     const goal = await screen.findByText(/A one-file demo: hello\.md greeting the crew/)
     expect(goal.className).not.toMatch(/\bmono\b/)
+    const team = await screen.findByText(/Default team/)
+    expect(team.className).not.toMatch(/\bmono\b/)
   })
 
   it('renders the last result as markdown, clamped, with a way to see all of it', async () => {
@@ -118,5 +120,40 @@ describe('the Details drawer reads', () => {
     expect(deletes).toHaveLength(1)
     const buttons = within(d).getAllByRole('button')
     expect(buttons[buttons.length - 1]).toBe(deletes[0])
+  })
+})
+
+// BELOW 1180px THE DRAWER STARTS CLOSED (clear-room spec 2026-11-09 §A5/§C).
+// Seen at 1000×760 idle: the 340px drawer stayed open and the chat was a
+// 280px column with its tabs wrapping. Narrow, the room gives the chat the
+// width and `details ▸` opens the drawer over it on demand.
+describe('the drawer and the window width', () => {
+  const realMatchMedia = window.matchMedia
+  beforeEach(() => localStorage.clear())
+  afterEach(() => {
+    window.matchMedia = realMatchMedia
+    localStorage.clear()
+  })
+  function pretendNarrow() {
+    window.matchMedia = ((q: string) =>
+      ({
+        matches: /max-width:\s*1180px/.test(q),
+        media: q,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList) as typeof window.matchMedia
+  }
+  it('starts closed in a narrow window and opens from details', async () => {
+    pretendNarrow()
+    seed()
+    renderWorkspace()
+    await screen.findByRole('button', { name: /details ▸/ })
+    expect(document.querySelector('.ws__side--project')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /details ▸/ }))
+    expect(document.querySelector('.ws__side--project')).not.toBeNull()
   })
 })

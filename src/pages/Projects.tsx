@@ -361,20 +361,20 @@ function TeamRosterControl({ project }: { project: Project }) {
 
   return (
     <div className="proj__team">
-      <div className="proj__teamline mono">
+      <div className="proj__teamline">
         {label}:{' '}
         {staffingRefused
           ? 'nobody could be staffed — the build will refuse to start'
           : summary || 'single model (no team configured)'}
       </div>
       {staffing.unstaffed.length > 0 && (
-        <div className="proj__teamsitout mono">{sitOutLine(staffing.unstaffed)}</div>
+        <div className="proj__teamsitout">{sitOutLine(staffing.unstaffed)}</div>
       )}
       {resolved.reassigned.length > 0 && (
-        <div className="proj__teamsitout mono">{reassignLine(resolved.reassigned)}</div>
+        <div className="proj__teamsitout">{reassignLine(resolved.reassigned)}</div>
       )}
       {resolved.sitOut.length > 0 && (
-        <div className="proj__teamsitout mono">{sitOutLine(resolved.sitOut)}</div>
+        <div className="proj__teamsitout">{sitOutLine(resolved.sitOut)}</div>
       )}
       {/* Per-project assigned agents take precedence, so the manual roster
           override only applies when there are none — offer it only then. */}
@@ -724,13 +724,13 @@ export function ProjectContextPanel({ project }: { project: Project }) {
                 )}
               </div>
               {proposedStaffing.unstaffed.length > 0 && (
-                <div className="proj__teamsitout mono">{sitOutLine(proposedStaffing.unstaffed)}</div>
+                <div className="proj__teamsitout">{sitOutLine(proposedStaffing.unstaffed)}</div>
               )}
               {proposedTeam.reassigned.length > 0 && (
-                <div className="proj__teamsitout mono">{reassignLine(proposedTeam.reassigned)}</div>
+                <div className="proj__teamsitout">{reassignLine(proposedTeam.reassigned)}</div>
               )}
               {proposedTeam.sitOut.length > 0 && (
-                <div className="proj__teamsitout mono">{sitOutLine(proposedTeam.sitOut)}</div>
+                <div className="proj__teamsitout">{sitOutLine(proposedTeam.sitOut)}</div>
               )}
               <div className="proj__proposalbtns">
                 <button

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useNarrow } from '../lib/useNarrow'
 import { useSchedules } from '../lib/schedules'
 import { useManagers } from '../lib/managers'
 import { agentsInRun } from '../lib/agentDossier'
@@ -301,7 +302,10 @@ export default function Workspace() {
   const anyLive = executing.length > 0
   // The rail's visibility: the user's explicit choice wins; 'auto' folds it
   // exactly while something is genuinely executing (see railChoice above).
-  const railVisible = railChoice === 'open' || (railChoice === 'auto' && !anyLive)
+  // Narrow (≤1180px) the drawer starts closed and opens from `details ▸` — the
+  // chat is the hero and needs the width (clear-room 2026-11-09 §A5/§C).
+  const narrow = useNarrow()
+  const railVisible = railChoice === 'open' || (railChoice === 'auto' && !anyLive && !narrow)
 
   // ONE span tail for the whole page (console body, orbs, cards, narration).
   // This REPLACES the two independent 1200ms polls Workspace used to run (the
