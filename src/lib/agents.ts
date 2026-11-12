@@ -511,66 +511,6 @@ export function remove(id: string): void {
 // ---------------------------------------------------------------------------
 
 /** Enabled agents assigned to a specific project (its build team). */
-/** How much of the crew leans on the cloud (Sukhdeep, 2026-08-31: "what if
- *  the user wants all agents local? or a bit on Gemini and local? or totally
- *  cloud?"). One move for the whole crew instead of editing every agent. */
-export type CrewLean = 'local' | 'balanced' | 'cloud'
-
-/** Seats that read the user's own notes stay on the machine under 'balanced'
- *  — the same instinct the privacy floor enforces at run time. */
-const PRIVATE_SEAT = /retrieval|vault|memory|archivist|companion/i
-
-/**
- * The model each seat should move to for a chosen lean, given the brands the
- * user has ACTUALLY connected. Never promises a provider that is not
- * connected: a cloud lean with no cloud connected returns [] (nothing moves,
- * and the caller says so) rather than pointing seats at a dead brand. Pure —
- * the caller applies it, so it is testable and previewable.
- */
-export function crewModelPlan(
-  crew: readonly { id: string; name: string; model: AgentModel }[],
-  lean: CrewLean,
-  connected: readonly string[],
-  /**
-   * WHICH cloud. Named by the caller so the UI can offer one button per AI the
-   * user actually has. This used to be picked with `.find()` over a fixed
-   * order, which meant that with Claude and Gemini both connected Gemini could
-   * never be chosen — the button said "All cloud" and silently meant "all
-   * Claude" (Sukhdeep, 2026-09-03: "I have more than two AIs").
-   *
-   * Omitted, it falls back to the single connected cloud, which is
-   * unambiguous when there is only one.
-   */
-  cloudBrand?: AgentModel,
-): { id: string; model: AgentModel }[] {
-  const clouds = (['claude', 'gemini'] as const).filter((b) => connected.includes(b))
-  // A named cloud the user has NOT connected is refused outright — silently
-  // substituting a different AI is exactly the bug this parameter fixes.
-  const cloud = cloudBrand
-    ? clouds.find((b) => b === cloudBrand)
-    : clouds.length === 1
-      ? clouds[0]
-      : clouds[0]
-  const hasLocal = connected.includes('local')
-  // The plan is the FULL target state for every seat, not a diff — applying it
-  // twice is the same as applying it once, and the UI can preview it whole.
-  if (lean === 'local') {
-    if (!hasLocal) return []
-    return crew.map((a) => ({ id: a.id, model: 'local' as AgentModel }))
-  }
-  if (lean === 'cloud') {
-    if (!cloud) return []
-    return crew.map((a) => ({ id: a.id, model: cloud as AgentModel }))
-  }
-  // balanced: seats that read your own notes stay on the machine; the rest
-  // take the cloud brand you have connected.
-  if (!cloud || !hasLocal) return []
-  return crew.map((a) => ({
-    id: a.id,
-    model: (PRIVATE_SEAT.test(a.name) ? 'local' : cloud) as AgentModel,
-  }))
-}
-
 export function agentsForProject(agents: StoredAgent[], projectId: string): StoredAgent[] {
   return agents.filter((a) => a.enabled && (a.assignedTo ?? '') === projectId)
 }

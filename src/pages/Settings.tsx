@@ -17,7 +17,6 @@ import {
   useSettings,
   type BrandView,
   type ProviderConfig,
-  type RouteBias,
   type RoutingMode as RoutingModeId,
   type ThemeId,
 } from '../lib/settings'
@@ -61,17 +60,13 @@ import {
   modelStatusUrl,
   parseModelStatus,
   rowFacts,
+  speedForModel,
   type LocalModelReport,
   type LocalServerStatus,
 } from '../lib/localModels'
-import {
-  crewModelPlan,
-  persistAgentToVault,
-  update as updateAgent,
-  useAgents,
-  type AgentModel,
-  type CrewLean,
-} from '../lib/agents'
+import { agentSlug, useAgents } from '../lib/agents'
+import { seatByWorkload } from '../lib/workloadSeats'
+import WorkloadCard from '../components/WorkloadCard'
 import { DEFAULT_TOKEN_BUDGET, clampBudget, dailyUsage } from '../lib/budget'
 import { brandBudgetStatus, brandOf, isEstimatedSpend, type Brand } from '../lib/providerBudget'
 import { buildKindPicks } from '../lib/localModelPick'
@@ -1165,8 +1160,36 @@ function HostingCard() {
   )
 }
 
+/**
+ * The workload slider, handed the one extra measurement it shows: the local
+ * model's real output speed, read from this vault's own run record. No record,
+ * or no local model named, and the card simply says nothing about speed.
+ */
+function WorkloadSection() {
+  const { settings } = useSettings()
+  const [speed, setSpeed] = useState<number | null>(null)
+  const localModel = settings.providers.find((p) => p.id === 'local')?.model ?? ''
+  useEffect(() => {
+    let live = true
+    void (async () => {
+      try {
+        const vault = await resolveVaultDir(settings.vaultPath)
+        if (!vault || !localModel) return
+        const spans = await readSpansTail(vault, 400)
+        if (live) setSpeed(speedForModel(spans, localModel)?.tokensPerSec ?? null)
+      } catch {
+        // No run record to read — nothing is claimed about speed.
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [settings.vaultPath, localModel])
+  return <WorkloadCard localTokensPerSec={speed} />
+}
+
 function RoutingModeCard() {
-  const { settings, setRoutingMode, setRouteBias } = useSettings()
+  const { settings, setRoutingMode } = useSettings()
   const mode = settings.routingMode
   const primaryName = primaryDisplayName(settings)
 
@@ -1210,7 +1233,6 @@ function RoutingModeCard() {
           'uses your adopted router · sensitive work still stays local, reasoning still prefers a configured cloud',
         )}
       </div>
-      <DependencyDial bias={settings.routeBias} onChange={setRouteBias} />
       <YourAIsRow />
       <BudgetRow />
     </div>
@@ -1326,7 +1348,6 @@ function BudgetRow() {
 function YourAIsRow() {
   const { settings, setBrandBudget } = useSettings()
   const agents = useAgents()
-  const [applied, setApplied] = useState('')
 
   // A brand counts as connected when the user has an enabled, connected
   // provider for it — the same test the rest of Settings uses.
@@ -1342,26 +1363,17 @@ function YourAIsRow() {
     })
   }
 
-  const connected = brands.map((b) => b.brand)
-  const clouds = brands.filter((b) => b.brand !== 'local')
-  const hasLocal = connected.includes('local')
   const crew = agents.filter((a) => a.enabled)
-
-  const apply = (lean: CrewLean, cloud: AgentModel | undefined, label: string) => {
-    const plan = crewModelPlan(crew, lean, connected, cloud)
-    if (!plan.length) return
-    for (const row of plan) {
-      const a = agents.find((x) => x.id === row.id)
-      if (!a || a.model === row.model) continue
-      // A proof vouches for the seat ON ONE MODEL; moved, it starts unproven.
-      updateAgent(a.id, { model: row.model, proof: undefined })
-      void persistAgentToVault({ ...a, model: row.model, proof: undefined }, settings.vaultPath)
-    }
-    setApplied(`${label} — ${plan.length} seat${plan.length === 1 ? '' : 's'} moved`)
+  // WHERE EACH SEAT RUNS, with the workload slider applied: a system agent is
+  // on the default team, so the stop in force re-seats it; an agent staffed to
+  // a project keeps the AI set on it. The count is of seats as they would
+  // really run, not of what each agent's file says.
+  const runsOn = (a: (typeof crew)[number]): string => {
+    if ((a.assignedTo ?? '') !== 'system') return String(a.model)
+    const seated = seatByWorkload(settings, `${agentSlug(a.name)}:${a.model}`)
+    return seated.slice(seated.indexOf(':') + 1)
   }
-
-  const seatsOn = (brand: Brand) =>
-    crew.filter((a) => brandOf(String(a.model)) === brand).length
+  const seatsOn = (brand: Brand) => crew.filter((a) => brandOf(runsOn(a)) === brand).length
 
   return (
     <div className="settings__ais">
@@ -1420,88 +1432,6 @@ function YourAIsRow() {
         )}
       </div>
 
-      <div className="settings__leanrow">
-        <span className="settings__leanlabel">Move the whole crew</span>
-        <button
-          type="button"
-          className="settings__leanbtn"
-          disabled={!hasLocal || !crew.length}
-          onClick={() => apply('local', undefined, 'All local')}
-        >
-          All local
-        </button>
-        {clouds.map((c) => (
-          <button
-            key={`bal-${c.brand}`}
-            type="button"
-            className="settings__leanbtn"
-            disabled={!hasLocal || !crew.length}
-            onClick={() => apply('balanced', c.brand as AgentModel, `Balanced with ${c.label}`)}
-          >
-            Balanced · {c.label}
-          </button>
-        ))}
-        {clouds.map((c) => (
-          <button
-            key={`all-${c.brand}`}
-            type="button"
-            className="settings__leanbtn"
-            disabled={!crew.length}
-            onClick={() => apply('cloud', c.brand as AgentModel, `All on ${c.label}`)}
-          >
-            All on {c.label}
-          </button>
-        ))}
-      </div>
-      <div className="settings__clihint settings__leanhint">
-        {applied ? (
-          <strong>{applied}</strong>
-        ) : (
-          <>
-            <b>All local</b> — every seat on your machine, nothing leaves it.{' '}
-            <b>Balanced</b> — seats that read your notes stay local, the rest use
-            that AI. <b>All on …</b> — every seat on that AI, except anything the
-            privacy floor pulls back.
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Slider order is the dial's mental model: your own hardware on the left, the
-// cloud on the right, today's untouched behavior in the middle.
-const BIAS_STOPS: RouteBias[] = ['local', 'auto', 'cloud']
-const BIAS_COPY: Record<RouteBias, { word: string; desc: string }> = {
-  local: { word: 'Local first', desc: 'everyday sends run on your own hardware; cloud only when you ask' },
-  auto: { word: 'Balanced', desc: 'each send decides normally' },
-  cloud: { word: 'Online first', desc: 'everyday sends go to your primary cloud; local when you ask' },
-}
-
-function DependencyDial({ bias, onChange }: { bias: RouteBias; onChange: (b: RouteBias) => void }) {
-  const idx = Math.max(0, BIAS_STOPS.indexOf(bias))
-  const copy = BIAS_COPY[BIAS_STOPS[idx] ?? 'auto']
-  return (
-    <div className="settings__dial">
-      <div className="settings__dialrow">
-        <span className="settings__dialend">Local first</span>
-        <input
-          className="settings__dialrange"
-          type="range"
-          min={0}
-          max={2}
-          step={1}
-          value={idx}
-          aria-label="Dependency dial — local ↔ online"
-          aria-valuetext={copy.word}
-          onChange={(e) => onChange(BIAS_STOPS[Number(e.target.value)] ?? 'auto')}
-        />
-        <span className="settings__dialend">Online first</span>
-      </div>
-      <div className="settings__clihint settings__dialhint">
-        <strong>{copy.word}</strong> — {copy.desc} · your message&rsquo;s own choice and the
-        privacy floor always outrank the dial
-      </div>
     </div>
   )
 }
@@ -2648,6 +2578,10 @@ export default function Settings() {
 
           <HostingCard />
           <RoutingModeCard />
+          {/* THE WORKLOAD SLIDER (2026-11-12): who plans, who does the work,
+              who checks. It replaces the dependency dial and the buttons that
+              rewrote every agent's model — one control where there were three. */}
+          <WorkloadSection />
 
           <EngineExtensions />
 

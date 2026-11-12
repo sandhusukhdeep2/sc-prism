@@ -162,6 +162,7 @@ import {
 import type { RunAction } from '../lib/projectRun'
 import { neverTouchGlobs } from '../lib/neverTouch'
 import { effortsArg } from '../lib/efforts'
+import { seatByWorkload } from '../lib/workloadSeats'
 import {
   canCompact,
   compactionArchiveMarkdown,
@@ -1332,6 +1333,16 @@ export function teamNoticeText(r: TeamResult): string {
  * rather than running as a one-stub team.
  */
 export function teamRosterFromSettings(settings: Settings): string {
+  // THE WORKLOAD SLIDER re-seats this default team: who plans, who does the
+  // work and who checks it follow the stop in force (lib/workload.ts). With no
+  // stop in force the roster is returned exactly as built.
+  return seatByWorkload(settings, baseTeamRoster(settings))
+}
+
+/** The default team BEFORE the workload slider is applied — what each seat
+ *  would run on by connection alone. The Settings card shows this beside the
+ *  re-seated team, so a move is visible as a move. */
+export function baseTeamRoster(settings: Settings): string {
   const usable = (id: string): boolean =>
     providerUsable(settings.providers.find((p) => p.id === id))
   const primary = settings.providers.find((p) => p.primary && providerUsable(p))
@@ -4201,7 +4212,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // report and `rosterSitOut` came back empty — the build ran a quietly
       // shorter team and the user was never told. Ask for everyone, and let the
       // one filter both drop AND name who sat out.
-      const askedRoster = projectBuildRoster(project, listAgents(), allowAllProviders)
+      const askedRoster = projectBuildRoster(project, listAgents(), allowAllProviders, (r) =>
+        seatByWorkload(settingsRef.current, r),
+      )
       // THE STAFFING GATE (2026-08-30, lib/projects.ts staffRoster). A typed
       // role key that names no real library agent never reaches the engine —
       // its parse_agents would bind the fallback charter "Act as the team's

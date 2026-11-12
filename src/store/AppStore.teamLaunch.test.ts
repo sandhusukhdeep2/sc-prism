@@ -128,3 +128,27 @@ describe('teamNoticeText — the ending the chat reports', () => {
     expect(teamNoticeText(result({ board_path: '' }))).toBe('team run passed · 1,200/100,000 tok')
   })
 })
+
+// The workload slider (lib/workload.ts) re-seats the DEFAULT team.
+describe('teamRosterFromSettings — the workload slider re-seats the default team', () => {
+  const connected = [
+    { id: 'local', enabled: true, primary: false, baseUrl: 'http://localhost:1234' },
+    { id: 'claude', enabled: true, primary: true, apiKey: 'sk-real' },
+    { id: 'gemini', enabled: true, primary: false, apiKey: 'g-real' },
+  ]
+
+  it('all local: nobody on the default team is seated on a cloud AI', () => {
+    const s = { ...makeSettings(connected), workload: 'local-all' } as Settings
+    expect(teamRosterFromSettings(s)).toBe('lead:local,researcher:local,critic:local')
+  })
+
+  it('primary leads and checks: it plans and checks, local does the work', () => {
+    const s = { ...makeSettings(connected), workload: 'primary-leads' } as Settings
+    expect(teamRosterFromSettings(s)).toBe('lead:claude,researcher:local,critic:claude')
+  })
+
+  it('"measured" with a cached measurement uses it', () => {
+    const s = { ...makeSettings(connected), workload: 'measured', workloadMeasured: 'primary-all' } as Settings
+    expect(teamRosterFromSettings(s)).toBe('lead:claude,researcher:claude,critic:claude')
+  })
+})

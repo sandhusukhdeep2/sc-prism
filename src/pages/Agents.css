@@ -494,3 +494,11 @@
 .agent-tile__proof.is-unproven { color: var(--v2-coral-ink); }
 .agent-tile__prove { font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: var(--v2-r-pill); border: 1px solid var(--v2-line); background: var(--v2-card); color: var(--v2-ink); cursor: pointer; min-height: 28px; flex: 0 0 auto; white-space: nowrap; }
 .agent-tile__prove:disabled { opacity: 0.5; cursor: default; }
+
+/* The workload slider's note: one quiet line above the crew. */
+.agents__workload {
+  margin: 0 0 14px; padding: 10px 14px; border-radius: var(--v2-r-inner);
+  background: var(--v2-inset); font-size: 13.5px; line-height: 1.5; color: var(--v2-ink-2);
+}
+.agents__workload b { color: var(--v2-ink); font-weight: 600; }
+.agents__workload a { color: var(--v2-ink); text-underline-offset: 3px; }

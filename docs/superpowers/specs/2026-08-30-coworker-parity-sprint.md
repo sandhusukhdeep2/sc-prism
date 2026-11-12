@@ -165,3 +165,93 @@ interchangeable:
   the queue or replace the failed step.
 - A conversation cannot yet *propose* a folder job the user accepts with one
   click; it can only say what it would change.
+
+## Each AI's thinking effort is its own (2026-11-12)
+
+Settings holds a thinking-effort level **per provider**. Only the primary's was
+forwarded (`SCPRISM_EFFORT`), and the gateway applied that one level to every
+provider in the run. On the owner's machine the critic seat ran on Gemini with
+the level chosen for Claude: about seventy output tokens took between 10 and
+117 seconds, and three calls hit the 120-second bound and stalled whole team
+runs.
+
+- The client sends every enabled provider with its own level
+  (`lib/efforts.ts` → `SCPRISM_EFFORTS`, `provider=level` pairs).
+- The gateway gives a provider **its** level or none at all
+  (`Gateway.effort_for`). A provider the list does not name runs at its own
+  default — it never inherits another's.
+- An engine told nothing (an older client) keeps the single run-wide level.
+- The bridge passes only clean `name=level` pairs; a garbled list still counts
+  as "a list was given", so it can never bring the run-wide level back.
+
+Not yet proven against the live provider: the fix is the mechanism; whether it
+ends the Gemini timeouts is to be read from the next real team run.
+
+## The workload slider (2026-11-12)
+
+The owner: *"one slider that changes the dependency… if the user wants the
+primary AI to just give the instruction and check the work, it can do only
+that, and all the workload is on local… fix by your measurement first, but give
+the slider to the user. If the user wants to go all in with local, he can."*
+
+He had asked for a version of this three times, and each answer was a
+different control: a dial that only moved single chat messages (2026-08-29),
+then buttons that rewrote every agent's model (2026-08-31, 2026-09-03). None of
+them was about **who plans, who does the work and who checks** — which is what
+he kept describing. The slider is that control, and it replaces the other two.
+
+### The stops
+
+A stop is a rule about seats, applied by code (`lib/workload.ts`). A seat's
+kind is read from its role name: one that leads or plans, *plans*; one that
+reviews or verifies, *checks*; every other seat *does the work*.
+
+| stop | plans | does the work | checks |
+| --- | --- | --- | --- |
+| All primary | primary | primary | primary |
+| Primary leads and checks | primary | local | primary |
+| Primary checks only | local | local | primary |
+| All local | local | local | local |
+
+- **A seat that reads the user's notes stays local at every stop** — the
+  privacy floor's instinct, applied before the run instead of in the middle
+  of it.
+- **A second opinion** (off by default): where the primary would have checked,
+  the second connected cloud AI does. Never at All local.
+- **An AI that is not connected is never seated.** The seat keeps the AI it
+  had.
+- **"Each agent's own AI"** switches the slider off.
+
+### What it applies to
+
+The **default team only**: the composer's team run and a project's system
+agents. A project's own assigned agents and a hand-typed roster are explicit
+choices, and a slider does not overrule an explicit choice. It is an overlay
+resolved at launch — **no agent file is rewritten** — so switching it off gives
+every seat back exactly as it was. All local also keeps single chat messages
+on this Mac (the old dial's "Local first").
+
+### Measured first
+
+The slider starts on **Follow my measured runs**: the stop the Tier-2 judge's
+mean score for the local model points to (`lib/workloadMeasure.ts`, the same
+`qualityForModel` the local-model picker shows). Ten judged runs are needed
+before anything is suggested; at 0.75 and above the local model plans as well
+as does, at 0.5 and above it does the work under a primary that plans and
+checks, below that the work stays on the primary. All local is never
+suggested — it gives up the independent check, and that is the user's choice
+to make. With nothing measured, "measured" changes nothing. The measurement is
+cached in Settings at launch so a run can follow it without the Settings page
+being opened.
+
+### Shown before it is used
+
+The Settings card lists the default team's seats at the stop in force — what
+each is for, which AI it runs on, and what it moved from — and the per-AI seat
+count and the Agents page say when the slider is re-seating.
+
+### Not built
+
+- A stop states the local model's measured speed, but not yet an expected
+  run time or a cloud-token estimate for that stop.
+- A manager's own team jobs are not re-seated by the slider.

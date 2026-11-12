@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import AgentCeremony from '../components/AgentCeremony'
 import { proofButtonLabel, proofChipText, proveAgent } from '../lib/proveAgent'
 import './Agents.css'
@@ -26,6 +26,9 @@ import RosterPicker from '../components/RosterPicker'
 import AgentMonogram from '../components/AgentMonogram'
 import { useConnectivity } from '../lib/connectivity'
 import { primaryDisplayName, useSettings } from '../lib/settings'
+import { brandOf } from '../lib/providerBudget'
+import { workloadCopy } from '../lib/workload'
+import { settingsStop, workloadAIs } from '../lib/workloadSeats'
 import { readSpansTail, resolveVaultDir, revealPath, isNative, type EngineSpan, type TeamResult } from '../lib/nativeEngine'
 import { ownActivity } from '../lib/ownActivity'
 import { useInterview } from '../lib/interview'
@@ -707,6 +710,27 @@ const MODEL_TEXT: Record<AgentModel, string> = {
 type RoleFilter = 'all' | 'system' | 'business'
 type ModelFilter = 'all' | AgentModel
 
+/**
+ * One line that says the workload slider is re-seating the default team.
+ * Nothing at all when every agent runs on the AI set on it.
+ */
+function WorkloadNote() {
+  const { settings } = useSettings()
+  const stop = settingsStop(settings)
+  if (stop === 'agents') return null
+  const brand = brandOf(workloadAIs(settings).primary)
+  const primary =
+    brand === 'claude' ? 'Claude' : brand === 'gemini' ? 'Gemini' : brand === 'openai' ? 'OpenAI' : 'your primary'
+  const copy = workloadCopy(stop, primary)
+  return (
+    <p className="agents__workload" role="note" aria-label="Workload slider">
+      <b>Workload: {copy.word}</b> — {copy.desc}. On the default team a seat runs where the
+      slider puts it, whatever its card says below.{' '}
+      <Link to="/settings">Change in Settings</Link>
+    </p>
+  )
+}
+
 export default function Agents() {
   const navigate = useNavigate()
   const agents = useAgents()
@@ -955,6 +979,10 @@ export default function Agents() {
 
       {tab === 'crew' && (
         <>
+      {/* THE WORKLOAD SLIDER re-seats the default team at run time without
+          rewriting an agent, so a card below still shows the AI set on that
+          agent. When a stop is in force the page says so, once, up here. */}
+      <WorkloadNote />
       {/* page toolbar */}
       <div className="agents__toolbar">
         <span className="agents__search">

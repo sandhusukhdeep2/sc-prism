@@ -42,7 +42,8 @@ describe('the token budget card', () => {
 
   it('says what happens when a run reaches the limit', () => {
     renderSettings()
-    expect(screen.getByText(/stop/i)).toBeInTheDocument()
+    // The budget card's own sentence — other cards on the page use the word too.
+    expect(screen.getByText(/A run that reaches this stops/i)).toBeInTheDocument()
   })
 
   it('persists a budget the user sets', () => {

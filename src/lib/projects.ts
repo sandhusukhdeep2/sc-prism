@@ -226,6 +226,11 @@ export function projectBuildRoster(
    *  Researcher has silently vanished for Gemini being switched off. Gate ONCE,
    *  in the filter that also reports (`lib/roster.ts`: no silent shrinking). */
   providerCheck: (token: string) => string,
+  /** Re-seat the DEFAULT team (the workload slider — `seatByWorkload`). Never
+   *  applied to a project's own assigned agents or a hand-typed roster: those
+   *  seats are the user's explicit choice, and a slider does not overrule an
+   *  explicit choice. Omitted → the system agents run on the AI set on each. */
+  reseat?: (roster: string) => string,
 ): string {
   const assigned = agentsForProject(agents, project.id)
   if (assigned.length > 0) return agentRoster(assigned, providerCheck)
@@ -233,7 +238,8 @@ export function projectBuildRoster(
   // here — the launch path staffs it (`staffRoster`) and filters it
   // (`filterRoster`), and REPORTS what either gate drops.
   if ((project.roster ?? '').trim()) return project.roster ?? ''
-  return agentRoster(systemAgents(agents), providerCheck)
+  const team = agentRoster(systemAgents(agents), providerCheck)
+  return reseat ? reseat(team) : team
 }
 
 /**

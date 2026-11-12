@@ -21,6 +21,7 @@ import {
   type ProjectFileMeta,
 } from '../lib/nativeEngine'
 import { useSettings } from '../lib/settings'
+import { seatByWorkload } from '../lib/workloadSeats'
 import { useConnectivity } from '../lib/connectivity'
 import { allowAllProviders, filterRoster, reassignLine, rosterGate, sitOutLine } from '../lib/roster'
 import { mergeReadiness } from '../lib/projectRun'
@@ -454,7 +455,7 @@ function TeamRosterControl({ project }: { project: Project }) {
   // so this line reports it HERE, before the tap — never a seat the build
   // would silently re-charter or reject as a surprise. An override that
   // staffs NOBODY reads as the refusal it is, not as "single model".
-  const asked = projectBuildRoster(project, agents, allowAllProviders)
+  const asked = projectBuildRoster(project, agents, allowAllProviders, (r) => seatByWorkload(settings, r))
   const staffing = staffRoster(asked, agents)
   const staffingRefused = Boolean(asked) && !staffing.roster
   const resolved = filterRoster(staffing.roster, gate, settings)
@@ -695,7 +696,9 @@ export function ProjectContextPanel({ project }: { project: Project }) {
   // no more promise a made-up role than an unconnected provider — an override
   // that staffs NOBODY must read as the refusal here, not as "your default
   // team. Approve to build." while runProject refuses.
-  const proposedAsk = projectBuildRoster(project, agents, allowAllProviders)
+  const proposedAsk = projectBuildRoster(project, agents, allowAllProviders, (r) =>
+    seatByWorkload(settings, r),
+  )
   const proposedStaffing = staffRoster(proposedAsk, agents)
   const proposalRefused = Boolean(proposedAsk) && !proposedStaffing.roster
   const proposedTeam = filterRoster(proposedStaffing.roster, proposalGate, settings)

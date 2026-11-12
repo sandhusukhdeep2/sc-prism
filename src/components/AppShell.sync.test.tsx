@@ -15,7 +15,9 @@ import { AppProvider } from '../store/AppStore'
 const spies = vi.hoisted(() => ({
   syncVaultAgents: vi.fn(async () => 0),
   syncVaultSkills: vi.fn(async () => 0),
+  measureWorkload: vi.fn(),
 }))
+vi.mock('../lib/workloadMeasure', () => ({ measureWorkload: spies.measureWorkload }))
 vi.mock('../lib/agents', async (orig) => {
   const actual = await orig<typeof import('../lib/agents')>()
   return { ...actual, syncVaultAgents: spies.syncVaultAgents }
@@ -40,6 +42,8 @@ describe('AppShell syncs the vault folders on launch', () => {
     localStorage.clear()
     spies.syncVaultAgents.mockClear()
     spies.syncVaultSkills.mockClear()
+    spies.measureWorkload.mockReset()
+    spies.measureWorkload.mockReturnValue({ stop: null, why: '', quality: null })
   })
   afterEach(() => {
     localStorage.clear()
@@ -66,6 +70,33 @@ describe('AppShell syncs the vault folders on launch', () => {
     await waitFor(() => {
       expect(spies.syncVaultAgents).toHaveBeenCalled()
       expect(spies.syncVaultSkills).toHaveBeenCalled()
+    })
+  })
+
+  // The workload slider's starting stop is measured from the judged runs, and
+  // a run has to be able to use it without anyone opening Settings first.
+  it('caches the measured workload stop at launch', async () => {
+    spies.measureWorkload.mockReturnValue({ stop: 'primary-leads', why: 'measured', quality: null })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <SettingsProvider>
+          <ConnectivityProvider>
+            <OnboardingProvider>
+              <AppProvider>
+                <Routes>
+                  <Route element={<AppShell />}>
+                    <Route index element={<div>home</div>} />
+                  </Route>
+                </Routes>
+              </AppProvider>
+            </OnboardingProvider>
+          </ConnectivityProvider>
+        </SettingsProvider>
+      </MemoryRouter>,
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('scprism.settings') ?? '{}') as { workloadMeasured?: string }
+      expect(saved.workloadMeasured).toBe('primary-leads')
     })
   })
 })

@@ -89,19 +89,21 @@ describe('Your AIs — one row per connected AI', () => {
     expect(screen.getAllByText(/no alert|unlimited/i).length).toBeGreaterThan(0)
   })
 
-  it('offers one crew button per cloud the user actually has', () => {
-    // The old row said "All cloud" and silently meant whichever it found
-    // first, so Gemini was unreachable.
-    withAIs('claude-cli', 'gemini', 'local')
+  // "All on Gemini" used to be a button that rewrote every agent. It is now a
+  // position: the workload slider's near end is whichever AI is the primary,
+  // and the card says where the primary is chosen.
+  it('the workload slider’s near end is named after the primary AI, whichever it is', () => {
+    withAIs('gemini', 'claude-cli', 'local')
     renderSettings()
-    expect(screen.getByRole('button', { name: /all on claude/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /all on gemini/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^all cloud$/i })).not.toBeInTheDocument()
+    expect(screen.getByText('All Gemini')).toBeInTheDocument()
+    expect(screen.queryByText('All Claude')).not.toBeInTheDocument()
+    expect(screen.getByText(/pick a different primary under Providers/i)).toBeInTheDocument()
   })
 
-  it('does not offer a cloud button for an AI that is not connected', () => {
-    withAIs('claude-cli', 'local')
+  it('no crew button rewrites the agents any more', () => {
+    withAIs('claude-cli', 'gemini', 'local')
     renderSettings()
+    expect(screen.queryByRole('button', { name: /all on claude/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /all on gemini/i })).not.toBeInTheDocument()
   })
 })

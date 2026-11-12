@@ -4,6 +4,8 @@ import { initialsOf } from '../lib/initials'
 import { syncVaultAgents } from '../lib/agents'
 import { syncVaultSkills } from '../lib/skills'
 import { syncMcpServers } from '../lib/mcpSync'
+import { measureWorkload } from '../lib/workloadMeasure'
+import { persistedVerdicts } from '../store/AppStore'
 import { NavLink, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { settingsNav, sideNav } from '../lib/nav'
 import { useOnboarding } from '../lib/onboarding'
@@ -30,7 +32,7 @@ import './AppShell.css'
 // rail. Until first-run setup is complete, the whole app redirects to
 // onboarding.
 export default function AppShell() {
-  const { settings: shellSettings, setMcpServers } = useSettings()
+  const { settings: shellSettings, setMcpServers, setWorkloadMeasured } = useSettings()
   // Vault folders sync at APP START (2026-08-29): the agents and skills
   // migrations used to fire only on their pages' mounts, so a folder could
   // stay missing for as long as a page went unvisited (Sukhdeep found
@@ -44,6 +46,14 @@ export default function AppShell() {
     void syncMcpServers(shellSettings.vaultPath, setMcpServers).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // THE WORKLOAD SLIDER starts on the stop the judged runs point to
+  // (lib/workloadMeasure.ts). Measured here, at launch and whenever the
+  // connected AIs change, and cached in Settings — so a run can follow it
+  // without anyone opening the Settings page first.
+  useEffect(() => {
+    setWorkloadMeasured(measureWorkload(shellSettings, persistedVerdicts()).stop ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shellSettings.providers])
 
   const { done } = useOnboarding()
   const managers = useManagers()

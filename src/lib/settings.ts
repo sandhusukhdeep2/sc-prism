@@ -3,6 +3,7 @@
 // Written as a .ts module (no JSX) so it uses createElement directly.
 
 import { mcpServerNames } from './mcpServers'
+import { isWorkload, type Workload, type WorkloadStop } from './workloadKinds'
 import { clampBudget } from './budget'
 import { clampBrandBudget } from './providerBudget'
 import {
@@ -102,8 +103,21 @@ export interface Settings {
    *  'auto' hands the default lane to your adopted router — see
    *  {@link RoutingMode}. */
   routingMode: RoutingMode
-  /** Default-lane dependency dial — see {@link RouteBias}. */
+  /** Default-lane dependency dial — see {@link RouteBias}. Since 2026-11-12
+   *  the workload slider owns it: All local sets 'local', every other stop
+   *  'auto' (see {@link withWorkload}). */
   routeBias: RouteBias
+  /** THE WORKLOAD SLIDER (lib/workload.ts): which AI plans, does the work and
+   *  checks it on the default team. 'measured' (the default) follows
+   *  `workloadMeasured`; 'agents' leaves every agent on the AI set on it. */
+  workload: Workload
+  /** The stop the app's own measurement points to — a cached copy, refreshed
+   *  from the judged runs, so a roster can be resolved without reading them.
+   *  '' = nothing to suggest yet, and 'measured' then changes nothing. */
+  workloadMeasured: WorkloadStop | ''
+  /** "A different AI double-checks": where the primary would have checked,
+   *  the second connected cloud AI does. Only a literal true turns it on. */
+  workloadSecondOpinion: boolean
   /** Max tokens one run may spend. 0 = the engine's own default (100,000).
    *  Made settable 2026-09-03 after a real three-agent board breached the
    *  invisible default, lost its third agent, and returned an empty answer. */
@@ -473,6 +487,9 @@ export const DEFAULT_SETTINGS: Settings = {
   approvalMode: 'approve',
   routingMode: 'pinned',
   routeBias: 'auto',
+  workload: 'measured',
+  workloadMeasured: '',
+  workloadSecondOpinion: false,
   tokenBudget: 0,
   brandBudgets: {},
   // Sprint D (2026-08-31, his order: 'agents are not able to search the
@@ -563,6 +580,16 @@ export function normalizeSettings(parsed: Partial<Settings> | null | undefined):
     // (today's behavior), never a silent lean toward either side.
     routeBias:
       parsed.routeBias === 'local' || parsed.routeBias === 'cloud' ? parsed.routeBias : 'auto',
+    // The workload slider. A stored stop is kept; with none stored, the old
+    // dial's "Local first" becomes All local (the same promise), and anything
+    // else follows the measurement.
+    workload: isWorkload(parsed.workload)
+      ? parsed.workload
+      : parsed.routeBias === 'local'
+        ? 'local-all'
+        : 'measured',
+    workloadMeasured: storedStop(parsed.workloadMeasured),
+    workloadSecondOpinion: parsed.workloadSecondOpinion === true,
     // Clamped on read as well as on write: a hand-edited store must not be able
     // to set a budget that breaches before the first agent answers.
     tokenBudget: clampBudget(Number(parsed.tokenBudget)),
@@ -593,6 +620,21 @@ export function normalizeSettings(parsed: Partial<Settings> | null | undefined):
   }
 }
 
+
+/** A stored measurement is a real stop or nothing — 'measured' is not a stop
+ *  a measurement can point to, and garbage is nothing. */
+function storedStop(v: unknown): WorkloadStop | '' {
+  return isWorkload(v) && v !== 'measured' ? v : ''
+}
+
+/**
+ * Move the workload slider. All local also keeps single messages on this Mac
+ * (the old dial's "Local first"); every other stop hands them back to the
+ * normal rules. One function, so the two can never disagree.
+ */
+export function withWorkload(settings: Settings, workload: Workload): Settings {
+  return { ...settings, workload, routeBias: workload === 'local-all' ? 'local' : 'auto' }
+}
 
 /**
  * Resolve the route hint one send actually carries: the person's explicit
@@ -879,6 +921,11 @@ export interface SettingsContextValue {
   setTerminalControl: (on: boolean) => void
   setLocalVision: (on: boolean) => void
   setScreenToCloud: (on: boolean) => void
+  /** Move the workload slider (see {@link withWorkload}). */
+  setWorkload: (workload: Workload) => void
+  /** Cache the stop the app's measurement points to ('' = none yet). */
+  setWorkloadMeasured: (stop: WorkloadStop | '') => void
+  setWorkloadSecondOpinion: (on: boolean) => void
   /** Cache the registered plugin-server names (see `Settings.mcpServers`). */
   setMcpServers: (names: readonly string[]) => void
   /** Choose solo or host. Choosing 'host' the first time generates the join
@@ -995,6 +1042,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setTerminalControl: (terminalControl) => setSettings((s) => ({ ...s, terminalControl })),
       setLocalVision: (localVision) => setSettings((s) => ({ ...s, localVision })),
       setScreenToCloud: (screenToCloud) => setSettings((s) => ({ ...s, screenToCloud })),
+      setWorkload: (workload) => setSettings((s) => withWorkload(s, workload)),
+      // A cache write: unchanged value → same object, so nothing re-renders.
+      setWorkloadMeasured: (workloadMeasured) =>
+        setSettings((s) => (s.workloadMeasured === workloadMeasured ? s : { ...s, workloadMeasured })),
+      setWorkloadSecondOpinion: (workloadSecondOpinion) =>
+        setSettings((s) => ({ ...s, workloadSecondOpinion })),
       setMcpServers: (names) =>
         setSettings((s) => {
           const mcpServers = mcpServerNames(names)

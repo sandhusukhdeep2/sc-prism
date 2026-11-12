@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { crewModelPlan,
+import {
   agentActivity,
   charterFromCompanionFile,
   companionFileBody,
@@ -739,41 +739,6 @@ describe('companion as an agent file', () => {
   })
 })
 
-// Crew-wide model presets (Sukhdeep, 2026-08-31: "what if the user wants to
-// run all the agents on local only? or a bit on Gemini and local? or totally
-// on cloud?"). One call moves the whole crew; per-agent choice still wins
-// afterwards, and a preset never invents a provider the user hasn't got.
-describe('crewModelPlan — one move for the whole crew', () => {
-  const crew = [
-    { id: 'a', name: 'Planner', model: 'claude' as const },
-    { id: 'b', name: 'Researcher', model: 'gemini' as const },
-    { id: 'c', name: 'Retrieval', model: 'local' as const },
-  ]
-
-  it('all-local puts every seat on the local model', () => {
-    const plan = crewModelPlan(crew, 'local', ['local', 'gemini', 'claude'])
-    expect(plan.every((p) => p.model === 'local')).toBe(true)
-    expect(plan).toHaveLength(3)
-  })
-
-  it('all-cloud moves every seat to a connected cloud brand, never local', () => {
-    const plan = crewModelPlan(crew, 'cloud', ['local', 'gemini'])
-    expect(plan.every((p) => p.model === 'gemini')).toBe(true)
-  })
-
-  it('balanced keeps private seats local and research on the cloud', () => {
-    const plan = crewModelPlan(crew, 'balanced', ['local', 'gemini', 'claude'])
-    const by = Object.fromEntries(plan.map((p) => [p.id, p.model]))
-    expect(by['c']).toBe('local') // Retrieval reads the vault → stays local
-    expect(by['b']).not.toBe('local') // Researcher needs fresh web knowledge
-  })
-
-  it('refuses to move a seat to a brand the user has not connected', () => {
-    const plan = crewModelPlan(crew, 'cloud', ['local'])
-    expect(plan).toEqual([]) // no cloud connected → nothing is promised
-  })
-})
-
 // Found 2026-08-31 while wiring the crew-lean presets: EVERY seat in the
 // default crew is a `system` agent, and `update` ignored every field but
 // `enabled` on those — so "run all my agents locally" was a no-op on exactly
@@ -796,48 +761,6 @@ describe('system seats accept a model change', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Sukhdeep, 2026-09-03: "I can see the option all local / balanced / all
-// Claude, but I have more than two AIs."
-//
-// `crewModelPlan` picked its cloud with `.find()` over a fixed order, so with
-// both Claude and Gemini connected, Gemini could NEVER be chosen — the button
-// said "All cloud" and silently meant "all Claude". The cloud must be named by
-// the caller, so the UI can offer one button per AI the user actually has.
-// ---------------------------------------------------------------------------
-describe('crewModelPlan names its cloud explicitly', () => {
-  const crew = [
-    { id: 'a', name: 'Planner', model: 'local' as const },
-    { id: 'b', name: 'Retrieval', model: 'local' as const },
-  ]
-  const both = ['local', 'claude', 'gemini']
-
-  it('moves the crew to the cloud the caller asked for — including Gemini', () => {
-    expect(crewModelPlan(crew, 'cloud', both, 'gemini').every((r) => r.model === 'gemini')).toBe(true)
-    expect(crewModelPlan(crew, 'cloud', both, 'claude').every((r) => r.model === 'claude')).toBe(true)
-  })
-
-  it('uses the named cloud for the balanced lean too, keeping private seats local', () => {
-    const plan = crewModelPlan(crew, 'balanced', both, 'gemini')
-    expect(plan.find((r) => r.id === 'a')?.model).toBe('gemini')
-    // 'Retrieval' reads the user's own notes, so it stays on the machine.
-    expect(plan.find((r) => r.id === 'b')?.model).toBe('local')
-  })
-
-  it('refuses a cloud the user has not connected rather than substituting one', () => {
-    // Silently swapping in a different AI is how "All cloud" came to mean
-    // "all Claude" in the first place.
-    expect(crewModelPlan(crew, 'cloud', ['local', 'claude'], 'gemini')).toEqual([])
-  })
-
-  it('still works without a named cloud, for the single-cloud case', () => {
-    expect(crewModelPlan(crew, 'cloud', ['local', 'claude']).every((r) => r.model === 'claude')).toBe(true)
-  })
-
-  it('local needs no cloud at all', () => {
-    expect(crewModelPlan(crew, 'local', ['local']).every((r) => r.model === 'local')).toBe(true)
-  })
-})
 
 // A proof vouches for one identity on one model. Moving the seat to another
 // model (Settings' crew lean does this for system agents too) must drop it,

@@ -286,17 +286,6 @@ a.settings__navitem { text-decoration: none; }
 .settings__kuse:hover { color: var(--ink); }
 
 /* The dependency dial — a real drag control inside the Routing card. */
-.settings__dial { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--hair-7); }
-.settings__dialrow { display: flex; align-items: center; gap: 10px; }
-.settings__dialend { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-3); white-space: nowrap; }
-.settings__dialrange { flex: 1; appearance: none; -webkit-appearance: none; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--ok), var(--hair-7) 50%, var(--accent)); outline: none; cursor: grab; }
-.settings__dialrange:active { cursor: grabbing; }
-.settings__dialrange::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--card-solid); border: 2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.18); transition: transform 120ms ease; }
-.settings__dialrange::-webkit-slider-thumb:hover { transform: scale(1.12); }
-.settings__dialrange:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
-.settings__dialrange::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--card-solid); border: 2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
-.settings__dialhint strong { color: var(--ink); font-weight: 600; }
-@media (prefers-reduced-motion: reduce) { .settings__dialrange::-webkit-slider-thumb { transition: none; } }
 
 /* 'connected earlier' pill — remembered, not live-proven. */
 .settings__statusdot--saved { background: var(--ink-3); }
@@ -320,19 +309,12 @@ a.settings__navitem { text-decoration: none; }
 
 /* Crew lean presets — move every seat's brain in one click. Sits under the
    dependency dial: the dial biases one send, this moves the whole crew. */
-.settings__lean { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair-7); }
-.settings__leanrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.settings__leanlabel { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
-.settings__leanbtn { background: none; border: 1px solid var(--hair-7); border-radius: 999px; padding: 4px 14px; font-size: 12px; color: var(--ink); cursor: pointer; white-space: nowrap; }
-.settings__leanbtn:hover:not(:disabled) { background: var(--field-fill); border-color: var(--ink-3); }
-.settings__leanbtn:disabled { opacity: 0.4; cursor: not-allowed; }
-.settings__leanhint { margin-top: 7px; line-height: 1.55; }
-.settings__leanhint b { color: var(--ink); font-weight: 600; }
 
 /* Token budget — the limit made visible. It was always enforced; a user who
    cannot see it has no way to tell a budget stop from a bug. */
 .settings__budget { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair-7); }
 .settings__budgetrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.settings__leanlabel { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
 .settings__budgetinput { width: 110px; padding: 5px 9px; border: 1px solid var(--hair-7); border-radius: var(--v2-r-chip); background: var(--field-fill); color: var(--ink); font-size: 13px; }
 .settings__budgetinput:focus { outline: none; border-color: var(--ink-3); }
 .settings__budgetbar { position: relative; height: 6px; border-radius: 999px; background: var(--field-fill); margin: 10px 0 6px; overflow: hidden; }

@@ -289,6 +289,39 @@ function systemTeam(): StoredAgent[] {
   ]
 }
 
+// The workload slider re-seats the DEFAULT team only — a team the user staffed
+// for this project, or typed by hand, is his own explicit choice.
+describe('projectBuildRoster — a re-seating applies to the default team only', () => {
+  const allLocal = (roster: string) =>
+    roster
+      .split(',')
+      .map((pair) => `${pair.split(':')[0]}:local`)
+      .join(',')
+
+  it('re-seats the system agents', () => {
+    const p = addProject('Plain', 'goal', 'npm test')
+    expect(projectBuildRoster(p, systemTeam(), allowAllProviders, allLocal)).toBe(
+      'planner:local,implementer:local,reviewer-verifier:local',
+    )
+  })
+
+  it('leaves a project’s own assigned agents alone', () => {
+    const p = addProject('Teamed', 'goal', 'npm test')
+    const agents: StoredAgent[] = [
+      makeAgent({ id: 'a-1', name: 'compliance-checker', model: 'claude', assignedTo: p.id }),
+      ...systemTeam(),
+    ]
+    expect(projectBuildRoster(p, agents, allowAllProviders, allLocal)).toBe('compliance-checker:claude')
+  })
+
+  it('leaves a hand-typed roster alone', () => {
+    const p = addProject('Typed', 'goal', 'npm test')
+    updateProject(p.id, { roster: 'solo:gemini' })
+    const updated = getProjects().projects.find((x) => x.id === p.id)!
+    expect(projectBuildRoster(updated, systemTeam(), allowAllProviders, allLocal)).toBe('solo:gemini')
+  })
+})
+
 describe('projectBuildRoster', () => {
   it('per-project assigned agents win over everything (the specific-requirement exception)', () => {
     const p = addProject('Teamed', 'goal', 'npm test')
