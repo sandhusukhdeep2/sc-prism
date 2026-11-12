@@ -59,7 +59,9 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 
 export function StatusChip({ status }: { status: ProjectStatus }) {
   return (
-    <span className={`proj__status proj__status--${status}`}>{STATUS_LABEL[status]}</span>
+    <span className={`proj__status proj__status--${status}`} title={STATUS_LABEL[status]}>
+      {STATUS_LABEL[status]}
+    </span>
   )
 }
 

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useContext, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { noticeParts } from '../lib/noticeParts'
 import { useNarrow } from '../lib/useNarrow'
 import { useSchedules } from '../lib/schedules'
@@ -8,6 +9,8 @@ import RunStage from '../components/RunStage'
 import RoomPane from '../components/RoomPane'
 import ProjectFilesPane from '../components/ProjectFilesPane'
 import { paneAfterRun, roomPane, type PanePick, type PaneTab } from '../lib/roomPane'
+import { foldSeatTurns, seatFoldSummary, type SeatTurn } from '../lib/chatFold'
+import { RailSlotContext } from '../lib/railSlot'
 import AgentDossierPanel from '../components/AgentDossierPanel'
 import { Link } from 'react-router-dom'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
@@ -144,6 +147,35 @@ export function EngineConsole({
 export function providerInitial(model: string): string {
   const provider = (model ?? '').split('·')[0].trim()
   return provider ? provider.charAt(0).toUpperCase() : ''
+}
+
+/**
+ * ONE SEAT'S REAL BOARD CONTRIBUTION — its own bubble, its own coloured
+ * monogram, three-part attribution in the header. Read from the persisted
+ * board record, never from memory of the run.
+ */
+function SeatBubble({ m }: { m: SeatTurn }) {
+  return (
+    <div className="msg msg--seat">
+      <span
+        className="msg__seatdot mono"
+        style={{ background: modelColor(m.provider || m.model) }}
+        aria-hidden="true"
+      >
+        {(m.agent[0] ?? '?').toUpperCase()}
+      </span>
+      <div className="msg__seatbody">
+        <div className="msg__seathead mono">
+          {m.agent} · {m.provider}
+          {m.model ? ` · ${m.model}` : ''}
+          {typeof m.round === 'number' && m.round > 0 && (
+            <span className="msg__seatround"> · turn {m.round} → to the board, read by every seat</span>
+          )}
+        </div>
+        <div className="msg__stream">{renderChatMarkdown(m.text)}</div>
+      </div>
+    </div>
+  )
 }
 
 /** The words on the buttons that open the pane beside the chat. */
@@ -809,6 +841,75 @@ export default function Workspace() {
   // visible, so nothing that needs you is ever hidden behind the collapse.
   const [deskOpen, setDeskOpen] = useState(false)
 
+  // The rail's slot for this page's rooms — null when there is no rail.
+  const railSlot = useContext(RailSlotContext)
+  const inRail = !!railSlot && !tight
+  const roomList = (
+        <nav
+          className={'ws__nav' + (tight ? ' ws__nav--menu' : '') + (inRail ? ' ws__nav--rail' : '')}
+          aria-label="Chats and projects"
+        >
+          <button
+            type="button"
+            className={`ws__navitem ${!state.activeProjectId ? 'is-active' : ''}`}
+            onClick={() => pickRoom('')}
+          >
+            <span className="ws__navorb" />
+            <span className="ws__navname">Manager</span>
+          </button>
+          <div className="ws__navlabel mono">Projects</div>
+          {projects.length === 0 && <div className="ws__navempty">no projects yet</div>}
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`ws__navitem ${state.activeProjectId === p.id ? 'is-active' : ''}`}
+              onClick={() => pickRoom(p.id)}
+            >
+              <span className="ws__navname">{p.name || '(untitled)'}</span>
+              <StatusChip status={p.status} />
+            </button>
+          ))}
+          {isNative() &&
+            (showNewForm ? (
+              <NewProjectForm
+                onDone={(p) => {
+                  setShowNewForm(false)
+                  pickRoom(p.id)
+                }}
+              />
+            ) : settings.projectWrites ? (
+              <>
+                <button type="button" className="ws__navnew" onClick={() => setShowNewForm(true)}>
+                  ＋ New project
+                </button>
+                {/* Work on a folder that already exists (2026-11-11): one
+                    click picks it, and it becomes a room. A folder that is
+                    already a project just opens its room. */}
+                <button
+                  type="button"
+                  className="ws__navnew ws__navopen"
+                  onClick={() =>
+                    void pickFolder('Choose the folder to work in').then((picked) => {
+                      if (!picked) return
+                      try {
+                        pickRoom(openFolderAsProject(picked).project.id)
+                      } catch {
+                        /* not an absolute folder path — the picker never returns one */
+                      }
+                    })
+                  }
+                >
+                  Open folder…
+                </button>
+              </>
+            ) : (
+              // Companion grant denied: no fake affordance — say why + where.
+              <div className="ws__navempty">projects off — grant file writes in Settings</div>
+            ))}
+        </nav>
+  )
+
   return (
     <div className="ws">
       {/* HEADER — the page names WHAT YOU ARE LOOKING AT (this chat, or the
@@ -889,71 +990,13 @@ export default function Workspace() {
 
       {/* main split */}
       <section className={'ws__main' + (pane.tab && narrow ? ' ws__main--paneover' : '')}>
-        {/* left sidebar: switches between the Universal chat and each
-            project's own chat session — no route change, setActiveProject
-            just re-points this same page at a different thread (P1-1). */}
-        {(!tight || roomsOpen) && (
-        <nav className={'ws__nav' + (tight ? ' ws__nav--menu' : '')} aria-label="Chats and projects">
-          <button
-            type="button"
-            className={`ws__navitem ${!state.activeProjectId ? 'is-active' : ''}`}
-            onClick={() => pickRoom('')}
-          >
-            <span className="ws__navorb" />
-            <span className="ws__navname">Manager</span>
-          </button>
-          <div className="ws__navlabel mono">Projects</div>
-          {projects.length === 0 && <div className="ws__navempty">no projects yet</div>}
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={`ws__navitem ${state.activeProjectId === p.id ? 'is-active' : ''}`}
-              onClick={() => pickRoom(p.id)}
-            >
-              <span className="ws__navname">{p.name || '(untitled)'}</span>
-              <StatusChip status={p.status} />
-            </button>
-          ))}
-          {isNative() &&
-            (showNewForm ? (
-              <NewProjectForm
-                onDone={(p) => {
-                  setShowNewForm(false)
-                  pickRoom(p.id)
-                }}
-              />
-            ) : settings.projectWrites ? (
-              <>
-                <button type="button" className="ws__navnew" onClick={() => setShowNewForm(true)}>
-                  ＋ New project
-                </button>
-                {/* Work on a folder that already exists (2026-11-11): one
-                    click picks it, and it becomes a room. A folder that is
-                    already a project just opens its room. */}
-                <button
-                  type="button"
-                  className="ws__navnew ws__navopen"
-                  onClick={() =>
-                    void pickFolder('Choose the folder to work in').then((picked) => {
-                      if (!picked) return
-                      try {
-                        pickRoom(openFolderAsProject(picked).project.id)
-                      } catch {
-                        /* not an absolute folder path — the picker never returns one */
-                      }
-                    })
-                  }
-                >
-                  Open folder…
-                </button>
-              </>
-            ) : (
-              // Companion grant denied: no fake affordance — say why + where.
-              <div className="ws__navempty">projects off — grant file writes in Settings</div>
-            ))}
-        </nav>
-        )}
+        {/* THE ROOMS: the Manager and each project's own chat — no route
+            change, setActiveProject just re-points this same page at a
+            different thread (P1-1). Since 2026-11-12 they are drawn in the
+            app's rail (one sidebar, not two columns); with no rail around
+            this page, or in the icon rail of a small window, they stay here
+            (as a menu when the window is tight). */}
+        {inRail ? createPortal(roomList, railSlot!) : (!tight || roomsOpen) && roomList}
 
         {/* CHAT COLUMN — region 2 of 3, and the hero. It does NOT scroll: it
             holds a bounded "what is running" stage and the chat card, and the
@@ -1013,7 +1056,7 @@ export default function Workspace() {
                 </div>
               )
             )}
-            {collapseRepeats(activeMessages(state)).map((m) => {
+            {foldSeatTurns(collapseRepeats(activeMessages(state))).map((m) => {
               if (m.kind === 'user') {
                 return (
                   <UserBubble
@@ -1163,36 +1206,39 @@ export default function Workspace() {
                   </div>
                 )
               }
-              if (m.kind === 'seat') {
-                // ONE SEAT'S REAL BOARD CONTRIBUTION — its own bubble, its own
-                // colored monogram, three-part attribution in the header.
+              if (m.kind === 'seats') {
+                // A RUN'S OWN TURNS, FOLDED (lib/chatFold.ts): one line that
+                // opens in place to every seat's turn, exactly as written. The
+                // answer under it stands on its own.
+                const sum = seatFoldSummary(m.seats)
                 return (
-                  <div key={m.id} className="msg msg--seat">
-                    <span
-                      className="msg__seatdot mono"
-                      style={{ background: modelColor(m.provider || m.model) }}
-                      aria-hidden="true"
-                    >
-                      {(m.agent[0] ?? '?').toUpperCase()}
-                    </span>
-                    <div className="msg__seatbody">
-                      <div className="msg__seathead mono">
-                        {m.agent} · {m.provider}
-                        {m.model ? ` · ${m.model}` : ''}
-                        {typeof (m as { round?: number }).round === 'number' &&
-                          (m as { round?: number }).round! > 0 && (
-                            <span className="msg__seatround">
-                              {' '}
-                              · turn {(m as { round?: number }).round} → to the board, read by
-                              every seat
+                  <details key={m.id} className="msg msg--fold">
+                    <summary className="msg__foldline">
+                      <span className="msg__folddots" aria-hidden="true">
+                        {m.seats
+                          .filter((s, i, all) => all.findIndex((x) => x.agent === s.agent) === i)
+                          .map((s) => (
+                            <span
+                              key={s.agent}
+                              className="msg__seatdot msg__seatdot--sm mono"
+                              style={{ background: modelColor(s.provider || s.model) }}
+                            >
+                              {(s.agent[0] ?? '?').toUpperCase()}
                             </span>
-                          )}
-                      </div>
-                      <div className="msg__stream">{renderChatMarkdown(m.text)}</div>
+                          ))}
+                      </span>
+                      <span className="msg__foldtext">{sum.line}</span>
+                      <span className="msg__foldnames">{sum.names.join(' · ')}</span>
+                    </summary>
+                    <div className="msg__foldbody">
+                      {m.seats.map((s) => (
+                        <SeatBubble key={s.id} m={s} />
+                      ))}
                     </div>
-                  </div>
+                  </details>
                 )
               }
+              if (m.kind === 'seat') return <SeatBubble key={m.id} m={m} />
               return <VerdictCard key={m.id} v={toVerdictView(m.verdict)} />
             })}
 

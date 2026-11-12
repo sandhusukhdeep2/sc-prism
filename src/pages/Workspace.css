@@ -753,3 +753,58 @@
 .ws__main--paneover .ws__chatcol { display: none; }
 .ws__main--paneover .pane { flex: 1 1 auto; max-width: none; }
 @media (prefers-reduced-motion: reduce) { .chat__pane { transition: none; } }
+
+/* ---- A RUN'S OWN TURNS, FOLDED (2026-11-12, lib/chatFold.ts) ----
+   One quiet line that opens in place to every seat's turn; the answer under
+   it stands on its own. */
+.msg--fold { align-self: stretch; max-width: 100%; }
+.msg__foldline {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: var(--v2-r-inner); color: var(--v2-ink-2); font-size: 13.5px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.msg__foldline::-webkit-details-marker { display: none; }
+.msg__foldline::after {
+  content: '›'; margin-left: auto; color: var(--v2-muted); font-size: 16px; line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.msg--fold[open] > .msg__foldline::after { transform: rotate(90deg); }
+.msg__foldline:hover { background: var(--v2-fill); }
+.msg__foldline:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.msg__folddots { display: inline-flex; }
+.msg__seatdot--sm { width: 20px; height: 20px; flex: 0 0 20px; font-size: 10px; margin-left: -5px; border: 2px solid var(--v2-card); }
+.msg__folddots .msg__seatdot--sm:first-child { margin-left: 0; }
+.msg__foldtext { font-weight: 600; color: var(--v2-ink); }
+.msg__foldnames { color: var(--v2-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg__foldbody {
+  display: flex; flex-direction: column; gap: 14px; margin: 8px 0 4px 10px; padding-left: 14px;
+  border-left: 2px solid var(--v2-line);
+  animation: foldIn var(--dur-fast) var(--ease-out) both;
+}
+@keyframes foldIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .msg__foldbody { animation: none; }
+  .msg__foldline, .msg__foldline::after { transition: none; }
+}
+
+/* THE ROOMS, IN THE RAIL (2026-11-12). The same list, the rail's width: it
+   fills the slot instead of holding a 186-point column of its own. */
+.ws__nav--rail { width: 100%; flex: 0 0 auto; overflow: visible; }
+.ws__nav--rail .ws__navlabel { margin-top: 8px; padding: 0 14px; }
+/* In the rail a room's NAME has the width. Its state is a small mark in the
+   state's own colour — the word is still in the markup (read aloud, and on
+   hover), and the room's header shows it in full once the room is open. A
+   finished project is the resting state, so it carries no mark at all. */
+.ws__nav--rail .ws__navname { flex: 1 1 auto; min-width: 0; }
+.ws__nav--rail .proj__status {
+  flex: 0 0 8px; width: 8px; height: 8px; padding: 0; border-radius: 50%;
+  font-size: 0; line-height: 0; color: transparent; overflow: hidden;
+  background: currentColor; box-shadow: none;
+}
+.ws__nav--rail .proj__status--done { display: none; }
+.ws__nav--rail .proj__status--running { background: var(--v2-blue); }
+.ws__nav--rail .proj__status--planned,
+.ws__nav--rail .proj__status--new,
+.ws__nav--rail .proj__status--interviewing { background: var(--v2-idle); }
+.ws__nav--rail .proj__status--awaiting,
+.ws__nav--rail .proj__status--attention { background: var(--v2-coral); }

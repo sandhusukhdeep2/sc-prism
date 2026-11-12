@@ -235,3 +235,11 @@
 }
 
 /* Foldable rail groups. */
+
+/* THE PAGE'S OWN LIST, in the rail (2026-11-12). On Work the rooms are drawn
+   here: one sidebar. It takes the height between the places and the foot and
+   scrolls inside itself, so a long list of projects never pushes Settings off
+   the window. Empty on every other page, where it takes no room at all. */
+.rail__rooms { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 -6px; padding: 0 6px; }
+.rail__rooms:empty { display: none; }
+.rail__rooms:not(:empty) + .rail__foot { margin-top: 0; }

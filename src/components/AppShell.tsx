@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSettings } from '../lib/settings'
 import { initialsOf } from '../lib/initials'
 import { syncVaultAgents } from '../lib/agents'
 import { syncVaultSkills } from '../lib/skills'
 import { syncMcpServers } from '../lib/mcpSync'
+import { RailSlotContext } from '../lib/railSlot'
 import { measureWorkload } from '../lib/workloadMeasure'
 import { persistedVerdicts } from '../store/AppStore'
 import { NavLink, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
@@ -33,6 +34,8 @@ import './AppShell.css'
 // onboarding.
 export default function AppShell() {
   const { settings: shellSettings, setMcpServers, setWorkloadMeasured } = useSettings()
+  // The rail's slot for the Work page's rooms (lib/railSlot.ts).
+  const [roomsSlot, setRoomsSlot] = useState<HTMLElement | null>(null)
   // Vault folders sync at APP START (2026-08-29): the agents and skills
   // migrations used to fire only on their pages' mounts, so a folder could
   // stay missing for as long as a page went unvisited (Sukhdeep found
@@ -178,6 +181,10 @@ export default function AppShell() {
               ))}
             </div>
           ))}
+          {/* THE PAGE'S OWN LIST (2026-11-12): on Work, the rooms are drawn
+              here — one sidebar, not a rail and a second column beside it.
+              Empty on every other page. */}
+          <div className="rail__rooms" ref={setRoomsSlot} />
           {/* Settings is where you change the app, not one of the places you
               work in it — so it sits apart, at the foot of the rail. */}
           <div className="rail__foot">
@@ -196,7 +203,9 @@ export default function AppShell() {
           {/* The shell's one dashboard reading, shared with every page below:
               a page's own useLiveDashboard reuses it instead of polling again. */}
           <LiveDashboardContext.Provider value={dashRead}>
-            <Outlet />
+            <RailSlotContext.Provider value={roomsSlot}>
+              <Outlet />
+            </RailSlotContext.Provider>
           </LiveDashboardContext.Provider>
         </main>
       </div>

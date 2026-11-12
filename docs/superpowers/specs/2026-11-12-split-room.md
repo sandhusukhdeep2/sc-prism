@@ -60,6 +60,26 @@ executing now (or the last crew run when nothing is). Under it, one line of
 who is speaking. A link back to the room. Nothing else. It is the pane's
 Stage tab, expanded — the same component fed the same spans.
 
+## Slice 2 — a run's own turns fold under its answer
+
+A team run posted every seat's board turn as a full bubble, so the answer sat
+under a screen of working-out. Two or more consecutive seat turns now render
+as one line — how many turns, from which seats — that opens in place to every
+turn exactly as written (`lib/chatFold.ts`). It is a view fold, like repeated
+notices: the stored thread is untouched, nothing is summarised by a model, and
+nothing is dropped. One seat's single turn stays a bubble.
+
+## Slice 3 — one sidebar
+
+Work drew a second 186-point column of rooms beside the app's rail. The rooms
+are now drawn **in** the rail, under the places (`lib/railSlot.ts`: the rail
+owns a slot, the Work page draws into it), and the room gets that width back
+for the chat and the pane. A room's name has the rail's width; its state is a
+small mark in the state's colour, with the word still in the markup and on
+hover, and a finished project carries no mark. Leaving Work empties the slot.
+In the icon rail of a small window there is no room for them, so the Rooms
+menu stays.
+
 ## What does not change
 
 - No new data: every mark is still a span or a store field.
