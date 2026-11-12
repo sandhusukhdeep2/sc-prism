@@ -172,6 +172,29 @@ MALFORMED_BACKOFF_S = 0.5
 # ladder the UI already offers, so the mapping is 1:1 — no clamping.
 ANTHROPIC_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
+
+def parse_efforts(raw: Optional[str]) -> Optional[Dict[str, str]]:
+    """Each provider's OWN thinking effort, from `SCPRISM_EFFORTS`.
+
+    The value is a comma list of `provider=level` (`gemini=low,claude-cli=max`).
+    Returns None when the variable is absent or empty — the caller did not say,
+    and the single `SCPRISM_EFFORT` applies to the run as it always did. A list
+    that IS given is the whole truth: a provider it does not name has no level,
+    and a level that is not one of the ladder's is no level. Nothing here ever
+    lets one provider inherit another's.
+    """
+    if raw is None or not str(raw).strip():
+        return None
+    out: Dict[str, str] = {}
+    for part in str(raw).split(","):
+        name, sep, level = part.partition("=")
+        name = name.strip().lower()
+        if not sep or not name:
+            continue
+        level = level.strip().lower()
+        out[name] = level if level in ANTHROPIC_EFFORTS else ""
+    return out
+
 # Thinking is drawn from max_tokens, so the cap must leave room for BOTH the
 # reasoning and the visible answer. These per-effort floors are the same numbers
 # the old budget arithmetic produced (budget + 2048), so the invariant survives
@@ -1204,6 +1227,13 @@ class Gateway:
         # Mapped per provider: Anthropic extended thinking, OpenAI/Gemini
         # reasoning_effort, claude CLI --effort.
         self.effort = (env.get("SCPRISM_EFFORT") or "").strip().lower()
+        # Each provider's OWN level (2026-11-12). Settings holds an effort per
+        # provider, but only the primary's was forwarded and it was applied to
+        # every provider in the run: a critic seat on Gemini was sent the level
+        # chosen for Claude, thought for up to two minutes over a 70-token
+        # answer, and timed out. None = an older caller that sends only the
+        # single level above. See `effort_for`.
+        self.efforts = parse_efforts(env.get("SCPRISM_EFFORTS"))
         # Model override for the CLI bridge (e.g. "opus", "fable"). A CLI
         # provider's display LABEL is not a real override (legacy client
         # stores persisted it as the model; as --model it kills every call) —
@@ -1447,6 +1477,17 @@ class Gateway:
             ),
             matched=bucket,
         )
+
+    def effort_for(self, provider: str) -> str:
+        """The thinking effort to send to `provider` — ITS level, never another's.
+
+        With `SCPRISM_EFFORTS` given, a provider gets the level set for it and a
+        provider it does not name gets none (its own default). Without it (an
+        older caller) the single run-wide level applies, as before.
+        """
+        if self.efforts is None:
+            return self.effort
+        return self.efforts.get((provider or "").strip().lower(), "")
 
     def guard_tool_result(self, content: str) -> Tuple[str, bool]:
         """The F1 tool-RESULT egress gate for THIS gateway's user.
@@ -1718,9 +1759,10 @@ class Gateway:
         }
         # Thinking effort → OpenAI/Gemini `reasoning_effort` (their compat
         # layers accept low|medium|high; clamp the CLI's xhigh/max to high).
-        if self.effort and route.provider in ("openai", "gemini"):
+        effort = self.effort_for(route.provider)
+        if effort and route.provider in ("openai", "gemini"):
             body_obj["reasoning_effort"] = (
-                "high" if self.effort in ("xhigh", "max") else self.effort
+                "high" if effort in ("xhigh", "max") else effort
             )
         body = json.dumps(body_obj).encode("utf-8")
         req = urllib.request.Request(
@@ -1768,11 +1810,12 @@ class Gateway:
         # turned that into an offline stub, which reads as "the model didn't
         # answer" rather than "we sent an invalid request". A model with no
         # adaptive mode gets no thinking field at all.
-        if self.effort in ANTHROPIC_EFFORTS and _supports_adaptive_thinking(route.model):
+        effort = self.effort_for(route.provider)
+        if effort in ANTHROPIC_EFFORTS and _supports_adaptive_thinking(route.model):
             payload_obj["thinking"] = {"type": "adaptive"}
-            payload_obj["output_config"] = {"effort": self.effort}
+            payload_obj["output_config"] = {"effort": effort}
             payload_obj["max_tokens"] = max(
-                self.max_tokens, ANTHROPIC_MAX_TOKENS_FLOOR[self.effort]
+                self.max_tokens, ANTHROPIC_MAX_TOKENS_FLOOR[effort]
             )
         body = json.dumps(payload_obj).encode("utf-8")
         req = urllib.request.Request(
@@ -1819,8 +1862,9 @@ class Gateway:
         if route.provider == "claude-cli":
             if self.cli_model:
                 argv += ["--model", self.cli_model]
-            if self.effort in ("low", "medium", "high", "xhigh", "max"):
-                argv += ["--effort", self.effort]
+            effort = self.effort_for(route.provider)
+            if effort in ANTHROPIC_EFFORTS:
+                argv += ["--effort", effort]
         with tempfile.TemporaryDirectory(prefix="scprism-cli-") as tmp:
             out_file = os.path.join(tmp, "last-message.txt")
             if route.provider == "codex-cli":

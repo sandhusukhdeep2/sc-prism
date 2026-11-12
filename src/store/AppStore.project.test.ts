@@ -241,3 +241,22 @@ describe('buildStartRefusal — why a build cannot start right now', () => {
     )
   })
 })
+
+// Each AI's thinking effort is its own (2026-11-12, lib/efforts.ts).
+describe('buildEngineProviders — every provider’s own effort is sent', () => {
+  it('lists each enabled provider with the level set for it', () => {
+    const s = {
+      ...settings,
+      providers: [
+        { id: 'claude-cli', name: 'Claude', baseUrl: '', apiKey: '', enabled: true, primary: true, effort: 'max' },
+        { id: 'gemini', name: 'Gemini', baseUrl: '', apiKey: 'k', enabled: true, primary: false, effort: 'low' },
+        { id: 'local', name: 'Local', baseUrl: 'http://localhost:1234', apiKey: '', enabled: true, primary: false },
+        { id: 'openai', name: 'OpenAI', baseUrl: '', apiKey: '', enabled: false, primary: false, effort: 'high' },
+      ],
+    } as unknown as Settings
+    const { providers } = buildEngineProviders(s)
+    expect(providers.efforts).toBe('claude-cli=max,gemini=low,local=')
+    // The single level is still sent, for an engine that predates the list.
+    expect(providers.effort).toBe('max')
+  })
+})

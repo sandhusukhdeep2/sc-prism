@@ -161,6 +161,7 @@ import {
 } from '../lib/projectRun'
 import type { RunAction } from '../lib/projectRun'
 import { neverTouchGlobs } from '../lib/neverTouch'
+import { effortsArg } from '../lib/efforts'
 import {
   canCompact,
   compactionArchiveMarkdown,
@@ -708,9 +709,12 @@ export function buildEngineProviders(
     // answer as above — the bound project's own folder, or nothing.
     providers.projectDir = tier1CwdFor(activeProjectId)
   }
-  // The user picks the model + thinking effort per provider; the PRIMARY's
-  // choice drives the run.
+  // The user picks the model + thinking effort per provider. EACH provider's
+  // own level goes to the engine (`efforts`), so a seat on Gemini is never
+  // sent the level chosen for Claude; the primary's single level is still
+  // sent for an engine that predates the list.
   providers.effort = primary?.effort ?? ''
+  providers.efforts = effortsArg(settings.providers)
   providers.cliModel = primary && isCliProvider(primaryId) ? (primary.model ?? '') : ''
   providers.flagDeepeval = settings.engineFlags.deepeval
   providers.flagLightrag = settings.engineFlags.lightrag

@@ -399,6 +399,48 @@ fn set_screen_env(cmd: &mut Command, local_vision: Option<bool>, screen_to_cloud
     }
 }
 
+/// The value for `SCPRISM_EFFORTS` — each provider's OWN thinking effort, as
+/// `provider=level` pairs — or None when the caller sent nothing (an engine
+/// told nothing keeps the single run-wide level). Each pair must be one plain
+/// provider name and a level made of letters; anything else is dropped. A list
+/// that was given but held nothing usable still says "a list was given"
+/// (`local=`), so a garbled value can never bring the run-wide level back and
+/// hand one provider another's effort.
+fn efforts_env_value(raw: Option<&str>) -> Option<String> {
+    let raw = raw.unwrap_or("").trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let mut pairs: Vec<String> = Vec::new();
+    for part in raw.split(',') {
+        let mut halves = part.trim().splitn(2, '=');
+        let name = halves.next().unwrap_or("").trim().to_ascii_lowercase();
+        let level = match halves.next() {
+            Some(l) => l.trim().to_ascii_lowercase(),
+            None => continue,
+        };
+        let name_ok = !name.is_empty()
+            && name.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+        let level_ok = level.chars().all(|c| c.is_ascii_lowercase());
+        if name_ok && level_ok {
+            pairs.push(format!("{name}={level}"));
+        }
+    }
+    if pairs.is_empty() {
+        Some("local=".to_string())
+    } else {
+        Some(pairs.join(","))
+    }
+}
+
+/// Hand the engine each provider's own effort (see `efforts_env_value`).
+fn set_efforts_env(cmd: &mut Command, efforts: Option<&str>) {
+    if let Some(value) = efforts_env_value(efforts) {
+        cmd.env("SCPRISM_EFFORTS", value);
+    }
+}
+
 /// Where the optional libraries may write (LightRAG's graph index, DeepEval's
 /// cache): a hidden folder in the vault. A packaged engine sits inside the
 /// signed, read-only bundle, so it can never be the engine folder there.
@@ -481,6 +523,8 @@ async fn run_engine_task(
     tier1_cwd: Option<String>,
     cli_model: Option<String>,
     effort: Option<String>,
+    // Each provider's own effort, `provider=level` pairs (see `set_efforts_env`).
+    efforts: Option<String>,
     // Per-run cap on model OUTPUT tokens (SCPRISM_MAX_TOKENS). A heartbeat
     // wake passes a small one: it asks for a first-line summary, and on a slow
     // local model an uncapped 4096-token generation is minutes of inference
@@ -747,6 +791,7 @@ async fn run_engine_task(
     // User-chosen model for the CLI bridge + thinking/effort level.
     set_env(&mut cmd, "SCPRISM_CLI_MODEL", &cli_model);
     set_env(&mut cmd, "SCPRISM_EFFORT", &effort);
+    set_efforts_env(&mut cmd, efforts.as_deref());
     if let Some(mt) = max_tokens {
         if mt > 0 {
             cmd.env("SCPRISM_MAX_TOKENS", mt.to_string());
@@ -815,6 +860,8 @@ async fn run_engine_verify(
     sensitive: Option<String>,
     cli_model: Option<String>,
     effort: Option<String>,
+    // Each provider's own effort, `provider=level` pairs (see `set_efforts_env`).
+    efforts: Option<String>,
     flag_deepeval: Option<bool>,
     flag_lightrag: Option<bool>,
     flag_bifrost: Option<bool>,
@@ -892,6 +939,7 @@ async fn run_engine_verify(
     // User-chosen model for the CLI bridge + thinking/effort level.
     set_env(&mut cmd, "SCPRISM_CLI_MODEL", &cli_model);
     set_env(&mut cmd, "SCPRISM_EFFORT", &effort);
+    set_efforts_env(&mut cmd, efforts.as_deref());
     set_env(&mut cmd, "SCPRISM_OPENAI_MODEL", &openai_model);
     set_env(&mut cmd, "SCPRISM_CLAUDE_MODEL", &claude_model);
     set_env(&mut cmd, "SCPRISM_GEMINI_MODEL", &gemini_model);
@@ -964,6 +1012,8 @@ async fn run_engine_project(
     tier1: Option<String>,
     cli_model: Option<String>,
     effort: Option<String>,
+    // Each provider's own effort, `provider=level` pairs (see `set_efforts_env`).
+    efforts: Option<String>,
     flag_deepeval: Option<bool>,
     flag_lightrag: Option<bool>,
     flag_bifrost: Option<bool>,
@@ -1175,6 +1225,7 @@ async fn run_engine_project(
     // User-chosen model for the CLI bridge + thinking/effort level.
     set_env(&mut cmd, "SCPRISM_CLI_MODEL", &cli_model);
     set_env(&mut cmd, "SCPRISM_EFFORT", &effort);
+    set_efforts_env(&mut cmd, efforts.as_deref());
     set_env(&mut cmd, "SCPRISM_OPENAI_MODEL", &openai_model);
     set_env(&mut cmd, "SCPRISM_CLAUDE_MODEL", &claude_model);
     set_env(&mut cmd, "SCPRISM_GEMINI_MODEL", &gemini_model);
@@ -1325,6 +1376,8 @@ async fn run_engine_team(
     sensitive: Option<String>,
     cli_model: Option<String>,
     effort: Option<String>,
+    // Each provider's own effort, `provider=level` pairs (see `set_efforts_env`).
+    efforts: Option<String>,
     flag_deepeval: Option<bool>,
     flag_lightrag: Option<bool>,
     flag_bifrost: Option<bool>,
@@ -1467,6 +1520,7 @@ async fn run_engine_team(
         set_env(&mut cmd, "SCPRISM_SENSITIVE", &sensitive);
         set_env(&mut cmd, "SCPRISM_CLI_MODEL", &cli_model);
         set_env(&mut cmd, "SCPRISM_EFFORT", &effort);
+        set_efforts_env(&mut cmd, efforts.as_deref());
         set_env(&mut cmd, "SCPRISM_OPENAI_MODEL", &openai_model);
         set_env(&mut cmd, "SCPRISM_CLAUDE_MODEL", &claude_model);
         set_env(&mut cmd, "SCPRISM_GEMINI_MODEL", &gemini_model);
@@ -3735,6 +3789,42 @@ mod trash_guard_tests {
     fn a_relative_path_never_goes() {
         assert!(trash_refusal("dev/my-repo", HOME, &[]).is_some());
         assert!(trash_refusal("", HOME, &[]).is_some());
+    }
+}
+
+#[cfg(test)]
+mod efforts_env_tests {
+    use super::efforts_env_value;
+
+    #[test]
+    fn nothing_given_sets_nothing() {
+        // No value = an engine told nothing, which keeps the single run-wide
+        // level. That is the older behaviour, kept only for an older client.
+        assert_eq!(efforts_env_value(None), None);
+        assert_eq!(efforts_env_value(Some("")), None);
+        assert_eq!(efforts_env_value(Some("  ")), None);
+    }
+
+    #[test]
+    fn a_clean_list_passes_through() {
+        assert_eq!(
+            efforts_env_value(Some("claude-cli=max, gemini=low,local=")),
+            Some("claude-cli=max,gemini=low,local=".to_string())
+        );
+    }
+
+    #[test]
+    fn anything_that_is_not_a_provider_and_a_level_is_dropped() {
+        assert_eq!(
+            efforts_env_value(Some("gemini=low;rm -rf,=high,open ai=low,claude=HIGH,x=y=z")),
+            Some("claude=high".to_string())
+        );
+    }
+
+    #[test]
+    fn a_list_with_nothing_usable_still_says_a_list_was_given() {
+        // Otherwise a garbled list would silently bring the run-wide level back.
+        assert_eq!(efforts_env_value(Some("???")), Some("local=".to_string()));
     }
 }
 

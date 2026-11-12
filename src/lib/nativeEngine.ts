@@ -639,6 +639,10 @@ export interface EngineProviders {
   cliModel?: string
   /** Thinking/effort level: low | medium | high | xhigh | max. */
   effort?: string
+  /** EACH provider's own level, `provider=level` comma-joined (lib/efforts.ts).
+   *  With it the engine sends a provider ITS level or none; `effort` above is
+   *  kept for an engine that predates the list. */
+  efforts?: string
   /** Opt-in engine extensions (SCPRISM_DEEPEVAL / _LIGHTRAG / _BIFROST). */
   flagDeepeval?: boolean
   flagLightrag?: boolean
@@ -1974,6 +1978,7 @@ export async function runNativeTask(
       projectDir: providers?.projectDir ?? '',
       cliModel: providers?.cliModel ?? '',
       effort: providers?.effort ?? '',
+      efforts: providers?.efforts ?? '',
       maxTokens: providers?.maxTokens ?? 0,
       steps: providers?.steps ?? 0,
       agentName: providers?.agentName ?? '',
@@ -2119,6 +2124,7 @@ export async function runNativeProject(
       tier1: providers.tier1 ?? '',
       cliModel: providers.cliModel ?? '',
       effort: providers.effort ?? '',
+      efforts: providers.efforts ?? '',
       flagDeepeval: providers.flagDeepeval ?? false,
       flagLightrag: providers.flagLightrag ?? false,
       flagBifrost: providers.flagBifrost ?? false,
@@ -2193,6 +2199,7 @@ export async function runNativeVerify(
       sensitive: providers.sensitive ?? '',
       cliModel: providers.cliModel ?? '',
       effort: providers.effort ?? '',
+      efforts: providers.efforts ?? '',
       flagDeepeval: providers.flagDeepeval ?? false,
       flagLightrag: providers.flagLightrag ?? false,
       flagBifrost: providers.flagBifrost ?? false,
@@ -2349,6 +2356,7 @@ export async function runNativeTeam(
       tier1: providers.tier1 ?? '',
       cliModel: providers.cliModel ?? '',
       effort: providers.effort ?? '',
+      efforts: providers.efforts ?? '',
       flagDeepeval: providers.flagDeepeval ?? false,
       flagLightrag: providers.flagLightrag ?? false,
       flagBifrost: providers.flagBifrost ?? false,
