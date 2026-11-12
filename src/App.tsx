@@ -15,6 +15,7 @@ import GovernanceReview from './pages/GovernanceReview'
 // App pages (inner content — rendered inside AppShell chrome)
 import Workspace from './pages/Workspace'
 import Editor from './pages/Editor'
+import Live from './pages/Live'
 import VerdictDetail from './pages/VerdictDetail'
 import ApprovalGate from './pages/ApprovalGate'
 import Vault from './pages/Vault'
@@ -47,6 +48,7 @@ export default function App() {
         {/* main app — inside the shell */}
         <Route element={<AppShell />}>
           <Route index element={<Workspace />} />
+          <Route path="live" element={<Live />} />
           <Route path="editor" element={<Editor />} />
           <Route path="verdict" element={<VerdictDetail />} />
           <Route path="approval" element={<ApprovalGate />} />

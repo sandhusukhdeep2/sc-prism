@@ -1,0 +1,47 @@
+/* The pane beside the chat (2026-11-12): a card of its own, the same height
+   as the chat, with its tabs in a header like a window's. */
+.pane {
+  flex: 1 1 46%; min-width: 340px; max-width: 760px; min-height: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: var(--v2-r-card); background: var(--v2-card); box-shadow: var(--v2-shadow);
+  animation: paneIn var(--dur) var(--ease-out) both;
+}
+@keyframes paneIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+.pane__head {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px;
+  padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--v2-line);
+}
+.pane__tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.pane__tabs::-webkit-scrollbar { display: none; }
+.pane__tab {
+  border: 0; background: none; font: inherit; font-size: 14px; color: var(--v2-muted);
+  padding: 6px 12px; border-radius: var(--v2-r-pill); cursor: pointer; white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.pane__tab:hover { background: var(--v2-fill); color: var(--v2-ink); }
+.pane__tab.is-on { background: var(--v2-inset); color: var(--v2-ink); font-weight: 600; }
+.pane__tab:focus-visible, .pane__tool:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+.pane__spacer { flex: 1; }
+.pane__tool {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: var(--v2-r-chip);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: none; color: var(--v2-muted); cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.pane__tool:hover { background: var(--v2-fill); color: var(--v2-ink); }
+.pane__tool svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The tab's own content. It scrolls inside the pane; a tab that draws to fit
+   (the stage) takes the height it is given. */
+.pane__body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px;
+  animation: paneTabIn var(--dur-fast) var(--ease-out) both;
+}
+@keyframes paneTabIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pane, .pane__body { animation: none; }
+  .pane__tab, .pane__tool { transition: none; }
+}

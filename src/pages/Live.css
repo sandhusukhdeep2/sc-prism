@@ -1,0 +1,32 @@
+/* The Live page (2026-11-12): the stage, and nothing else. It takes the
+   window's height so the drawing can be as large as the window allows. */
+.live { height: 100%; min-height: 420px; display: flex; flex-direction: column; gap: 14px; padding: 14px 0 16px; }
+.live__head { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; }
+.live__back {
+  font-size: 14px; color: var(--v2-ink-2); text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: var(--v2-line);
+}
+.live__back:hover { color: var(--v2-ink); text-decoration-color: currentColor; }
+.live__spacer { flex: 1; }
+.live__state { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--v2-muted); }
+.live__state.is-live { color: var(--v2-ink); font-weight: 600; }
+.live__state i { width: 9px; height: 9px; border-radius: 50%; background: var(--v2-local); animation: livePulse var(--dur-slow) var(--ease-inout) infinite; }
+@keyframes livePulse { 50% { opacity: 0.35; transform: scale(0.8); } }
+.live__task {
+  flex: 0 0 auto; margin: 0; font-size: clamp(18px, 2.2vw, 24px); font-weight: 600; letter-spacing: -0.02em;
+  line-height: 1.25; color: var(--v2-ink); max-width: 60ch; text-wrap: balance;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+/* The stage's own ceiling is for the room's pane; here it has the window. */
+.live .stage { flex: 1 1 auto; }
+.live .stage__canvas { max-height: none; flex: 1 1 360px; }
+.live .stage__caption { font-size: 16px; padding: 14px 18px; }
+
+.live__empty {
+  flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border-radius: var(--v2-r-card); background: var(--v2-board); border: 1px solid var(--v2-line);
+  color: var(--v2-muted); font-size: 15px; text-align: center; padding: 24px;
+}
+.live__empty p { margin: 0; }
+.live__emptyhead { font-size: 20px; font-weight: 600; color: var(--v2-ink); letter-spacing: -0.02em; }
+@media (prefers-reduced-motion: reduce) { .live__state i { animation: none; } }

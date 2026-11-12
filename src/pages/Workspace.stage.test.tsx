@@ -1,8 +1,8 @@
 // 2026-11-11, the owner: "Build in the form of animation… user can expand to
 // the text or terminal side, but can see the animation most of the time."
-// While a team is working, the Work room shows the STAGE; the conversation and
-// the engine steps are one click away. When nothing is running, the chat is
-// the room again.
+// While a team is working, the Work room shows the STAGE — since 2026-11-12
+// BESIDE the chat, in the room's pane, so the conversation never leaves the
+// screen. The engine's steps are a tab of the same pane.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -103,26 +103,41 @@ describe('Work — the stage takes the room while a team is working', () => {
       await new Promise((r) => setTimeout(r, 3200))
     })
     await settle()
-    // The stage is on screen without anyone asking for it.
-    expect(document.querySelector('.stage')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'true')
+    // The stage is on screen without anyone asking for it — BESIDE the chat.
+    expect(document.querySelector('.pane .stage')).not.toBeNull()
+    expect(screen.getByRole('tab', { name: 'Stage' })).toHaveAttribute('aria-selected', 'true')
+    // The pane's own tabs say what is open: the chat's header does not repeat them.
+    expect(screen.queryByRole('button', { name: 'Stage' })).toBeNull()
     expect(screen.getByRole('button', { name: 'What researcher is doing' })).toBeInTheDocument()
-    // Each seat is drawn once: the board keeps its other lines, not its seats.
+    // Each seat is drawn once: the board above the drawing is one slim line.
     expect(document.querySelectorAll('.crew__seat')).toHaveLength(0)
-    // The conversation is one click away…
-    fireEvent.click(screen.getByRole('button', { name: 'Chat' }))
-    expect(document.querySelector('.stage')).toBeNull()
+    expect(document.querySelector('.pane .crew')).toHaveClass('crew--slim')
+    // The chat is still the chat: the conversation is on screen at the same
+    // time, with nothing to click to get back to it.
     expect(screen.getByText(/→ team: plan the launch/)).toBeInTheDocument()
-    // …and so is the stage again.
+    expect(screen.queryByRole('button', { name: 'Chat' })).toBeNull()
+    // The engine's own steps are a tab of the same pane.
+    fireEvent.click(screen.getByRole('tab', { name: 'Steps' }))
+    expect(document.querySelector('.pane .stage')).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Steps' })).toHaveAttribute('aria-selected', 'true')
+    // The pane closes, and the chat's header then offers to open it again.
+    fireEvent.click(screen.getByRole('button', { name: 'Close the pane' }))
+    expect(document.querySelector('.pane')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Stage' }))
-    expect(document.querySelector('.stage')).not.toBeNull()
-    // The engine's own steps open from the stage.
-    expect(screen.getByText('Engine steps')).toBeInTheDocument()
-    // Each way back is offered ONCE: the Chat tab is the conversation, so the
-    // stage does not repeat it as a link under the drawing.
-    expect(screen.queryByText('Read the conversation')).toBeNull()
-    // While the stage draws the seats the board above it is one slim line.
-    expect(document.querySelector('.crew')).toHaveClass('crew--slim')
+    expect(document.querySelector('.pane .stage')).not.toBeNull()
+    // The stage can be given the whole window.
+    expect(screen.getByRole('link', { name: 'Open the stage on its own page' })).toHaveAttribute('href', '/live')
+    // The engine closes the run: every span ends, and the run span with them.
+    {
+      const t = Date.now() / 1000
+      h.spans = (h.spans as { status: string; end?: number; run_id?: string }[]).map((sp) => ({
+        ...sp,
+        status: 'ok',
+        end: sp.end ?? t,
+      }))
+      const runId = (h.spans[0] as { run_id: string }).run_id
+      h.spans.push({ span_id: 'run', run_id: runId, type: 'run', name: `run:${runId}`, start: t - 5, end: t, status: 'ok', attrs: {} })
+    }
     await act(async () => {
       finish({
         run_id: 'r1',
@@ -140,5 +155,11 @@ describe('Work — the stage takes the room while a team is working', () => {
       } as unknown as TeamResult)
       await Promise.resolve()
     })
+    await settle()
+    // The run is over: the drawing does not vanish under the reader — it
+    // stays, as a still picture, and says of what.
+    expect(document.querySelector('.pane .stage')).not.toBeNull()
+    expect(document.querySelector('.stage__packet')).toBeNull()
+    expect(screen.getByText('the last team run · nothing is running now')).toBeInTheDocument()
   }, 15000)
 })

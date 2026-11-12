@@ -20,6 +20,7 @@
 // centres where they meet an edge, and add it to `PATHS` — nothing else.
 export type IconName =
   | 'work'
+  | 'live'
   | 'vault'
   | 'agents'
   | 'skills'
@@ -51,6 +52,17 @@ const PATHS: Record<IconName, JSX.Element> = {
   work: (
     <>
       <path d="M20.5 12.2a7.5 7.5 0 0 1-10.9 6.7L4.5 20l1.2-4.9A7.5 7.5 0 1 1 20.5 12.2Z" />
+    </>
+  ),
+  // Live — the run, drawn: three seats on an arc, joined by the links that
+  // carry work between them. The same picture the stage itself draws.
+  live: (
+    <>
+      <circle cx="5.5" cy="15.5" r="2.5" />
+      <circle cx="12" cy="7.5" r="2.5" />
+      <circle cx="18.5" cy="15.5" r="2.5" />
+      <path d="M7.2 13.6 10.3 9.4" />
+      <path d="m13.7 9.4 3.1 4.2" />
     </>
   ),
   // Vault — notes kept safe: a folded archive box with a latch.

@@ -5,6 +5,9 @@ import { useSchedules } from '../lib/schedules'
 import { useManagers } from '../lib/managers'
 import { agentDossier, agentsInRun } from '../lib/agentDossier'
 import RunStage from '../components/RunStage'
+import RoomPane from '../components/RoomPane'
+import ProjectFilesPane from '../components/ProjectFilesPane'
+import { paneAfterRun, roomPane, type PanePick, type PaneTab } from '../lib/roomPane'
 import AgentDossierPanel from '../components/AgentDossierPanel'
 import { Link } from 'react-router-dom'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
@@ -143,6 +146,14 @@ export function providerInitial(model: string): string {
   return provider ? provider.charAt(0).toUpperCase() : ''
 }
 
+/** The words on the buttons that open the pane beside the chat. */
+const PANE_LABEL: Record<PaneTab, string> = {
+  stage: 'Stage',
+  steps: 'Steps',
+  files: 'Files',
+  details: 'Details',
+}
+
 export default function Workspace() {
   const { state, sendIntent, send, sendTeam, sendProjectJob, setActiveProject, compressNow, newSession } = useApp()
   const { settings } = useSettings()
@@ -159,7 +170,11 @@ export default function Workspace() {
   // and a "details" toggle in the chat tabs brings it back on demand. With
   // nothing live the rail returns on its own: a PLANNED project's rail holds
   // the Start-build button, which must never be hidden by default.
-  const [railChoice, setRailChoice] = useState<'auto' | 'open' | 'closed'>('auto')
+  // THE ROOM PANE (2026-11-12, lib/roomPane.ts): what the work produces opens
+  // BESIDE the chat — the stage, the engine's steps, the project's files and
+  // details. null = nothing chosen, the rule decides which tab (a team at work
+  // takes it with the stage; a quiet project shows its details).
+  const [panePick, setPanePick] = useState<PanePick>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -336,7 +351,7 @@ export default function Workspace() {
   const executing = activeRuns(liveRuns)
   const anyLive = executing.length > 0
   // The rail's visibility: the user's explicit choice wins; 'auto' folds it
-  // exactly while something is genuinely executing (see railChoice above).
+  // exactly while something is genuinely executing.
   // Narrow (≤1180px) the drawer starts closed and opens from `details ▸` — the
   // chat is the hero and needs the width (clear-room 2026-11-09 §A5/§C).
   const narrow = useNarrow()
@@ -347,7 +362,6 @@ export default function Workspace() {
     setActiveProject(id)
     setRoomsOpen(false)
   }
-  const railVisible = railChoice === 'open' || (railChoice === 'auto' && !anyLive && !narrow)
 
   // ONE span tail for the whole page (console body, orbs, cards, narration).
   // This REPLACES the two independent 1200ms polls Workspace used to run (the
@@ -391,16 +405,50 @@ export default function Workspace() {
         ? finishedSpans
         : []
   const narration = narrationLines(liveSpans, 4)
-  // STAGE OR CHAT (2026-11-11). While a team is working the room shows the
-  // run drawn to be watched; when nothing is running the chat is the room. A
-  // pick made by hand holds until the next run starts — a new run takes the
-  // screen again, because that is when there is something to watch.
+  // THE PANE BESIDE THE CHAT. The chat is always the chat; the run drawn to
+  // be watched, the engine's steps, and a project's files and details open
+  // next to it. A team at work takes the pane with the stage; a pick made by
+  // hand holds until the next run starts; when a run ends the stage stays put
+  // unless the project now needs the user (its details hold that button).
   const hasCrew = agentsInRun(boardSpans).length > 0
-  const [viewPick, setViewPick] = useState<'chat' | 'stage' | null>(null)
-  const view: 'chat' | 'stage' = hasCrew ? (viewPick ?? (anyLive ? 'stage' : 'chat')) : 'chat'
+  const paneFacts = {
+    hasCrew,
+    // Team work — a team run or a project build — is what takes the pane by
+    // itself. One AI answering a chat message does not pop a stage open.
+    team: executing.some((r) => r.kind === 'team' || r.kind === 'project'),
+    // A run parked on the user's answer: the board's "Your call" card is the
+    // only place that says what it is waiting for.
+    parked: liveRuns.some((r) => r.paused),
+    project: !!activeProject,
+    narrow,
+  }
+  const projectNeedsYou =
+    !!activeProject && ['planned', 'awaiting', 'attention'].includes(activeProject.status)
+  // A run starting or ending moves the pick (lib/roomPane.ts `paneAfterRun`).
+  // Done while rendering — from the liveness, and the tab, the LAST render
+  // showed — so the pane never closes for a frame and reopens: the drawing
+  // would restart its entrance under the reader's eyes.
+  const [seenLive, setSeenLive] = useState(anyLive)
+  const [shownTab, setShownTab] = useState<PaneTab | null>(null)
+  if (seenLive !== anyLive) {
+    setSeenLive(anyLive)
+    setPanePick(
+      paneAfterRun({
+        pick: panePick,
+        wasLive: seenLive,
+        live: anyLive,
+        showing: shownTab,
+        needsYou: projectNeedsYou,
+      }),
+    )
+  }
+  const pane = roomPane({ pick: panePick, live: anyLive, ...paneFacts })
+  if (shownTab !== pane.tab) setShownTab(pane.tab)
+  // A room of its own: another room starts from the rule, not from the tab
+  // the last room happened to have open.
   useEffect(() => {
-    if (anyLive) setViewPick(null)
-  }, [anyLive])
+    setPanePick(null)
+  }, [state.activeProjectId])
   // The seat opened from the stage, held by NAME (a crew can grow mid-run).
   const [stageAgent, setStageAgent] = useState<string | null>(null)
   const stageDossier = stageAgent ? agentDossier(boardSpans, stageAgent, anyLive) : null
@@ -840,7 +888,7 @@ export default function Workspace() {
       </div>
 
       {/* main split */}
-      <section className="ws__main">
+      <section className={'ws__main' + (pane.tab && narrow ? ' ws__main--paneover' : '')}>
         {/* left sidebar: switches between the Universal chat and each
             project's own chat session — no route change, setActiveProject
             just re-points this same page at a different thread (P1-1). */}
@@ -913,99 +961,33 @@ export default function Workspace() {
             scrolls. (Until this fix the column itself was the scroller, with
             six page-shaped blocks stacked inside it — see Workspace.css.) */}
         <div className="ws__chatcol">
-          {/* THE STAGE — what is running right now. Bounded and internally
-              scrolling, and `:empty` when nothing is running, so an idle Work
-              page gives the whole column to the conversation. */}
+          {/* WHAT IS RUNNING RIGHT NOW — one slim row per run in flight (its
+              timer and its Stop), `:empty` when nothing is running. The crew
+              itself is drawn in the pane beside the chat, once. */}
           <div className={'ws__stage' + (anyLive ? ' ws__stage--live' : '')}>
             {/* Live task cards — one per run the app has in flight, then the
                 recent outcome rows of THIS SESSION (which is what
                 state.finishedRuns is; the durable record is the ledger in the
                 rail). A card glows ONLY because its run is in state.liveRuns. */}
             <LiveRunCards live={liveRuns} finished={state.finishedRuns} spans={tail.spans} compact={agentsInRun(boardSpans).length > 0} />
-            {/* THE BOARD (visual system v2): the crew cluster, the 🔒 badge and
-                the pipeline of column stacks. It is handed `liveSpans` — i.e.
-                `currentRunSpans`, which is [] whenever 2+ runs are in flight —
-                so it can never cross-attribute one run's crew to another, and
-                it renders NOTHING when there is no crew. `liveRuns` is passed
-                only so a run genuinely parked on a human answer can raise a
-                "Your call" column; `anyLive` (activeRuns) is the sole liveness
-                signal, so a parked run's monogram cannot glow.
-                `renderStageDetail` is the engine console's new home: the `▸` on
-                a column opens THAT step's real spans, and nothing else. */}
-            {/* Each seat is drawn ONCE: while the Stage tab is up it draws
-                them, and the board keeps the rest — the count, the pipeline
-                columns, and anything parked on you. */}
-            {<CrewBoard
-              spans={boardSpans}
-              live={anyLive}
-              runs={liveRuns}
-              hideSeats={view === 'stage'}
-              renderStageDetail={(stage: PipelineStage) => (
-                <EngineConsole
-                  label={stage.label}
-                  spans={stageSpans(boardSpans, stage.key)}
-                  live={anyLive}
-                  vaultPath={settings.vaultPath}
-                />
-              )}
-            />}
-            {/* THE CREW STAYS ON SCREEN AFTER THE RUN. Nothing is claimed to be
-                happening — `live` is false above, so no monogram pulses — this
-                simply says who really did the last piece of work, which the
-                page used to forget the moment the run ended. */}
-            {/* The label is about the board ABOVE it, so it shows only when
-                that board is drawn: a project's room draws the project's own
-                build, and used to caption an empty space with the app's last
-                run (seen 2026-11-11). */}
-            {!anyLive && hasCrew && view !== 'stage' && (
-              <div className="ws__lastcrew">
-                {activeProject
-                  ? 'this project’s build so far · nothing is running now'
-                  : 'the last team run · nothing is running now'}
-              </div>
-            )}
           </div>
         <div className="chat">
           <div className="chat__tabs">
-            {/* THE STAGE (2026-11-11): while a team is working, the room shows
-                the run drawn to be watched; the conversation is one click
-                away. With no crew there is nothing to draw, so there is no
-                tab — the chat is the room. */}
-            {hasCrew ? (
-              <>
-                <button
-                  type="button"
-                  className={'chat__tab chat__tab--btn' + (view === 'stage' ? ' is-active' : '')}
-                  aria-pressed={view === 'stage'}
-                  onClick={() => setViewPick('stage')}
-                >
-                  Stage
-                </button>
-                <button
-                  type="button"
-                  className={'chat__tab chat__tab--btn' + (view === 'chat' ? ' is-active' : '')}
-                  aria-pressed={view === 'chat'}
-                  onClick={() => setViewPick('chat')}
-                >
-                  Chat
-                </button>
-              </>
-            ) : (
-              <span className="chat__tab is-active">Chat</span>
-            )}
+            <span className="chat__tab is-active">Chat</span>
             <Link to="/editor" className="chat__tab">Editor</Link>
             <span className="chat__spacer" />
-            {activeProject && (
-              <button
-                type="button"
-                className="chat__tab chat__tab--details"
-                aria-expanded={railVisible}
-                onClick={() =>
-                  setRailChoice(railVisible ? 'closed' : 'open')
-                }
-              >
-                {railVisible ? 'details ◂' : 'details ▸'}
-              </button>
+            {/* WHAT CAN OPEN BESIDE THE CHAT — offered here only while the
+                pane is closed. Open, the pane's own tabs say what is showing,
+                and saying it twice is the clutter this room was rebuilt to
+                remove. */}
+            {!pane.tab && pane.tabs.length > 0 && (
+              <span className="chat__panes" role="group" aria-label="Open beside the chat">
+                {pane.tabs.map((t) => (
+                  <button key={t} type="button" className="chat__pane" onClick={() => setPanePick(t)}>
+                    {PANE_LABEL[t]}
+                  </button>
+                ))}
+              </span>
             )}
             {state.verdicts[0] && (
               <Link to="/verdict" className="chat__task mono">
@@ -1014,21 +996,7 @@ export default function Workspace() {
             )}
           </div>
 
-          {view === 'stage' && (
-            <div className="chat__body chat__body--stage">
-              <RunStage spans={boardSpans} live={anyLive} onOpenAgent={setStageAgent} />
-              {/* The conversation is the Chat tab above — offered once. What
-                  opens from here is the engine's own record of the run. */}
-              <details className="chat__stagesteps">
-                <summary>Engine steps</summary>
-                <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
-              </details>
-              {stageDossier && (
-                <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />
-              )}
-            </div>
-          )}
-          <div className="chat__body" ref={bodyRef} hidden={view === 'stage'}>
+          <div className="chat__body" ref={bodyRef}>
             {activeMessages(state).length === 0 && !state.running && (
               activeProject && nextSendMode(activeProject) === 'project-interview' ? (
                 <div className="chat__empty">
@@ -1737,29 +1705,71 @@ export default function Workspace() {
             anywhere on Work any more: the queue lives on Automations (parked
             approvals, due jobs, standing loops — all of it, with more detail)
             and the setup lives on Settings. Both are one click away in More. */}
-        {activeProject && railVisible && (
-        <aside className="ws__side ws__side--project">
-            <>
-              <div className="ws__railhead">
-                <div className="ws__railname">{activeProject.name || '(untitled)'}</div>
-                <StatusChip status={activeProject.status} />
-              </div>
-              {activeProject.goal && (
-                <div className="ws__railgoal" title={activeProject.goal}>
-                  {activeProject.goal}
+        {pane.tab && (
+          <RoomPane tab={pane.tab} tabs={pane.tabs} onTab={setPanePick} onClose={() => setPanePick('closed')}>
+            {pane.tab === 'stage' && (
+              <>
+                {/* THE RUN, DRAWN TO BE WATCHED. The stage draws each seat
+                    once; the board above it is one slim line — the count, the
+                    steps, anything parked on you. Both read `boardSpans`, which
+                    is [] whenever two runs are in flight, so a crew can never
+                    be attributed to the wrong run; `anyLive` is the only
+                    liveness signal, so a parked run's seat cannot glow. */}
+                <CrewBoard
+                  spans={boardSpans}
+                  live={anyLive}
+                  runs={liveRuns}
+                  hideSeats
+                  renderStageDetail={(stage: PipelineStage) => (
+                    <EngineConsole
+                      label={stage.label}
+                      spans={stageSpans(boardSpans, stage.key)}
+                      live={anyLive}
+                      vaultPath={settings.vaultPath}
+                    />
+                  )}
+                />
+                <RunStage spans={boardSpans} live={anyLive} onOpenAgent={setStageAgent} />
+                {/* Nothing is claimed to be happening once the run is over:
+                    the drawing is a still picture, and it says of what. (A
+                    run parked on the user is not over, so it is not captioned
+                    as if it were.) */}
+                {!anyLive && hasCrew && !paneFacts.parked && (
+                  <div className="ws__lastcrew">
+                    {activeProject
+                      ? 'this project’s build so far · nothing is running now'
+                      : 'the last team run · nothing is running now'}
+                  </div>
+                )}
+                {stageDossier && (
+                  <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />
+                )}
+              </>
+            )}
+            {pane.tab === 'steps' && (
+              <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
+            )}
+            {pane.tab === 'files' && activeProject && (
+              <ProjectFilesPane
+                path={activeProject.path}
+                refreshKey={`${activeProject.stepIndex}:${activeProject.status}:${state.liveRuns.length}`}
+              />
+            )}
+            {pane.tab === 'details' && activeProject && (
+              <div className="ws__details">
+                <div className="ws__railhead">
+                  <div className="ws__railname">{activeProject.name || '(untitled)'}</div>
+                  <StatusChip status={activeProject.status} />
                 </div>
-              )}
-              {/* NO TEAM ORBS HERE (2026-08-30 — Sukhdeep, comparing his two
-                  screenshots: "the information you show on the sidebar is kind
-                  of similar to Who's on it — remove that and utilize the
-                  sidebar somewhere else"). He is right: during a run the crew
-                  lives on the STAGE — the ON-IT-NOW chips + the Who's-on-it
-                  board — and a third copy in the rail said the same thing,
-                  smaller. The rail now spends that space on what the stage
-                  does NOT show: the plan's step-by-step progress below. */}
-              <ProjectContextPanel project={activeProject} />
-            </>
-        </aside>
+                {activeProject.goal && (
+                  <div className="ws__railgoal" title={activeProject.goal}>
+                    {activeProject.goal}
+                  </div>
+                )}
+                <ProjectContextPanel project={activeProject} />
+              </div>
+            )}
+          </RoomPane>
         )}
       </section>
 

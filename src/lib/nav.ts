@@ -27,15 +27,18 @@ export type PageItem = { num: string; to: string; title: string }
  * work, the crew you work with, and the record of what happened.
  */
 export const sideNav: NavSection[] = [
-  // FIVE PLACES (design 2026-11-08 §D): Work · Agents · Console · Library, and
-  // Settings apart at the foot of the rail. No headings, nothing folded: what
-  // is listed is what you can click. Skills, Memory, Vault and Training live
-  // as tabs of Library; Automations and the companion pages are reached from
-  // Settings' own nav. Every old route still renders.
+  // SIX PLACES: Work · Live · Agents · Console · Library, and Settings apart
+  // at the foot of the rail (five in the 2026-11-08 design §D; Live joined on
+  // 2026-11-12, when the owner asked for "one page just showing the animation
+  // when it's working"). No headings, nothing folded: what is listed is what
+  // you can click. Skills, Memory, Vault and Training live as tabs of
+  // Library; Automations and the companion pages are reached from Settings'
+  // own nav. Every old route still renders.
   {
     heading: '',
     items: [
       { to: '/', label: 'Work', icon: 'work' },
+      { to: '/live', label: 'Live', icon: 'live' },
       { to: '/agents', label: 'Agents', icon: 'agents' },
       { to: '/console', label: 'Console', icon: 'console' },
       { to: '/library', label: 'Library', icon: 'library' },

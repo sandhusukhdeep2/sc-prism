@@ -19,13 +19,13 @@
      ┌ .ws (height:100%, overflow:hidden) ─────────────────────────────┐
      │ .ws__strip / banner / .ws__needs / .ws__desk   fixed, bounded   │
      │ ┌ .ws__main (flex:1, min-height:0) ───────────────────────────┐ │
-     │ │ .ws__nav    │ .ws__chatcol            │ .ws__side           │ │
-     │ │ chats +     │   .ws__stage  (bounded, │ ledger (universal)  │ │
-     │ │ projects    │    scrolls, :empty when │ or project context  │ │
-     │ │ [scrolls]   │    nothing is running)  │ [scrolls]           │ │
-     │ │             │   .chat  (fills, hidden)│                     │ │
-     │ │             │     .chat__body SCROLLS │                     │ │
-     │ │             │     composer pinned     │                     │ │
+     │ │ .ws__nav    │ .ws__chatcol            │ .pane (RoomPane)    │ │
+     │ │ chats +     │   .ws__stage  (one slim │ what the work       │ │
+     │ │ projects    │    row per live run,    │ produces: Stage ·   │ │
+     │ │ [scrolls]   │    :empty otherwise)    │ Steps · Files ·     │ │
+     │ │             │   .chat  (fills, hidden)│ Details — one tab,  │ │
+     │ │             │     .chat__body SCROLLS │ open when there is  │ │
+     │ │             │     composer pinned     │ something to show   │ │
      │ └─────────────┴─────────────────────────┴─────────────────────┘ │
      └─────────────────────────────────────────────────────────────────┘
 
@@ -136,8 +136,6 @@
 @media (prefers-reduced-motion: no-preference) {
   .ws__stage:not(:empty) { animation: ws-stage-in .32s cubic-bezier(.2,.8,.25,1) both; }
   @keyframes ws-stage-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-  .ws__side { animation: ws-rail-in .28s ease both; }
-  @keyframes ws-rail-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
   .ws__deskbody { animation: ws-stage-in .24s ease both; }
 }
 /* NO RESERVED EMPTY SPACE (2026-08-31 design pass, seen live mid-build): the
@@ -194,8 +192,6 @@
 .chat__tab { font-size: 13.5px; color: var(--muted-2); }
 /* The details toggle is a BUTTON wearing the tab's clothes — same face, plus
    the reset a native button needs to sit in the row without shouting. */
-.chat__tab--details { background: transparent; border: none; cursor: pointer; font: inherit; color: var(--v2-muted); }
-.chat__tab--details:hover { color: var(--v2-ink); }
 .chat__tab.is-active { color: var(--v2-ink); font-weight: 600; border-bottom: 2px solid var(--v2-accent); padding-bottom: 2px; }
 .chat__spacer { flex: 1; }
 .chat__task { font-size: 11.5px; color: var(--muted-2); }
@@ -519,20 +515,9 @@
 /* RIGHT RAIL — region 3. Full height, scrolls internally. On the Universal
    thread it holds the measured ledger (which used to be stacked under the
    conversation); with a project bound it holds that project's own context. */
-/* The rail no longer scrolls as a whole — the ledger inside it divides its own
-   height so the week's summary is always on screen and only the run LIST
-   scrolls. A scrolling rail hid the summary below the fold. */
-/* The rail SCROLLS (2026-08-28). It was `overflow: hidden`, and on a planned
-   project the panel's tail — the PLAN section with the START BUILD button —
-   fell below the fold with no way to reach it at common window heights. A
-   control the flow depends on must always be reachable; the rail now scrolls
-   like any long column. */
-.ws__side { width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
-
-/* P1-3b: active-project rail — wider (it hosts the same panels as the
-   Projects page's detail view); the parent constrains height, so it just
-   scrolls internally when a long plan/verdict list overflows. */
-.ws__side--project { width: 340px; flex-basis: 340px; }
+/* The project's details (since 2026-11-12 a tab of the room pane, which
+   scrolls): a planned project's Start-build button lives here, and a control
+   the flow depends on must always be reachable. */
 .ws__railhead { display: flex; align-items: center; gap: 8px; }
 .ws__railname { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws__raildelete {
@@ -746,12 +731,25 @@
 
 /* THE STAGE TAB (2026-11-11). The tabs that switch the room are real buttons
    with the tab's own look, and the stage view fills the chat's place. */
-.chat__tab--btn { border: 0; background: none; padding: 0; font: inherit; font-size: 13.5px; cursor: pointer; }
-.chat__tab--btn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 3px; border-radius: 4px; }
-/* The stage takes the room: tighter padding than the conversation's, so the
-   drawing gets the height (a real run gave it ~250pt and cut the seats off). */
-.chat__body--stage { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; }
 .chat__body[hidden] { display: none; }
-.chat__stagesteps { flex: 0 0 auto; min-width: 0; font-size: 12.5px; color: var(--v2-ink-2); }
-.chat__stagesteps > summary { cursor: pointer; padding: 2px 0; width: fit-content; }
-.chat__stagesteps[open] > summary { margin-bottom: 8px; }
+
+
+/* ---- THE SPLIT ROOM (2026-11-12) ----
+   rooms · chat · pane. The chat is always the chat, in a column that keeps a
+   readable measure; what the work produces opens beside it (RoomPane). */
+.ws__chatcol { flex: 1 1 54%; }
+.chat__panes { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; }
+.chat__pane {
+  border: 1px solid var(--v2-line); background: none; font: inherit; font-size: 13px; color: var(--v2-muted);
+  padding: 5px 12px; border-radius: var(--v2-r-pill); cursor: pointer; white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.chat__pane:hover { background: var(--v2-fill); color: var(--v2-ink); }
+.chat__pane:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
+/* The project's details, inside the pane: the same blocks the drawer held. */
+.ws__details { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* A small window: the open pane takes the chat's place, and closing it gives
+   the chat back. Nothing is squeezed into two unreadable halves. */
+.ws__main--paneover .ws__chatcol { display: none; }
+.ws__main--paneover .pane { flex: 1 1 auto; max-width: none; }
+@media (prefers-reduced-motion: reduce) { .chat__pane { transition: none; } }

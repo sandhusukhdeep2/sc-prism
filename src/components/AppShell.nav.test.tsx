@@ -50,7 +50,7 @@ function renderShell(initialPath = '/') {
   )
 }
 
-const DESTINATIONS = ['Work', 'Agents', 'Console', 'Library', 'Settings']
+const DESTINATIONS = ['Work', 'Live', 'Agents', 'Console', 'Library', 'Settings']
 
 // Onboarding is seeded done for EVERY describe in this file — a shell that
 // redirects to /welcome renders no navigation at all, which would make every
@@ -121,7 +121,10 @@ describe('AppShell navigation — one rail, every destination, every page', () =
     expect(document.querySelector('nav.rail')).toBeTruthy()
   })
 
-  it('shows exactly five places and no group headings', () => {
+  // Five places became six on 2026-11-12: the owner asked for "one page just
+  // showing the animation when it's working", and a page nobody can find from
+  // the rail is not a page.
+  it('shows exactly six places and no group headings', () => {
     renderShell()
     const rail = document.querySelector('nav.rail') as HTMLElement
     expect([...rail.querySelectorAll('a')].map((a) => a.textContent?.trim())).toEqual(DESTINATIONS)
@@ -132,7 +135,7 @@ describe('AppShell navigation — one rail, every destination, every page', () =
   it('a rail-groups memory left over from the old rail changes nothing and is cleared', () => {
     localStorage.setItem('scprism.railGroups', JSON.stringify({ Crew: true }))
     renderShell()
-    expect(document.querySelectorAll('nav.rail a')).toHaveLength(5)
+    expect(document.querySelectorAll('nav.rail a')).toHaveLength(DESTINATIONS.length)
     expect(localStorage.getItem('scprism.railGroups')).toBeNull()
   })
 

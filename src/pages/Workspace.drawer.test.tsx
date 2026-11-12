@@ -79,7 +79,9 @@ function renderWorkspace() {
   )
 }
 
-const drawer = () => document.querySelector('.ws__side--project') as HTMLElement
+// The project's details live in the room's pane (2026-11-12): the Details tab
+// beside the chat, open by itself in a quiet project room.
+const drawer = () => document.querySelector('.pane .ws__details') as HTMLElement
 
 describe('the Details drawer reads', () => {
   beforeEach(() => localStorage.clear())
@@ -130,7 +132,7 @@ describe('the Details drawer reads', () => {
 // BELOW 1180px THE DRAWER STARTS CLOSED (clear-room spec 2026-11-09 §A5/§C).
 // Seen at 1000×760 idle: the 340px drawer stayed open and the chat was a
 // 280px column with its tabs wrapping. Narrow, the room gives the chat the
-// width and `details ▸` opens the drawer over it on demand.
+// width and the `Details` button opens the pane over it on demand.
 describe('the drawer and the window width', () => {
   const realMatchMedia = window.matchMedia
   beforeEach(() => localStorage.clear())
@@ -155,10 +157,16 @@ describe('the drawer and the window width', () => {
     pretendNarrow()
     seed()
     renderWorkspace()
-    await screen.findByRole('button', { name: /details ▸/ })
-    expect(document.querySelector('.ws__side--project')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /details ▸/ }))
-    expect(document.querySelector('.ws__side--project')).not.toBeNull()
+    const details = await screen.findByRole('button', { name: 'Details' })
+    expect(document.querySelector('.pane')).toBeNull()
+    fireEvent.click(details)
+    expect(document.querySelector('.pane .ws__details')).not.toBeNull()
+    // …over the chat: nothing is squeezed into two unreadable halves.
+    expect(document.querySelector('.ws__main')).toHaveClass('ws__main--paneover')
+    // Closing it gives the chat back.
+    fireEvent.click(screen.getByRole('button', { name: 'Close the pane' }))
+    expect(document.querySelector('.pane')).toBeNull()
+    expect(document.querySelector('.ws__main')).not.toHaveClass('ws__main--paneover')
   })
 })
 
