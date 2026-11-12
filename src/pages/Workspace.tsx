@@ -56,6 +56,7 @@ import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
 import { useProjects, useProjectsHydrated, nextSendMode, openFolderAsProject } from '../lib/projects'
+import { folderLane, sentLane } from '../lib/roomLane'
 import { NewProjectForm, ProjectContextPanel, StatusChip } from './Projects'
 import './Projects.css'
 import './Workspace.css'
@@ -143,7 +144,7 @@ export function providerInitial(model: string): string {
 }
 
 export default function Workspace() {
-  const { state, sendIntent, send, sendTeam, setActiveProject, compressNow, newSession } = useApp()
+  const { state, sendIntent, send, sendTeam, sendProjectJob, setActiveProject, compressNow, newSession } = useApp()
   const { settings } = useSettings()
   const connectivity = useConnectivity()
   const [draft, setDraft] = useState('')
@@ -215,8 +216,12 @@ export default function Workspace() {
   // Sprint B (2026-08-30, his order): the TEAM is the default lane — different
   // AIs, different agents. The manager (companion) is the one-click
   // alternative; the per-message reset below also returns to team.
+  //   'project'   — THE FOLDER (2026-11-11). Only in a project's room: the
+  //                 job becomes the project's next step and the governed build
+  //                 makes the change on disk. A change opens on it by rule
+  //                 (lib/roomLane.ts); it can also be picked by hand.
   const [target, setTarget] = useState<
-    'companion' | 'team' | 'agent' | 'propose' | 'staff'
+    'companion' | 'team' | 'agent' | 'propose' | 'staff' | 'project'
   >('team')
   // The team was picked BY HAND for this message (2026-11-11). The team is
   // only the DEFAULT lane; a small message on the default lane is answered by
@@ -259,13 +264,6 @@ export default function Workspace() {
     hasAttachments: attachments.length > 0 || !!image,
     managerToken: managerToken(settings),
   })
-  // WHERE THIS MESSAGE REALLY GOES. On the default team lane a small message
-  // ("hello", "go") is not a job: the manager answers it and no team is
-  // staffed. Everything the composer says and does below reads this, so the
-  // words, the controls and the send can never disagree.
-  const effectiveTarget: typeof target =
-    target === 'team' && routing.small ? 'companion' : target
-
   // The project bound to this Workspace session (P2-4), if any — set via
   // Projects' "Open in Workspace" button. undefined (the default) when no
   // project has ever been opened, or the bound id no longer resolves (the
@@ -278,6 +276,29 @@ export default function Workspace() {
   const activeProject = state.activeProjectId
     ? projects.find((p) => p.id === state.activeProjectId)
     : undefined
+
+  // THE FOLDER LANE (2026-11-11). In a project's room a CHANGE goes to the
+  // project's folder — it becomes the next step and the governed build makes
+  // it on disk — while a question stays a conversation. Decided by rule,
+  // shown before the send, flipped by one click (lib/roomLane.ts).
+  const lane = folderLane({
+    project: activeProject,
+    text: draft,
+    picked: target === 'project' ? 'folder' : target === 'team' && !teamPicked ? 'auto' : 'other',
+    hasAttachments: attachments.length > 0 || !!image,
+  })
+  // WHERE THIS MESSAGE REALLY GOES. A change in a project's room goes to the
+  // folder. Otherwise, on the default team lane a small message ("hello",
+  // "go") is not a job: the manager answers it and no team is staffed.
+  // Everything the composer says and does below reads this, so the words, the
+  // controls and the send can never disagree.
+  const effectiveTarget: typeof target = lane.on
+    ? 'project'
+    : target === 'project'
+      ? 'team'
+      : target === 'team' && routing.small
+        ? 'companion'
+        : target
 
   // The active project's REAL activity feed (run/skill/created events) — shown
   // in the engine/activity console below the chat (the rail keeps team-only).
@@ -428,7 +449,9 @@ export default function Workspace() {
   // the user didn't expect. The companion wording is unchanged (the default
   // path is untouched, down to its placeholder + label).
   const composerLabel =
-    effectiveTarget === 'team'
+    effectiveTarget === 'project'
+      ? 'Describe the change for this folder'
+      : effectiveTarget === 'team'
       ? 'Describe the task for the team'
       : effectiveTarget === 'propose'
         ? 'Describe the gap — you get a proposal to review, not a new agent'
@@ -444,7 +467,9 @@ export default function Workspace() {
   // WHO this send goes to, in one sentence — the target actually selected, so
   // it can never name a coworker the message will not reach.
   const targetSentence =
-    effectiveTarget === 'team'
+    effectiveTarget === 'project'
+      ? 'your team works in the folder'
+      : effectiveTarget === 'team'
       ? 'your team takes this'
       : effectiveTarget === 'agent'
         ? chosenAgent
@@ -461,7 +486,10 @@ export default function Workspace() {
   // What Send is allowed to do: a team run needs TEXT (it has no image path),
   // and an agent target needs a real agent to address.
   const canSend =
-    effectiveTarget === 'team'
+    effectiveTarget === 'project'
+      ? // The folder takes WORDS, and only when it is free to take a job.
+        !!draft.trim() && !lane.block
+      : effectiveTarget === 'team'
       ? !!draft.trim() || attachments.length > 0
       : effectiveTarget === 'propose'
         ? // a proposal must cite the user's OWN words as evidence, so it needs
@@ -507,6 +535,8 @@ export default function Workspace() {
     // A team run takes TEXT — an image alone has nowhere to go (guarded by the
     // send button too).
     if (effectiveTarget === 'team' && !text && attachments.length === 0) return
+    // The folder takes typed words, and only when it is free to take a job.
+    if (effectiveTarget === 'project' && (!text || lane.block)) return
     // A proposal quotes the user's own request as its evidence — with no typed
     // text there is nothing real to cite, so nothing is sent.
     if (effectiveTarget === 'propose' && !text) return
@@ -546,6 +576,14 @@ export default function Workspace() {
     setTeamPicked(false)
     setMoreTargetsOpen(false)
     setOverrideOpen(false)
+    if (chosenTarget === 'project') {
+      // THE FOLDER. The job becomes the project's next step and the governed
+      // build makes the change on disk; a refusal is said in the room and
+      // leaves the plan alone (AppStore.sendProjectJob). Words only — the
+      // composer said so before the send if anything was attached.
+      void sendProjectJob({ text, display: `→ folder: ${text}` })
+      return
+    }
     if (chosenTarget === 'team') {
       // The SHARED governed launch. `sendTeam` posts this ask, calls the ONE
       // `launchTeam` the Agents page also calls, and reports the real ending
@@ -915,9 +953,15 @@ export default function Workspace() {
                 happening — `live` is false above, so no monogram pulses — this
                 simply says who really did the last piece of work, which the
                 page used to forget the moment the run ended. */}
-            {!anyLive && showsLastCrew && view !== 'stage' && (
+            {/* The label is about the board ABOVE it, so it shows only when
+                that board is drawn: a project's room draws the project's own
+                build, and used to caption an empty space with the app's last
+                run (seen 2026-11-11). */}
+            {!anyLive && hasCrew && view !== 'stage' && (
               <div className="ws__lastcrew">
-                the last team run · nothing is running now
+                {activeProject
+                  ? 'this project’s build so far · nothing is running now'
+                  : 'the last team run · nothing is running now'}
               </div>
             )}
           </div>
@@ -973,15 +1017,12 @@ export default function Workspace() {
           {view === 'stage' && (
             <div className="chat__body chat__body--stage">
               <RunStage spans={boardSpans} live={anyLive} onOpenAgent={setStageAgent} />
-              <div className="chat__stageactions">
-                <button type="button" className="chat__stagelink" onClick={() => setViewPick('chat')}>
-                  Read the conversation
-                </button>
-                <details className="chat__stagesteps">
-                  <summary>Engine steps</summary>
-                  <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
-                </details>
-              </div>
+              {/* The conversation is the Chat tab above — offered once. What
+                  opens from here is the engine's own record of the run. */}
+              <details className="chat__stagesteps">
+                <summary>Engine steps</summary>
+                <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
+              </details>
               {stageDossier && (
                 <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />
               )}
@@ -999,7 +1040,7 @@ export default function Workspace() {
               ) : (
                 <div className="chat__empty">
                   {activeProject
-                    ? `“${activeProject.name}” — describe the next step and ${primaryName} takes it from there`
+                    ? `“${activeProject.name}” — describe a change and your team makes it in the folder, or ask about what is there`
                     : `no messages yet — describe what you want to build below and ${primaryName} takes it from there`}
                 </div>
               )
@@ -1014,10 +1055,17 @@ export default function Workspace() {
                       state.running
                         ? undefined
                         : (t) => {
-                            // ↺ resends through the DEFAULT lane (the team —
-                            // the manager staffs it), exactly like typing it
-                            // again; disabled while a run holds the engine.
-                            void sendTeam({ task: t, display: `→ team: ${t}` })
+                            // ↺ resends the WORDS down the lane they took: a
+                            // job for the folder goes back to the folder, and
+                            // everything else through the default lane (the
+                            // team — the manager staffs it). Disabled while a
+                            // run holds the engine.
+                            const again = sentLane(t)
+                            if (again.lane === 'folder') {
+                              void sendProjectJob({ text: again.text, display: `→ folder: ${again.text}` })
+                            } else {
+                              void sendTeam({ task: again.text, display: `→ team: ${again.text}` })
+                            }
                           }
                     }
                     onBranch={
@@ -1028,7 +1076,7 @@ export default function Workspace() {
                             // message pre-filled — a new path from the same
                             // start; nothing sends until the user sends.
                             void newSession(activeThreadKey(state.activeProjectId))
-                            setDraft(t)
+                            setDraft(sentLane(t).text)
                           }
                     }
                   />
@@ -1354,6 +1402,19 @@ export default function Workspace() {
                     </span>
                   )}
                 </>
+              ) : effectiveTarget === 'project' ? (
+                <>
+                  <span className="chat__targethint">
+                    this becomes the project&rsquo;s next step — your team reads the folder, makes
+                    the change and runs the project&rsquo;s checks
+                  </span>
+                  {(attachments.length > 0 || image) && (
+                    <span className="chat__targethint chat__targethint--warn">
+                      the folder takes words only — what you attached won&rsquo;t be sent. Put the
+                      file in the folder and name it in the job
+                    </span>
+                  )}
+                </>
               ) : effectiveTarget === 'team' ? (
                 <>
                   <span className="chat__targethint">
@@ -1417,11 +1478,11 @@ export default function Workspace() {
               }
               aria-label="Who takes this, and why"
             >
-              {routingLine(routing)}
-              {routing.soloNote && routing.mode !== 'refused' && (
+              {lane.on ? lane.line : routingLine(routing)}
+              {!lane.on && routing.soloNote && routing.mode !== 'refused' && (
                 <span className="chat__routingnote"> · {routing.soloNote}</span>
               )}
-              {routeHint !== 'auto' && (
+              {!lane.on && routeHint !== 'auto' && (
                 <span className="chat__routingnote">
                   {' '}
                   · you overrode this to {routeHint}, so that is where it goes
@@ -1510,6 +1571,25 @@ export default function Workspace() {
                   >
                     {primaryName}
                   </button>
+                  {lane.offered && (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={effectiveTarget === 'project'}
+                      className={'chat__routebtn mono' + (effectiveTarget === 'project' ? ' chat__routebtn--on' : '')}
+                      onClick={() => {
+                        setTarget('project')
+                        setTeamPicked(false)
+                      }}
+                      title={
+                        lane.block
+                          ? `The folder cannot take a job right now — ${lane.block}`
+                          : 'Your team makes the change in this project’s folder — it becomes the project’s next step, with the project’s checks'
+                      }
+                    >
+                      folder
+                    </button>
+                  )}
                   <button
                     type="button"
                     role="radio"

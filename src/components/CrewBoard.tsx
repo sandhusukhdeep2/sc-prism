@@ -172,7 +172,7 @@ export default function CrewBoard({
   const opened = openStage === null ? undefined : stages.find((s) => s.key === openStage)
 
   return (
-    <section className="crew" aria-label="Who is on this run">
+    <section className={'crew' + (hideSeats ? ' crew--slim' : '')} aria-label="Who is on this run">
       <div className="crew__head">
         <span className="crew__title">Who&rsquo;s on it</span>
         {orbs.length > 0 && !hideSeats && (

@@ -62,14 +62,37 @@ export interface StageModel {
 
 const r1 = (n: number) => Math.round(n * 10) / 10
 
-/** Where `n` seats stand: left to right along an arc, in percent. */
+/**
+ * Where `n` seats stand: left to right along an arc, in percent.
+ *
+ * A seat's ring is centred on its point and its name, AI and state hang BELOW
+ * it, so no seat stands lower than half way down: in the real room the stage
+ * is often given only ~250 points of height, and seats at 58% had their names
+ * cut off by the composer (seen in a live team run, 2026-11-11).
+ */
 export function stageLayout(n: number): { x: number; y: number }[] {
   if (n <= 0) return []
-  if (n === 1) return [{ x: 50, y: 46 }]
+  if (n === 1) return [{ x: 50, y: 40 }]
   return Array.from({ length: n }, (_, i) => {
     const t = i / (n - 1)
-    return { x: r1(12 + 76 * t), y: r1(58 - 22 * Math.sin(Math.PI * t)) }
+    return { x: r1(12 + 76 * t), y: r1(50 - 22 * Math.sin(Math.PI * t)) }
   })
+}
+
+/** How big a packet looks on screen, in CSS pixels (its radius). */
+const PACKET_PX = 5
+
+/**
+ * A packet's radii in the DRAWING's units, so it stays round on screen.
+ *
+ * The links are drawn in a 1000 × 400 box that is stretched to whatever shape
+ * the room gives the stage; a plain circle would be squashed with it. Given
+ * the box's measured size, the radii are set per axis. Before it has been
+ * measured (0 × 0) a plain dot is returned.
+ */
+export function packetRadii(widthPx: number, heightPx: number): { rx: number; ry: number } {
+  if (!(widthPx > 0) || !(heightPx > 0)) return { rx: 6, ry: 6 }
+  return { rx: (PACKET_PX * STAGE_W) / widthPx, ry: (PACKET_PX * STAGE_H) / heightPx }
 }
 
 export function stageModel(spans: readonly EngineSpan[], live: boolean): StageModel {

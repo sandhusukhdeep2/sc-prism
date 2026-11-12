@@ -10,7 +10,7 @@
 
 import { guardAnswerText } from './answerText'
 import type { Verdict } from '../engine/types'
-import type { Project } from './projects'
+import type { FolderJob, Project } from './projects'
 
 /** Default cap on refine attempts per step before parking to ask the human. */
 export const DEFAULT_MAX_REFINES = 2
@@ -69,7 +69,38 @@ export function nextRunAction(
 
 /** The natural-language intent sent to the engine for a fresh attempt at `plan[index]`. */
 export function stepIntent(goal: string, plan: string[], index: number): string {
-  return `Project goal: ${goal}\nStep ${index + 1} of ${plan.length}: ${plan[index]}`
+  const step = `Step ${index + 1} of ${plan.length}: ${plan[index]}`
+  // An opened folder has no stated goal — its jobs ARE the work. An empty
+  // "Project goal:" line told the model a goal existed and was blank.
+  return goal.trim() ? `Project goal: ${goal}\n${step}` : step
+}
+
+/**
+ * Whether the first attempt at step `index` is shown the folder as it stands
+ * (the most recently changed files as well as the ones the step names).
+ *
+ * True for every step of an OPENED folder — the code is already there — and
+ * for a job typed in the room after the plan (`jobsFrom` onward). A planned
+ * step of a new build stays lean: it is shown only what it names.
+ */
+export function stepShowsFolder(
+  project: Pick<Project, 'mode' | 'jobsFrom'>,
+  index: number,
+): boolean {
+  if (project.mode === 'existing') return true
+  return project.jobsFrom !== undefined && index >= project.jobsFrom
+}
+
+/**
+ * The line the app posts in the room when a job is sent to the folder. The
+ * app speaking, not a model: every word comes from what the store recorded.
+ */
+export function folderJobNotice(job: FolderJob, folder: string): string {
+  if (!job.ok) return `Not sent to the folder — ${job.reason.replace(/\.+$/, '')}.`
+  const where = `step ${job.index + 1} of ${job.total}`
+  return job.starts === 'now'
+    ? `S${where.slice(1)} — your team is working in ${folder} now.`
+    : `Added as ${where} — it runs with the rest of the plan when you start the build.`
 }
 
 /** The natural-language intent sent to the engine for a refine retry, carrying forward why the last attempt failed. */

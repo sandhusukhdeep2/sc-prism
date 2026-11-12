@@ -19,6 +19,11 @@
 }
 
 .crew__head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+/* SLIM: while the Stage draws the seats, the board is one line above it — the
+   count, the steps, anything parked on you — and the drawing gets the height. */
+.crew--slim { padding: 10px 16px 8px; margin-bottom: 8px; }
+.crew--slim .crew__head { margin-bottom: 6px; }
+.crew--slim .crew__title { font-size: 14px; }
 .crew__title { font-weight: 700; font-size: 17px; color: var(--v2-ink); letter-spacing: -0.02em; }
 .crew__spacer { flex: 1; }
 .crew__count { font-size: 11px; color: var(--v2-muted); }

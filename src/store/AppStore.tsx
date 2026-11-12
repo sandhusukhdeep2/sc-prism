@@ -132,7 +132,10 @@ import {
   stripProposalBlock,
 } from '../lib/agentProposals'
 import {
+  addProjectStep,
   appendTurn,
+  folderJobBlock,
+  folderJobStarts,
   getProjects,
   nextSendMode,
   projectBuildRoster,
@@ -150,8 +153,10 @@ import {
   mergeReadiness,
   nextRunAction,
   refineIntent,
+  folderJobNotice,
   stepIntent,
   stepNote,
+  stepShowsFolder,
   verdictFeedback,
 } from '../lib/projectRun'
 import type { RunAction } from '../lib/projectRun'
@@ -362,6 +367,43 @@ export function otherRunningProject(
   projectId: string,
 ): Project | undefined {
   return projects.find((p) => p.id !== projectId && p.status === 'running')
+}
+
+/**
+ * Why a build of `project` cannot START right now — or '' when it can.
+ *
+ * These are the build driver's own opening refusals, in its own words and its
+ * own order, lifted out so they can be asked BEFORE anything is changed: a job
+ * typed in a project's room must not be added to the plan and announced as
+ * under way when the build would refuse a moment later. `runProject` asks the
+ * same function, so the two can never disagree. Pure.
+ */
+export function buildStartRefusal(
+  project: Pick<Project, 'id' | 'name'>,
+  ctx: {
+    projects: readonly Project[]
+    /** The files grant (Settings → Approvals). */
+    projectWrites: boolean
+    /** A manager job or a standing loop holds the engine. */
+    engineBusy: boolean
+    native: boolean
+    primaryReal: boolean
+  },
+): string {
+  // One build at a time: a second driver would supersede the first and strand
+  // it in 'running' (see `otherRunningProject`).
+  const blocker = otherRunningProject(ctx.projects, project.id)
+  if (blocker) return `«${blocker.name}» is already running — one build at a time`
+  // A denied files grant must actually stop builds (audit H1).
+  if (!ctx.projectWrites) {
+    return 'project file writes are denied — grant them in Settings → Approvals first'
+  }
+  // A manual build yields to the loop driver and the manager driver too.
+  if (ctx.engineBusy) return `«${project.name}» — engine busy, another run is in progress`
+  // No sim projects: refuse rather than silently no-op or fake it.
+  if (!ctx.native) return `«${project.name}» needs the installed app to run.`
+  if (!ctx.primaryReal) return `«${project.name}» can't run — connect a real AI provider first.`
+  return ''
 }
 
 /**
@@ -661,6 +703,10 @@ export function buildEngineProviders(
     // engine record "no verify command configured for this run", which is FALSE
     // for a user who set one, and would make Stats say so out loud.
     providers.tier1Cwd = tier1CwdFor(activeProjectId)
+    // The folder this turn is ABOUT (2026-11-11): a chat or team run in a
+    // project's room is shown the folder, read-only. The same one honest
+    // answer as above — the bound project's own folder, or nothing.
+    providers.projectDir = tier1CwdFor(activeProjectId)
   }
   // The user picks the model + thinking effort per provider; the PRIMARY's
   // choice drives the run.
@@ -2286,6 +2332,11 @@ interface AppContextValue {
     tokenBudget?: number
     caveat?: string
   }) => Promise<void>
+  /** A job for the bound project's FOLDER (2026-11-11): it becomes the
+   *  project's next step and the governed build runs it there. A refusal (a
+   *  build already running, file writes denied, no real provider…) is said in
+   *  the room and leaves the plan untouched. */
+  sendProjectJob: (opts: { text: string; display?: string }) => Promise<void>
   /** "Wake now" (2026-08-05 §Part 3): run ONE immediate beat down the exact
    *  path a scheduled wake takes. Resolves `null` when the wake really ran,
    *  else the honest reason it refused (engine busy, heartbeat off, no
@@ -2507,6 +2558,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
        *  the composer's team target passes it; the Agents launcher (a task
        *  launcher) keeps the read default. */
       mode?: string
+      /** The project whose room this was sent from — the board is told which
+       *  project it is and shown its folder (read-only). Unset on the Agents
+       *  page, where there is no room. */
+      projectId?: string
     }): Promise<TeamLaunch> => {
       const task = opts.task.trim()
       if (!task) return { status: 'failed', cause: '' }
@@ -2548,7 +2603,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let outcome: RunOutcome = 'stopped'
       let detail = 'the team run ended without a recorded outcome'
       try {
-        const { providers } = buildEngineProviders(s)
+        const { providers } = buildEngineProviders(s, opts.projectId)
         const vault = await resolveVaultDir(s.vaultPath)
         // PER-AGENT CAPABILITIES (2026-08-15). A seat staffed from an approved
         // project roster carries its granted capabilities; those become the
@@ -2671,6 +2726,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           roster: opts.roster,
           tokenBudget: opts.tokenBudget,
           mode: 'converse',
+          // A board asked from a project's room talks about THAT project.
+          projectId: activeProjectIdRef.current,
         })
       } catch {
         launch = { status: 'failed', cause: '' }
@@ -4068,51 +4125,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notifyNotice(kind, text)
       }
 
-      // Concurrent-start guard, checked BEFORE the shared projectRunId is
-      // bumped: that counter is the single "which run is live" gate for
-      // EVERY project (not per-project), so incrementing it here would
-      // silently supersede an already-running project's driver loop on its
-      // very next poll — stranding it in 'running' forever with nothing left
-      // to advance its status. Refuse honestly instead; no status touched.
-      const blocker = otherRunningProject(getProjects().projects, projectId)
-      if (blocker) {
-        notify('attention', `«${blocker.name}» is already running — one build at a time`)
-        return
-      }
-      // Companion grant (audit H1): a denied files grant must actually stop
-      // builds — hiding the New-project button alone would be theater. Every
-      // build entry point funnels here; refuse honestly, status untouched.
-      if (!settingsRef.current.projectWrites) {
-        notify('attention', 'project file writes are denied — grant them in Settings → Approvals first')
-        return
-      }
-      // Symmetric engine serialization (final review A): a manual build must
-      // yield to the loop driver and the manager driver too, not just to
-      // another project. Refuse honestly, status untouched. Self-ref (the
-      // loop driver's `loopBusyRef` when it kicks off a build) is released
-      // before that call, so a loop-driven build does not hit this — only a
-      // truly concurrent manager/loop engine run does. `otherRunningProject`
-      // above already covers the projects-running case; this adds the two
-      // driver refs.
-      if (managerBusyRef.current || loopBusyRef.current) {
-        notify('attention', `«${project.name}» — engine busy, another run is in progress`)
+      // THE OPENING REFUSALS, all asked BEFORE the shared projectRunId is
+      // bumped: that counter is the single "which run is live" gate for EVERY
+      // project, so bumping it and then refusing would silently supersede a
+      // driver that is still working. One build at a time; a denied files
+      // grant stops builds; a manual build yields to the manager and loop
+      // drivers; there are no sim projects. `buildStartRefusal` holds the
+      // words — `sendProjectJob` asks it too, before it touches the plan.
+      const refusal = buildStartRefusal(project, {
+        projects: getProjects().projects,
+        projectWrites: settingsRef.current.projectWrites,
+        engineBusy: managerBusyRef.current || loopBusyRef.current,
+        native: isNative(),
+        primaryReal: buildEngineProviders(settingsRef.current).primaryReal,
+      })
+      if (refusal) {
+        notify('attention', refusal)
         return
       }
 
       const runId = ++projectRunId.current
       projectRequestRef.current = 'idle'
 
-      // No sim projects: refuse honestly rather than silently no-op or fake
-      // it — status is left untouched so nothing looks like it ran.
-      if (!isNative()) {
-        notify('attention', `«${project.name}» needs the installed app to run.`)
-        return
-      }
-      const { primaryReal } = buildEngineProviders(settingsRef.current)
-      if (!primaryReal) {
-        notify('attention', `«${project.name}» can't run — connect a real AI provider first.`)
-        return
-      }
       if (project.plan.length === 0) {
         notify('attention', `«${project.name}» has no plan to run yet.`)
         return
@@ -4295,6 +4329,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     // L2 working memory: the first step of a build starts
                     // clean; every later step is shown the outcomes so far.
                     workingReset: idx === 0,
+                    // A job typed in the room, or any step of an opened
+                    // folder, is shown the folder as it stands.
+                    showFolder: stepShowsFolder(project, idx),
                   }
                 : {
                     context: project.brief,
@@ -4527,6 +4564,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } finally {
         endLiveRun(buildLiveId, buildEnd.outcome, buildEnd.detail)
       }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ---- A JOB FOR THE FOLDER (2026-11-11) ----
+  //
+  // A job typed in a project's room is done IN that project's folder. It is
+  // appended to the plan as the next step and run by `runProject` — the one
+  // thing that has ever been allowed to write to a project's folder. Nothing
+  // new can write; the build simply no longer ends with its plan.
+  //
+  // Every refusal is asked BEFORE the plan is touched (`folderJobBlock` for
+  // the project's own state, `buildStartRefusal` for the engine's), so the
+  // room never says a job is under way when nothing started — and a refused
+  // job leaves no step behind.
+  const sendProjectJob = useMemo(() => {
+    return async (opts: { text: string; display?: string }): Promise<void> => {
+      const pid = activeProjectIdRef.current
+      const project = pid ? getProjects().projects.find((p) => p.id === pid) : undefined
+      const text = opts.text.trim()
+      if (!project || !text) return
+      const thread = project.id
+      const say = (kind: 'user' | 'notice', line: string): void => {
+        dispatch({ type: 'ADD_MESSAGE', thread, message: { id: nextId(), kind, text: line } })
+      }
+      say('user', (opts.display ?? text).trim() || text)
+      const block =
+        folderJobBlock(project) ||
+        (folderJobStarts(project) === 'now'
+          ? buildStartRefusal(project, {
+              projects: getProjects().projects,
+              projectWrites: settingsRef.current.projectWrites,
+              engineBusy: managerBusyRef.current || loopBusyRef.current,
+              native: isNative(),
+              primaryReal: buildEngineProviders(settingsRef.current).primaryReal,
+            })
+          : '')
+      if (block) {
+        say('notice', folderJobNotice({ ok: false, reason: block }, project.path))
+        return
+      }
+      const job = addProjectStep(project.id, text)
+      say('notice', folderJobNotice(job, project.path))
+      if (job.ok && job.starts === 'now') await runProject(project.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -4913,6 +4994,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       releaseEngine,
       launchTeam,
       sendTeam,
+      sendProjectJob,
       wakeNow,
     }),
     [
@@ -4934,6 +5016,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       releaseEngine,
       launchTeam,
       sendTeam,
+      sendProjectJob,
       wakeNow,
     ],
   )

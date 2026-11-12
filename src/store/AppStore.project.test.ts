@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildEngineProviders,
   buildProjectProviders,
+  buildStartRefusal,
   isUsableProjectDir,
   otherRunningProject,
   tier1CwdFor,
@@ -186,5 +187,57 @@ describe('isUsableProjectDir', () => {
   it('rejects a relative path', () => {
     expect(isUsableProjectDir('my-project')).toBe(false)
     expect(isUsableProjectDir('./relative/path')).toBe(false)
+  })
+})
+
+// The folder a chat or team turn is ABOUT (2026-11-11). A run in a project's
+// room used to be handed the project's name and nothing of its folder.
+describe('buildEngineProviders — the folder a turn is about', () => {
+  it('a bound project hands the run its folder', () => {
+    const p = attachProject('Site', '/Users/someone/site-about', '', '')
+    expect(buildEngineProviders(settings, p.id).providers.projectDir).toBe('/Users/someone/site-about')
+  })
+
+  it('with no project bound there is no folder to show', () => {
+    expect(buildEngineProviders(settings).providers.projectDir).toBe('')
+    expect(buildEngineProviders(settings, 'nope').providers.projectDir).toBe('')
+  })
+})
+
+// Why a build cannot start, asked BEFORE anything is changed (2026-11-11). A
+// job typed in a project's room must not be added to the plan and announced as
+// "working now" when the build would refuse to start a moment later.
+describe('buildStartRefusal — why a build cannot start right now', () => {
+  const me = { id: 'p-me', name: 'Site', status: 'done' } as Project
+  const ready = { projects: [me], projectWrites: true, engineBusy: false, native: true, primaryReal: true }
+
+  it('nothing in the way → no refusal', () => {
+    expect(buildStartRefusal(me, ready)).toBe('')
+  })
+
+  it('another project is building → named, one build at a time', () => {
+    const other = { id: 'p-other', name: 'Blog', status: 'running' } as Project
+    expect(buildStartRefusal(me, { ...ready, projects: [me, other] })).toBe(
+      '«Blog» is already running — one build at a time',
+    )
+  })
+
+  it('file writes are denied → says where to grant them', () => {
+    expect(buildStartRefusal(me, { ...ready, projectWrites: false })).toBe(
+      'project file writes are denied — grant them in Settings → Approvals first',
+    )
+  })
+
+  it('the engine is busy with another run → says so', () => {
+    expect(buildStartRefusal(me, { ...ready, engineBusy: true })).toBe(
+      '«Site» — engine busy, another run is in progress',
+    )
+  })
+
+  it('outside the installed app, or with no real provider, a build cannot run', () => {
+    expect(buildStartRefusal(me, { ...ready, native: false })).toBe('«Site» needs the installed app to run.')
+    expect(buildStartRefusal(me, { ...ready, primaryReal: false })).toBe(
+      "«Site» can't run — connect a real AI provider first.",
+    )
   })
 })

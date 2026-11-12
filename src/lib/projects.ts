@@ -54,6 +54,10 @@ export interface Project {
    *  today's unchanged behavior. Set = the build runs a per-role board for
    *  each step instead of one model (P1-2/P1-3). */
   roster?: string
+  /** Index of the first step that was a JOB TYPED IN THE ROOM rather than a
+   *  step of the planned build. Unset = every step came from the plan. The
+   *  build shows such a step the folder as it stands (see `addProjectStep`). */
+  jobsFrom?: number
 }
 
 export interface ProjectsState {
@@ -307,6 +311,10 @@ function sanitizeProject(v: unknown): Project | null {
   const runBranch = typeof p.runBranch === 'string' ? p.runBranch : ''
   // Roster: string else '' (unset = single-doer, today's behavior).
   const roster = typeof p.roster === 'string' ? p.roster : ''
+  const jobsFrom =
+    typeof p.jobsFrom === 'number' && Number.isInteger(p.jobsFrom) && p.jobsFrom >= 0
+      ? p.jobsFrom
+      : undefined
   return {
     id: p.id,
     name: typeof p.name === 'string' ? p.name : '',
@@ -329,6 +337,7 @@ function sanitizeProject(v: unknown): Project | null {
     baseBranch,
     runBranch,
     roster,
+    ...(jobsFrom === undefined ? {} : { jobsFrom }),
   }
 }
 
@@ -511,11 +520,101 @@ export function updateProject(id: string, patch: Partial<Project>): void {
   })
 }
 
+// ---------------------------------------------------------------------------
+// A JOB FOR THE FOLDER (2026-11-11)
+// ---------------------------------------------------------------------------
+//
+// Found by sending a real job from a finished project's room: "Rewrite
+// hello.md as a warmer greeting" went to a board that had never been shown the
+// folder, and nothing on disk changed. A project's plan was the only thing
+// that could ever write to its folder, and the plan ended when the build did.
+//
+// A job typed in the room is now the project's NEXT STEP. It is appended to the
+// plan and run by the same governed build that ran the plan — same branch
+// discipline, same checks, same verdicts, same board. Nothing new can write to
+// a folder; the one thing that could simply no longer stops.
+
+/** A folder the user pointed the app at and said nothing more about — there
+ *  is no goal to interview toward, only work that is already there. */
+export function isOpenedFolder(project: Project): boolean {
+  return project.mode === 'existing' && !project.goal.trim()
+}
+
+/** What became of a job sent to a project's folder. */
+export type FolderJob =
+  | {
+      ok: true
+      /** The job's index in the plan. */
+      index: number
+      /** The plan's length with the job in it. */
+      total: number
+      /** 'now' — it is the next thing to run, start the build.
+       *  'with-plan' — the plan has not been started; the job waits its turn. */
+      starts: 'now' | 'with-plan'
+    }
+  | { ok: false; reason: string }
+
+/**
+ * Why this project's folder cannot take a job right now — or '' when it can.
+ * The sentence is shown above the composer as it is.
+ */
+export function folderJobBlock(project: Project | null | undefined): string {
+  if (!project) return 'no project is open'
+  if (project.status === 'running' || project.status === 'awaiting') {
+    return 'a build is running in this folder — it takes the next job when it finishes'
+  }
+  if (project.status === 'attention') {
+    return 'a step in this project needs attention first — resume it, then send the job'
+  }
+  // A folder that was OPENED is a real codebase: the job is its first step. A
+  // project that was given a goal, or only a name, is planned first.
+  if (project.plan.length === 0 && !isOpenedFolder(project)) {
+    return 'this project has no plan yet — answer its questions first'
+  }
+  return ''
+}
+
+/**
+ * When a job sent to this project would run: 'now' after a finished build (or
+ * in a folder with no plan at all) — it is the next thing to do; 'with-plan'
+ * when the plan is still waiting to be started, which keeps its order.
+ */
+export function folderJobStarts(project: Project): 'now' | 'with-plan' {
+  const index = project.plan.length
+  return project.status === 'done' || index === 0 || project.stepIndex >= index
+    ? 'now'
+    : 'with-plan'
+}
+
+/**
+ * Make `text` the project's next step. Pure store work: nothing runs here —
+ * the caller starts the build when `starts` is 'now'.
+ */
+export function addProjectStep(id: string, text: string): FolderJob {
+  const project = state.projects.find((p) => p.id === id)
+  const block = folderJobBlock(project)
+  if (!project || block) return { ok: false, reason: block }
+  const job = text.trim()
+  if (!job) return { ok: false, reason: 'there is nothing to do yet — describe the change' }
+  const index = project.plan.length
+  const runsNext = folderJobStarts(project) === 'now'
+  updateProject(id, {
+    plan: [...project.plan, job],
+    jobsFrom: project.jobsFrom ?? index,
+    ...(runsNext ? { stepIndex: index, refinePass: 0, status: 'planned' as const } : {}),
+  })
+  return { ok: true, index, total: index + 1, starts: runsNext ? 'now' : 'with-plan' }
+}
+
 /** Which pipeline a send should run for the given active project (null =
  * universal). A project with no plan yet (and not done) is still being
  * interviewed; otherwise the project-aware companion handles the turn. */
 export function nextSendMode(project: Project | null): 'companion' | 'project-interview' {
   if (!project) return 'companion'
+  // An OPENED folder already holds the work. It is asked about and given jobs
+  // directly (see `addProjectStep`); a project that was given a goal, or is
+  // still just a name, is interviewed into a plan.
+  if (isOpenedFolder(project)) return 'companion'
   if (project.plan.length === 0 && project.status !== 'done') return 'project-interview'
   return 'companion'
 }

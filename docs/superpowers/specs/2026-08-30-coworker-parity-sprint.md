@@ -97,3 +97,71 @@ installed here" in the installed app.
   With no local model the graph index is not built and the built-in recall
   answers. A real run now gets the graph retriever when the switch is on; the
   first such run indexes every note on the local model.
+
+## A job is done in the folder it is about (2026-11-12)
+
+Found by sending a real job from a finished project's room in the installed
+app: *"Rewrite hello.md as a warmer two-line greeting to the crew, then say
+what changed."* The team ran for three minutes, the verdict passed, and
+nothing on disk changed — the lead reported that there was no `hello.md` to
+rewrite. Two things were true:
+
+1. **A conversation in a project's room was blind to the folder.** The team
+   launch built its providers with no project at all; a chat turn was told the
+   project's name and plan and nothing of what was on disk.
+2. **Only a project's plan could ever write to its folder,** and the plan
+   ended when the build did. A finished project — or an opened folder — could
+   not be given another job.
+
+The owner's ask: *"work on an already existing project. User needs to select
+the directory… whatever other software offers with open project."*
+
+### The rule
+
+A project's room has two honest lanes for a job, and they are not
+interchangeable:
+
+| lane | what happens | when it is the default |
+| --- | --- | --- |
+| **the folder** | the job becomes the project's next step; the same governed build that ran the plan reads the folder, writes the files, runs the project's checks and records a verdict | the message opens by asking for a change |
+| **a conversation** (the manager, or the team) | the turn is shown the folder read-only and answers about it; it writes nothing | a question, a remark, a request to look |
+
+- **The lane is decided by rule, never by a model** (`lib/jobKind.ts`
+  `asksForChange`: the first word after any lead-in — "please", "can you",
+  "now" — is a change verb). It is shown above the composer **before the
+  send**, with its reason, and one click flips it (`lib/roomLane.ts`).
+- **Nothing new can write to a folder.** A folder job is appended to the plan
+  (`lib/projects.ts` `addProjectStep`) and run by the existing build driver —
+  same branch-per-run discipline in an attached repository, same never-touch
+  list, same file-writes grant, same verdicts on the board. The build simply
+  no longer ends with its plan.
+- **A refusal is asked before the plan is touched** (`folderJobBlock`,
+  `buildStartRefusal`): a build already running, a step that needs attention,
+  file writes denied, no real provider. A refused job leaves no step behind,
+  and the room never says work is under way when nothing started.
+- **An opened folder is not interviewed.** A folder the user pointed the app
+  at, with no goal given, already holds the work: it can be asked about and
+  given a job straight away. A project that was given a goal, or only a name,
+  is still planned first.
+- **A step is shown the files it names** (`project.named_source_files`), read
+  back from disk inside the refine budgets — on the first attempt, not only on
+  a refine. A step that changes a file it was never shown does not change it;
+  it replaces it with a guess. Naming is a lookup, so a step that names
+  nothing still pays for nothing; a folder job (`--show-folder`) is also shown
+  the most recently changed files.
+- **A conversation is shown the folder read-only** (`run` / `team`
+  `--project-dir` → `project.folder_context`): the file list and the current
+  content of the files the message names. The section is appended to the
+  **routed** text, so a sensitive word in a quoted file keeps the turn on the
+  local model exactly as the same word typed by the user would. It says in its
+  own heading that the conversation cannot change the files.
+- **Attachments do not travel to the folder.** The folder lane takes words;
+  with a file or an image attached the message stays a conversation, and the
+  composer says so if the folder is picked by hand.
+
+### Not built
+
+- A job sent while a step **needs attention** is refused; it does not jump
+  the queue or replace the failed step.
+- A conversation cannot yet *propose* a folder job the user accepts with one
+  click; it can only say what it would change.

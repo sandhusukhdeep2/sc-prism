@@ -918,6 +918,151 @@ def failed_step_files(vault: str, attempt_group: str) -> List[str]:
     return sorted(p for p in failed if p not in blessed and created_by_step.get(p, False))
 
 
+# What a refine turn is told it is looking at. The words are about ITS OWN
+# previous attempt, so they are only ever true on a refine.
+REFINE_SOURCE_HEADING = (
+    "\n\nTHE CODE AS IT IS ON DISK RIGHT NOW (read back from the files "
+    "themselves — this is what you are fixing, not what you previously said "
+    "you wrote):"
+)
+
+# What a FIRST attempt is told (2026-11-11). A step that changes a file has to
+# be shown the file: before this only a refine was, so "rewrite hello.md"
+# replaced the file with a guess at what it had said.
+STEP_SOURCE_HEADING = (
+    "\n\nTHE PROJECT'S FILES AS THEY ARE ON DISK RIGHT NOW (read back from the "
+    "files themselves — change what the step asks for and keep the rest; a "
+    "file you change is written out again in full):"
+)
+
+# What a conversation is told. `run` and `team` write nothing to a project
+# folder, and an answer that claims an edit it could not have made is the
+# false report this app exists to stop — so the section says so itself.
+FOLDER_READ_ONLY_HEADING = (
+    "\n\nTHE PROJECT FOLDER AS IT IS ON DISK RIGHT NOW (read back from the "
+    "files themselves). You cannot change these files from this conversation — "
+    "if you are asked to change one, say what you would change, and that the "
+    "change itself has to be sent as a job for the folder:"
+)
+
+# How many directory entries a name search looks at before it stops. A real
+# repository can hold a hundred thousand files; a prompt builder must not walk
+# them all to find the two a sentence names.
+_NAMED_SCAN_CAP = 5000
+
+
+def _mentions(text: str, token: str) -> bool:
+    """True when `token` (a file name or a relative path) appears in `text` as
+    its own word: "hello.md." at the end of a sentence counts, "hello.mdx" and
+    "my-hello.md" are other files' names and do not."""
+    if not token:
+        return False
+    pattern = r"(?<![\w./-])" + re.escape(token) + r"(?![\w-])(?!\.\w)"
+    return re.search(pattern, text, re.IGNORECASE) is not None
+
+
+def named_source_files(
+    project_dir: str, text: str, limit: int = REFINE_SOURCE_MAX_FILES
+) -> List[str]:
+    """The source files on disk that `text` names — by relative path first,
+    then by bare file name. Deterministic (sorted walk), bounded, never raises.
+
+    This is a lookup, not a judgement: nothing is inferred about which file a
+    sentence "probably means". A file is in the list because its name is in
+    the words.
+    """
+    if not project_dir or not text or not os.path.isdir(project_dir):
+        return []
+    by_path: List[str] = []
+    by_name: List[str] = []
+    scanned = 0
+    try:
+        for root, dirs, files in os.walk(project_dir):
+            dirs[:] = sorted(
+                d for d in dirs if d not in _SKIP_DIR_NAMES and not d.startswith(".")
+            )
+            for name in sorted(files):
+                scanned += 1
+                if scanned > _NAMED_SCAN_CAP:
+                    break
+                if not name.endswith(_SOURCE_EXTS):
+                    continue
+                rel = os.path.relpath(os.path.join(root, name), project_dir)
+                if os.sep in rel and _mentions(text, rel.replace(os.sep, "/")):
+                    by_path.append(rel)
+                elif _mentions(text, name):
+                    by_name.append(rel)
+            if scanned > _NAMED_SCAN_CAP:
+                break
+    except OSError:
+        return []
+    return (by_path + by_name)[: max(0, limit)]
+
+
+def step_source_files(
+    project_dir: str, text: str, limit: int = REFINE_SOURCE_MAX_FILES
+) -> List[str]:
+    """What a turn about this folder is shown: the files the words NAME first,
+    then the most recently modified source files, up to `limit`, no repeats."""
+    ordered: List[str] = []
+    for rel in named_source_files(project_dir, text, limit) + recent_source_files(
+        project_dir, limit
+    ):
+        if rel not in ordered:
+            ordered.append(rel)
+    return ordered[: max(0, limit)]
+
+
+def folder_context(project_dir: str, text: str) -> str:
+    """A bounded, read-only picture of a project folder for a turn that only
+    TALKS about it (`run` / `team` with --project-dir): the file list, then the
+    current content of the files the words name and the most recent others.
+
+    "" when there is no folder or it holds no files — so a caller appends
+    nothing rather than an empty heading. The section is appended to the TASK
+    TEXT, which is what the gateway routes on: a sensitive word in a quoted
+    file keeps the run local exactly as the same word typed by the user would.
+    """
+    if not project_dir or not os.path.isdir(project_dir):
+        return ""
+    entries = _folder_entries(project_dir)
+    if not entries:
+        return ""
+    listing = "\n".join(["Files:"] + [f"- {e}" for e in entries])
+    listing = "\n".join(
+        ln for ln in listing.splitlines()
+        if "===FILE:" not in ln and "===END===" not in ln
+    )[:2000]
+    excerpt = current_source_excerpt(
+        project_dir,
+        step_source_files(project_dir, text),
+        heading="\nTheir current content:",
+    )
+    return f"{FOLDER_READ_ONLY_HEADING}\n{listing}{excerpt}"
+
+
+def _folder_entries(project_dir: str, cap: int = 100) -> List[str]:
+    """Up to `cap` relative file paths in the folder, sorted, skipping the
+    directories nobody means when they say "the project" (.git, node_modules,
+    build output, dot-folders). Never raises."""
+    entries: List[str] = []
+    try:
+        for root, dirs, files in os.walk(project_dir):
+            dirs[:] = sorted(
+                d for d in dirs if d not in _SKIP_DIR_NAMES and not d.startswith(".")
+            )
+            rel_root = os.path.relpath(root, project_dir)
+            for fname in sorted(files):
+                if fname.startswith("."):
+                    continue
+                entries.append(fname if rel_root == "." else os.path.join(rel_root, fname))
+                if len(entries) >= cap:
+                    return entries
+    except OSError:
+        return []
+    return entries
+
+
 def recent_source_files(project_dir: str, limit: int = REFINE_SOURCE_MAX_FILES) -> List[str]:
     """The most recently modified source files in `project_dir`, newest first.
 
@@ -951,6 +1096,7 @@ def current_source_excerpt(
     per_file: int = REFINE_SOURCE_PER_FILE,
     max_files: int = REFINE_SOURCE_MAX_FILES,
     unblessed: Sequence[str] = (),
+    heading: str = "",
 ) -> str:
     """The CURRENT contents of `paths`, read back from disk, bounded + labelled.
 
@@ -1033,11 +1179,7 @@ def current_source_excerpt(
         )
     if not shown and not elided:
         return ""
-    out = [
-        "\n\nTHE CODE AS IT IS ON DISK RIGHT NOW (read back from the files "
-        "themselves — this is what you are fixing, not what you previously said "
-        "you wrote):",
-    ]
+    out = [heading or REFINE_SOURCE_HEADING]
     out.extend(shown)
     if elided:
         out.append("NOT SHOWN HERE:")
@@ -1270,6 +1412,10 @@ def run_project(
     # a build discards what the previous build left. Only acts when `memory`
     # is given; False (the default) just continues the current build.
     working_reset: bool = False,
+    # The step is a job ABOUT the folder as it stands (2026-11-11): a first
+    # attempt is shown the most recently changed source files too, not only
+    # the ones it names. False keeps a plan step of a new build lean.
+    show_folder: bool = False,
 ) -> "Verdict":
     """Run one project step end to end through the SAME verified loop.
 
@@ -1564,6 +1710,23 @@ def run_project(
             project_dir,
             source_paths,
             unblessed=failed_step_files(vault, attempt_group),
+        )
+    else:
+        # A FIRST attempt is shown the files its step NAMES (2026-11-11), read
+        # back from disk inside the same budgets. A step that changes a file it
+        # was never shown does not change it — it replaces it with a guess at
+        # what the file said. Naming is a lookup, so a step that names nothing
+        # still pays for nothing; `show_folder` (a job typed about the folder
+        # as it stands) adds the most recently changed files after the named
+        # ones. An empty or brand-new folder leaves the prompt byte-identical.
+        prompt += current_source_excerpt(
+            project_dir,
+            (
+                step_source_files(project_dir, intent)
+                if show_folder
+                else named_source_files(project_dir, intent)
+            ),
+            heading=STEP_SOURCE_HEADING,
         )
     # Real input data, on EVERY turn (attempt 1 needs the shape as much as a
     # refine does) — caller-supplied paths only, bounded and labelled.

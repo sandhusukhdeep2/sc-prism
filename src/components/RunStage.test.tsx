@@ -95,3 +95,41 @@ describe('RunStage', () => {
     expect(screen.getByRole('button', { name: 'What writer is doing' })).toHaveClass('is-no')
   })
 })
+
+// The drawing is stretched to the room it is given, so a packet's radii follow
+// the MEASURED box — otherwise a wide, short stage draws squashed dots.
+describe('RunStage — packets stay round in the room it is given', () => {
+  const realRO = globalThis.ResizeObserver
+  afterEach(() => {
+    globalThis.ResizeObserver = realRO
+  })
+
+  function stubBox(width: number, height: number) {
+    globalThis.ResizeObserver = class {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe() {
+        this.cb([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+  }
+
+  it('sets each packet’s radii from the measured box', () => {
+    stubBox(1000, 200)
+    const { container } = render(<RunStage spans={[call('lead', 1), working('researcher', 2)]} live />)
+    const packet = container.querySelector('.stage__packet')!
+    expect(packet.tagName.toLowerCase()).toBe('ellipse')
+    expect(Number(packet.getAttribute('rx'))).toBeCloseTo(5, 3)
+    expect(Number(packet.getAttribute('ry'))).toBeCloseTo(10, 3)
+  })
+
+  it('with nothing to measure against it still draws a dot', () => {
+    // @ts-expect-error — an environment with no ResizeObserver at all
+    delete globalThis.ResizeObserver
+    const { container } = render(<RunStage spans={[call('lead', 1), working('researcher', 2)]} live />)
+    const packet = container.querySelector('.stage__packet')!
+    expect(packet.getAttribute('rx')).toBe('6')
+    expect(packet.getAttribute('ry')).toBe('6')
+  })
+})

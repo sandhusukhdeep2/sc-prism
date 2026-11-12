@@ -118,6 +118,11 @@ describe('Work — the stage takes the room while a team is working', () => {
     expect(document.querySelector('.stage')).not.toBeNull()
     // The engine's own steps open from the stage.
     expect(screen.getByText('Engine steps')).toBeInTheDocument()
+    // Each way back is offered ONCE: the Chat tab is the conversation, so the
+    // stage does not repeat it as a link under the drawing.
+    expect(screen.queryByText('Read the conversation')).toBeNull()
+    // While the stage draws the seats the board above it is one slim line.
+    expect(document.querySelector('.crew')).toHaveClass('crew--slim')
     await act(async () => {
       finish({
         run_id: 'r1',

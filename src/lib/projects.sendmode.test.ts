@@ -45,3 +45,23 @@ describe('nextSendMode', () => {
     expect(nextSendMode(makeProject({ plan: [], status: 'done' }))).toBe('companion')
   })
 })
+
+// An OPENED folder is a real codebase, not an idea to be interviewed about
+// (2026-11-11): it can be asked about, and given a job, straight away.
+describe('nextSendMode — an opened folder', () => {
+  it('is not interviewed before it can be asked about', () => {
+    expect(
+      nextSendMode(makeProject({ plan: [], status: 'new', mode: 'existing', goal: '' })),
+    ).toBe('companion')
+  })
+
+  it('an attached folder that was GIVEN a goal is still planned from it', () => {
+    expect(
+      nextSendMode(makeProject({ plan: [], status: 'new', mode: 'existing', goal: 'port it to v2' })),
+    ).toBe('project-interview')
+  })
+
+  it('a project that was only named is still planned first', () => {
+    expect(nextSendMode(makeProject({ plan: [], status: 'new', mode: 'new' }))).toBe('project-interview')
+  })
+})

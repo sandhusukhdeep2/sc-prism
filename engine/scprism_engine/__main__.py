@@ -94,6 +94,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "to occupy — and it never fails a run for having nothing to verify.",
     )
     run_p.add_argument(
+        "--project-dir",
+        default="",
+        metavar="DIR",
+        help="A project folder this turn is ABOUT (read-only). Its file list "
+        "and the current content of the files the intent names (then the most "
+        "recent others, bounded) are appended to the task text, so the answer "
+        "is about what is really on disk. `run` writes nothing there — the "
+        "`project` command is the one that changes a folder. The section is "
+        "part of the routed text, so a sensitive word in a quoted file keeps "
+        "the run local. Omitted/empty/missing folder -> byte-identical.",
+    )
+    run_p.add_argument(
         "--mode",
         choices=("read", "write", "converse"),
         default=None,
@@ -393,6 +405,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--rounds", type=int, default=1, help="Board rounds before synthesis."
     )
     team_p.add_argument(
+        "--project-dir",
+        default="",
+        metavar="DIR",
+        help="A project folder the board is talking ABOUT (read-only) — the "
+        "same bounded picture `run --project-dir` appends, shown to every "
+        "seat. A team run writes nothing there. Omitted -> byte-identical.",
+    )
+    team_p.add_argument(
         "--mode", choices=("read", "write", "converse"), default=None,
         help="Contract mode for the team verdict. Default read (advisory "
         "research frame). 'converse' judges a QUESTION put to the board as a "
@@ -553,6 +573,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "try, 2 = the first refine, …). With --attempt-group, the number is "
         "recorded on the Verdict and in <vault>/verdicts/attempts/<group>.json "
         "so attempt N and N+1 are readable as one run. Default 0 = untracked.",
+    )
+    proj_p.add_argument(
+        "--show-folder",
+        action="store_true",
+        help="This step is a job ABOUT the folder as it stands (typed in the "
+        "project's room, or a step of an attached existing folder): show the "
+        "first attempt the most recently changed source files as well as the "
+        "ones the step names. Without it a first attempt is shown only the "
+        "files it names — a plan step of a new build does not pay for a dump.",
     )
     proj_p.add_argument(
         "--working-reset",
@@ -1096,6 +1125,27 @@ def _build_retriever(vault: str, *, gateway, env=None):
     )
 
 
+def _folder_task(args):
+    """`(task_text, task_id)` for a turn pointed at a project folder.
+
+    The folder's bounded, read-only picture (`project.folder_context`) is
+    appended to the user's own words, and the run is still FILED under those
+    words — never under our scaffolding. No folder, a missing one or an empty
+    one returns `(args.intent, None)`: nothing appended, nothing renamed.
+    """
+    folder = (getattr(args, "project_dir", "") or "").strip()
+    if not folder:
+        return args.intent, None
+    import os
+
+    from .project import _intent_task_id, folder_context
+
+    section = folder_context(os.path.expanduser(folder), args.intent)
+    if not section:
+        return args.intent, None
+    return args.intent + section, _intent_task_id(args.intent)
+
+
 def _cmd_run(args) -> int:
     import os
     from contextlib import ExitStack
@@ -1108,12 +1158,28 @@ def _cmd_run(args) -> int:
     # --steps: 0/absent keeps the default plan (None), so an unused flag is
     # byte-identical to before it existed.
     steps = getattr(args, "steps", 0) or None
+    # --project-dir: the folder this turn is about rides in the task text. The
+    # MODE is still read from the user's own words (a quoted file that happens
+    # to say "write" must not turn a question into a build), and the run is
+    # filed under them too. No folder -> every value below is what it was.
+    task_text, folder_task_id = _folder_task(args)
+    parse_kw = {}
+    if folder_task_id:
+        from .contract import _default_criteria, _infer_mode
+
+        folder_mode = args.mode or _infer_mode(args.intent)
+        parse_kw = {
+            "task_id": folder_task_id,
+            "acceptance_criteria": _default_criteria(args.intent, folder_mode),
+        }
+        args.mode = folder_mode
     if token_budget > 0:
         contract = parse(
-            args.intent, mode=args.mode, token_budget=token_budget, steps=steps
+            task_text, mode=args.mode, token_budget=token_budget, steps=steps,
+            **parse_kw,
         )
     else:
-        contract = parse(args.intent, mode=args.mode, steps=steps)
+        contract = parse(task_text, mode=args.mode, steps=steps, **parse_kw)
     # --image: read + validate the local image into a provider-neutral block
     # (png/jpeg/gif/webp, <=5 MB). An unsupported/oversize/unreadable file is an
     # honest JSON error on stderr + exit 1 — never a fabricated attachment.
@@ -1449,8 +1515,11 @@ def _cmd_team(args) -> int:
             if grants is not None:
                 seat_refusals = grants.escalation_lines()
         tool_source = _apply_capability_gate(tool_source, grants)
+        # --project-dir: every seat is shown the folder the task is about
+        # (read-only, bounded). No folder -> the intent and the id are untouched.
+        team_text, folder_task_id = _folder_task(args)
         result = run_team(
-            args.intent,
+            team_text,
             args.vault,
             agents,
             rounds=args.rounds,
@@ -1460,6 +1529,7 @@ def _cmd_team(args) -> int:
             telemetry=telemetry,
             # Per-run tool-turn budget; 0 (omitted flag) -> the engine default.
             mcp_max_iters=args.tool_turns,
+            **({"task_id": folder_task_id} if folder_task_id else {}),
         )
     out = result.to_dict()
     if seat_refusals:
@@ -1533,6 +1603,7 @@ def _cmd_project(args) -> int:
         context=args.context,
         refine_feedback=args.refine_feedback,
         working_reset=bool(getattr(args, "working_reset", False)),
+        show_folder=bool(getattr(args, "show_folder", False)),
         attempt=args.attempt,
         attempt_group=args.attempt_group,
         previous_verdict=args.previous_verdict,

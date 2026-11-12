@@ -11,8 +11,8 @@
 // flight (a live run, the latest handoff, its receiver working). A finished
 // run is a still picture. With reduced motion asked for, the live link is
 // marked and nothing moves. This component derives nothing itself.
-import { useMemo } from 'react'
-import { STAGE_H, STAGE_W, stageModel } from '../lib/stageModel'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { STAGE_H, STAGE_W, packetRadii, stageModel } from '../lib/stageModel'
 import { useNarrow } from '../lib/useNarrow'
 import { shortAi } from './CrewBoard'
 import type { EngineSpan } from '../lib/nativeEngine'
@@ -35,14 +35,32 @@ export default function RunStage({
 }) {
   const model = useMemo(() => stageModel(spans, live), [spans, live])
   const still = useNarrow('(prefers-reduced-motion: reduce)')
-  if (model.seats.length === 0) return null
+  // THE DRAWING FILLS THE ROOM IT IS GIVEN. The links live in a 1000 × 400 box
+  // stretched to the canvas, whatever its shape, so the box is measured and a
+  // packet's radii are set per axis to stay round. Nothing to measure with
+  // (or nothing drawn yet) leaves a plain dot.
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState({ w: 0, h: 0 })
+  const drawn = model.seats.length > 0
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect
+      if (r) setBox((prev) => (prev.w === r.width && prev.h === r.height ? prev : { w: r.width, h: r.height }))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [drawn])
+  const packet = packetRadii(box.w, box.h)
+  if (!drawn) return null
   return (
     <section
       className={'stage' + (live ? ' is-live' : '')}
       aria-label="The run, drawn"
       style={{ ['--n' as string]: model.seats.length }}
     >
-      <div className="stage__canvas">
+      <div className="stage__canvas" ref={canvasRef}>
         <svg
           className="stage__links"
           viewBox={`0 0 ${STAGE_W} ${STAGE_H}`}
@@ -59,9 +77,9 @@ export default function RunStage({
               {l.live &&
                 !still &&
                 PACKET_DELAYS.map((delay) => (
-                  <circle key={delay} className="stage__packet" r="6">
+                  <ellipse key={delay} className="stage__packet" rx={packet.rx} ry={packet.ry}>
                     <animateMotion dur="1.8s" begin={`${delay}s`} repeatCount="indefinite" path={l.d} />
-                  </circle>
+                  </ellipse>
                 ))}
             </g>
           ))}

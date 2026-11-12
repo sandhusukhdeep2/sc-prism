@@ -356,6 +356,10 @@ def run_team(
     mcp_client: Optional[Any] = None,
     mcp_max_iters: Optional[int] = None,
     telemetry: Optional[Telemetry] = None,
+    # The id to file this run under when the caller decorated `intent` (a
+    # project folder's picture appended to the user's words). "" derives it
+    # from the intent as always.
+    task_id: str = "",
 ) -> TeamResult:
     """Run a GOVERNED team: each round, every agent (its own Gateway/provider)
     reads the board and contributes once; the FIRST agent synthesizes at the
@@ -396,7 +400,9 @@ def run_team(
     # put to the board) is judged as a conversation — same third mode solo chat
     # earned (bc6c193). Live case this fixes: a genuinely good two-seat
     # discussion scored ~0.275 under the read frame and failed.
-    contract = parse_contract(intent, mode=(mode or "read"))
+    contract = parse_contract(
+        intent, mode=(mode or "read"), **({"task_id": task_id} if task_id else {})
+    )
     # `token_budget or contract.token_budget` would treat a NEGATIVE budget as
     # truthy and use it as-is (e.g. -5 flows straight through), so the very
     # first `result.tokens (0) >= budget` check fires `over_budget=True` at

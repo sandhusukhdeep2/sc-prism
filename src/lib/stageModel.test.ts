@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stageLayout, stageModel } from './stageModel'
+import { packetRadii, stageLayout, stageModel } from './stageModel'
 import type { EngineSpan } from './nativeEngine'
 
 // The owner, 2026-11-11: "Build in the form of animation… agent communicating
@@ -27,7 +27,7 @@ const call = (
 
 describe('stageLayout — where the seats stand', () => {
   it('one seat stands in the middle', () => {
-    expect(stageLayout(1)).toEqual([{ x: 50, y: 46 }])
+    expect(stageLayout(1)).toEqual([{ x: 50, y: 40 }])
   })
   it('several seats spread along an arc, left to right, inside the stage', () => {
     const pts = stageLayout(4)
@@ -89,5 +89,42 @@ describe('stageModel — the run, as something to watch', () => {
 
   it('an empty run has an empty stage', () => {
     expect(stageModel([], true)).toEqual({ seats: [], links: [], caption: null })
+  })
+})
+
+// Seen in the installed app during a real team run (2026-11-11): the room gave
+// the stage about 250 points of height, the end seats stood 58% of the way
+// down it, and their names and states were cut off by the composer.
+describe('the stage fits the room it is given', () => {
+  it('no seat stands lower than half way down — its name and state go under it', () => {
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      for (const p of stageLayout(n)) expect(p.y, `n=${n}`).toBeLessThanOrEqual(50)
+    }
+  })
+
+  it('the arc still rises in the middle', () => {
+    const pts = stageLayout(3)
+    expect(pts[1].y).toBeLessThan(pts[0].y)
+    expect(pts[1].y).toBeGreaterThanOrEqual(20)
+  })
+})
+
+// The links are drawn in a 1000 × 400 box stretched to whatever the room
+// gives, so a packet's radii are set per axis to stay ROUND on screen.
+describe('packetRadii — a packet stays round in a stretched drawing', () => {
+  it('in a box of the drawing’s own shape the radii are equal', () => {
+    const r = packetRadii(1000, 400)
+    expect(r.rx).toBeCloseTo(r.ry, 5)
+  })
+
+  it('in a wide, short box the horizontal radius shrinks in drawing units', () => {
+    const r = packetRadii(1000, 200)
+    // 5 screen px: x maps 1:1, y maps 400 units onto 200 px.
+    expect(r.rx).toBeCloseTo(5, 5)
+    expect(r.ry).toBeCloseTo(10, 5)
+  })
+
+  it('before the box has been measured it falls back to a plain dot', () => {
+    expect(packetRadii(0, 0)).toEqual({ rx: 6, ry: 6 })
   })
 })

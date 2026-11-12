@@ -535,6 +535,8 @@ async fn run_engine_task(
     mode: Option<String>,
     // Small talk: skip the Tier-2 judge on a converse turn (see `wants_no_judge`).
     no_judge: Option<bool>,
+    // The project folder this turn is ABOUT, read-only (see `project_dir_arg`).
+    project_dir: Option<String>,
 ) -> Result<String, String> {
     // Clone the shared run map out of Tauri state so the retained-child handle
     // can move into the blocking worker (State is not 'static / Send-into-move).
@@ -571,7 +573,15 @@ async fn run_engine_task(
     // `--mcp-server`; the engine resolves each against <vault>/mcp-servers.json
     // and governs every call. Declared before `args` so the borrow outlives it.
     let mcp_list = mcp_server_arg(mcp_servers.as_deref());
+    let about_dir = project_dir_arg(
+        project_dir.as_deref(),
+        &std::env::var("HOME").unwrap_or_default(),
+    );
     let mut args: Vec<&str> = vec!["run", &intent, "--vault", &vault];
+    if let Some(dir) = about_dir.as_deref() {
+        args.push("--project-dir");
+        args.push(dir);
+    }
     if !user_caps.is_empty() || !agent_caps.is_empty() {
         args.push("--user-capabilities");
         args.push(&user_caps);
@@ -978,6 +988,8 @@ async fn run_engine_project(
     token_budget: Option<i64>,
     // The first step of a build: discard the previous build's working memory.
     working_reset: Option<bool>,
+    // The step is a job about the folder as it stands (`--show-folder`).
+    show_folder: Option<bool>,
 ) -> Result<String, String> {
     // Clone the shared run map out of state so it can move into the worker.
     let runs = runs.inner().clone();
@@ -1083,6 +1095,10 @@ async fn run_engine_project(
     // the previous build left. Absent/false -> no flag, the build continues.
     if working_reset.unwrap_or(false) {
         args.push("--working-reset");
+    }
+    // A job about the folder as it stands is shown its recent files too.
+    if show_folder.unwrap_or(false) {
+        args.push("--show-folder");
     }
     // P1-3: an optional roster string (`name:provider,name:provider`) becomes
     // `--agents <roster>`, the same empty-omission discipline as slug/
@@ -1327,6 +1343,8 @@ async fn run_engine_team(
     // no `--mcp-server`, byte-identical (see `mcp_server_arg`).
     mcp_servers: Option<String>,
     tool_turns: Option<u32>,
+    // The project folder the board is talking ABOUT, read-only.
+    project_dir: Option<String>,
 ) -> Result<String, String> {
     // Clone the shared run map out of state so it can move into the worker.
     let runs = runs.inner().clone();
@@ -1358,9 +1376,17 @@ async fn run_engine_team(
         let agent_caps = agent_capabilities.unwrap_or_default();
         // Plugin (MCP) servers — same contract as `run` (see `mcp_server_arg`).
         let mcp_list = mcp_server_arg(mcp_servers.as_deref());
+        let about_dir = project_dir_arg(
+            project_dir.as_deref(),
+            &std::env::var("HOME").unwrap_or_default(),
+        );
         let mut args: Vec<&str> = vec![
             "team", &intent, "--vault", &vault, "--agents", &agents, "--rounds", &rounds_s,
         ];
+        if let Some(dir) = about_dir.as_deref() {
+            args.push("--project-dir");
+            args.push(dir);
+        }
         if let Some(list) = mcp_list.as_deref() {
             args.push("--mcp-server");
             args.push(list);
@@ -3543,6 +3569,27 @@ fn mcp_server_arg(raw: Option<&str>) -> Option<String> {
     }
 }
 
+/// The value for `--project-dir` on a `run` or `team` call, or None when
+/// there is nothing safe to pass. Only an ABSOLUTE path is passed: the engine
+/// would resolve a relative one against its own folder, and a value starting
+/// with a dash would be read as another flag. A project is stored the way the
+/// user typed it, so `~/…` is expanded against `home` (and dropped when there
+/// is no home to expand against). The folder is read-only there — the turn is
+/// shown it, and writes nothing to it.
+fn project_dir_arg(raw: Option<&str>, home: &str) -> Option<String> {
+    let dir = raw.unwrap_or("").trim();
+    if dir.starts_with('/') {
+        return Some(dir.to_string());
+    }
+    let home = home.trim().trim_end_matches('/');
+    match dir.strip_prefix("~/") {
+        Some(rest) if home.starts_with('/') && !rest.is_empty() => {
+            Some(format!("{home}/{rest}"))
+        }
+        _ => None,
+    }
+}
+
 /// Whether `--no-judge` is sent: only when asked for AND the turn is a
 /// conversation. A task is always judged.
 fn wants_no_judge(mode: &str, no_judge: Option<bool>) -> bool {
@@ -3688,6 +3735,49 @@ mod trash_guard_tests {
     fn a_relative_path_never_goes() {
         assert!(trash_refusal("dev/my-repo", HOME, &[]).is_some());
         assert!(trash_refusal("", HOME, &[]).is_some());
+    }
+}
+
+#[cfg(test)]
+mod project_dir_arg_tests {
+    use super::project_dir_arg;
+
+    const HOME: &str = "/Users/someone";
+
+    #[test]
+    fn no_folder_passes_no_flag() {
+        assert_eq!(project_dir_arg(None, HOME), None);
+        assert_eq!(project_dir_arg(Some(""), HOME), None);
+        assert_eq!(project_dir_arg(Some("   "), HOME), None);
+    }
+
+    #[test]
+    fn an_absolute_folder_is_passed_trimmed() {
+        assert_eq!(
+            project_dir_arg(Some(" /Users/someone/work/site "), HOME),
+            Some("/Users/someone/work/site".to_string())
+        );
+    }
+
+    #[test]
+    fn a_folder_under_home_is_expanded() {
+        // Projects are stored as the user typed them, and that is usually `~/…`.
+        assert_eq!(
+            project_dir_arg(Some("~/work/site"), HOME),
+            Some("/Users/someone/work/site".to_string())
+        );
+        // …but with no home to expand against there is no honest absolute path.
+        assert_eq!(project_dir_arg(Some("~/work/site"), ""), None);
+    }
+
+    #[test]
+    fn a_relative_or_flag_shaped_value_is_never_passed() {
+        // The engine would resolve a relative path against ITS OWN folder,
+        // and a leading dash would be read as another flag.
+        assert_eq!(project_dir_arg(Some("site"), HOME), None);
+        assert_eq!(project_dir_arg(Some("./site"), HOME), None);
+        assert_eq!(project_dir_arg(Some("~other/site"), HOME), None);
+        assert_eq!(project_dir_arg(Some("--vault"), HOME), None);
     }
 }
 

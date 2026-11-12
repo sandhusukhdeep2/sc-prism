@@ -630,6 +630,11 @@ export interface EngineProviders {
    * ones — and rather than failing a run that had no code to test.
    */
   tier1Cwd?: string
+  /** The project folder this turn is ABOUT (2026-11-11). A chat or team run in
+   *  a project's room is shown the folder — its file list and the files the
+   *  message names — read-only; it writes nothing there. '' = no project. The
+   *  bridge expands a leading `~/` and drops anything that is not a real path. */
+  projectDir?: string
   /** Model override for a CLI-bridge primary (e.g. "opus", "fable"). */
   cliModel?: string
   /** Thinking/effort level: low | medium | high | xhigh | max. */
@@ -1966,6 +1971,7 @@ export async function runNativeTask(
       // nothing to verify" instead of running `npm test` inside the app bundle
       // (or failing a chat message for having no tests to run).
       tier1Cwd: providers?.tier1Cwd ?? '',
+      projectDir: providers?.projectDir ?? '',
       cliModel: providers?.cliModel ?? '',
       effort: providers?.effort ?? '',
       maxTokens: providers?.maxTokens ?? 0,
@@ -2070,6 +2076,10 @@ export async function runNativeProject(
     /** The FIRST step of a build: the engine discards the working memory the
      *  previous build left, so each build starts clean (2026-11-11). */
     workingReset?: boolean
+    /** The step is a JOB about the folder as it stands (typed in the room, or
+     *  a step of an opened folder): the first attempt is shown the most
+     *  recently changed files as well as the ones it names. */
+    showFolder?: boolean
     /** Hard token cap for this step's contract envelope. 0/absent -> the
      *  engine's contract default (100k). A four-seat board step measured
      *  105,843 tokens on 2026-08-29 and failed the ENVELOPE with a judge
@@ -2131,6 +2141,7 @@ export async function runNativeProject(
       runBranch: opts?.runBranch ?? '',
       roster: opts?.roster ?? '',
       workingReset: opts?.workingReset ?? false,
+      showFolder: opts?.showFolder ?? false,
       tokenBudget: opts?.tokenBudget ?? 0,
     })
     const raw = JSON.parse(json) as RawVerdict
@@ -2353,6 +2364,8 @@ export async function runNativeTeam(
       userCapabilities: providers.userCapabilities ?? '',
       agentCapabilities: providers.agentCapabilities ?? '',
       mcpServers: providers.mcpServers ?? '',
+      // The folder the board is talking about (read-only) — see EngineProviders.
+      projectDir: providers.projectDir ?? '',
     })
     const raw = JSON.parse(json) as Record<string, unknown>
     if (typeof raw?.run_id !== 'string' || !Array.isArray(raw.board)) return null

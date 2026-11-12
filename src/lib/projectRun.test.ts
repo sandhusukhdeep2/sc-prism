@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_MAX_REFINES,
+  folderJobNotice,
   mergeReadiness,
   nextRunAction,
   refineIntent,
   stepIntent,
   stepNote,
+  stepShowsFolder,
   verdictFeedback,
 } from './projectRun'
 import type { Verdict } from '../engine/types'
@@ -410,5 +412,49 @@ describe('mergeReadiness', () => {
 
   it('prioritizes "running" over a missing branch when both are true', () => {
     expect(mergeReadiness(makeProject({ status: 'running', runBranch: '' }))).toBe('running')
+  })
+})
+
+// A job typed in a project's room (2026-11-11) is a step like any other, with
+// two differences the driver has to know about.
+describe('a job for the folder', () => {
+  it('a step of an opened folder is always shown the folder', () => {
+    expect(stepShowsFolder({ mode: 'existing' }, 0)).toBe(true)
+    expect(stepShowsFolder({ mode: 'existing', jobsFrom: 3 }, 1)).toBe(true)
+  })
+
+  it('a planned step of a new build is not — it does not pay for a dump', () => {
+    expect(stepShowsFolder({ mode: 'new' }, 0)).toBe(false)
+    expect(stepShowsFolder({ mode: 'new', jobsFrom: 2 }, 1)).toBe(false)
+  })
+
+  it('a job typed after the build is', () => {
+    expect(stepShowsFolder({ mode: 'new', jobsFrom: 2 }, 2)).toBe(true)
+    expect(stepShowsFolder({ mode: 'new', jobsFrom: 2 }, 5)).toBe(true)
+  })
+
+  it('a project with no goal does not send an empty goal line', () => {
+    expect(stepIntent('', ['Fix the footer link'], 0)).toBe('Step 1 of 1: Fix the footer link')
+    expect(stepIntent('  ', ['a', 'b'], 1)).toBe('Step 2 of 2: b')
+  })
+
+  it('a project with a goal reads as it always did', () => {
+    expect(stepIntent('ship it', ['a', 'b'], 0)).toBe('Project goal: ship it\nStep 1 of 2: a')
+  })
+
+  it('says what became of the job, in the folder’s own name', () => {
+    expect(
+      folderJobNotice({ ok: true, index: 1, total: 2, starts: 'now' }, '~/vault/projects/hello-crew'),
+    ).toBe('Step 2 of 2 — your team is working in ~/vault/projects/hello-crew now.')
+    expect(
+      folderJobNotice({ ok: true, index: 2, total: 3, starts: 'with-plan' }, '~/site'),
+    ).toBe('Added as step 3 of 3 — it runs with the rest of the plan when you start the build.')
+    expect(folderJobNotice({ ok: false, reason: 'a build is running in this folder' }, '~/site')).toBe(
+      'Not sent to the folder — a build is running in this folder.',
+    )
+    // A reason that already ends its own sentence is not given a second full stop.
+    expect(folderJobNotice({ ok: false, reason: '«Site» needs the installed app to run.' }, '~/site')).toBe(
+      'Not sent to the folder — «Site» needs the installed app to run.',
+    )
   })
 })
