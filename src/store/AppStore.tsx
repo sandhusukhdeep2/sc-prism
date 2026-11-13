@@ -2309,6 +2309,10 @@ interface AppContextValue {
   answerProjectRequest: (grant: boolean) => void
   mergeProject: (projectId: string) => Promise<void>
   clearNotice: (id: string) => void
+  /** The APP says one line in the Manager's room (a `notice` message — never
+   *  an AI's words). For things the app did by itself that the user should
+   *  hear about once, e.g. the day's model check. */
+  postAppLine: (text: string) => void
   setActiveProject: (id: string) => void
   // Compaction levers (P2-3): `compressNow` compacts the active thread now;
   // `newSession` archives then empties one thread. Both archive-before-drop.
@@ -4962,6 +4966,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const postAppLine = useMemo(() => {
+    return (text: string): void => {
+      const line = text.trim()
+      if (!line) return
+      dispatch({ type: 'ADD_MESSAGE', thread: UNIVERSAL, message: { id: nextId(), kind: 'notice', text: line } })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Bind a project to the Workspace as the active session (P2-4) — Projects'
   // "Open in Workspace" button and the Workspace header switcher (Slice 1b)
   // both call this. Passing '' clears the binding (reducer normalizes it to
@@ -5001,6 +5014,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       answerProjectRequest,
       mergeProject,
       clearNotice,
+      postAppLine,
       setActiveProject,
       compressNow,
       newSession,
@@ -5023,6 +5037,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       answerProjectRequest,
       mergeProject,
       clearNotice,
+      postAppLine,
       setActiveProject,
       compressNow,
       newSession,

@@ -118,6 +118,10 @@ export interface Settings {
   /** "A different AI double-checks": where the primary would have checked,
    *  the second connected cloud AI does. Only a literal true turns it on. */
   workloadSecondOpinion: boolean
+  /** The day's model check may MOVE an AI to its newest model (default on).
+   *  Off: it still looks, records and reports — and moves nothing. See
+   *  lib/modelCheck.ts for exactly what a move is allowed to be. */
+  autoNewestModel: boolean
   /** Max tokens one run may spend. 0 = the engine's own default (100,000).
    *  Made settable 2026-09-03 after a real three-agent board breached the
    *  invisible default, lost its third agent, and returned an empty answer. */
@@ -490,6 +494,7 @@ export const DEFAULT_SETTINGS: Settings = {
   workload: 'measured',
   workloadMeasured: '',
   workloadSecondOpinion: false,
+  autoNewestModel: true,
   tokenBudget: 0,
   brandBudgets: {},
   // Sprint D (2026-08-31, his order: 'agents are not able to search the
@@ -590,6 +595,7 @@ export function normalizeSettings(parsed: Partial<Settings> | null | undefined):
         : 'measured',
     workloadMeasured: storedStop(parsed.workloadMeasured),
     workloadSecondOpinion: parsed.workloadSecondOpinion === true,
+    autoNewestModel: parsed.autoNewestModel !== false,
     // Clamped on read as well as on write: a hand-edited store must not be able
     // to set a budget that breaches before the first agent answers.
     tokenBudget: clampBudget(Number(parsed.tokenBudget)),
@@ -926,6 +932,8 @@ export interface SettingsContextValue {
   /** Cache the stop the app's measurement points to ('' = none yet). */
   setWorkloadMeasured: (stop: WorkloadStop | '') => void
   setWorkloadSecondOpinion: (on: boolean) => void
+  /** Let the day's model check move each AI to its newest model. */
+  setAutoNewestModel: (on: boolean) => void
   /** Cache the registered plugin-server names (see `Settings.mcpServers`). */
   setMcpServers: (names: readonly string[]) => void
   /** Choose solo or host. Choosing 'host' the first time generates the join
@@ -1048,6 +1056,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSettings((s) => (s.workloadMeasured === workloadMeasured ? s : { ...s, workloadMeasured })),
       setWorkloadSecondOpinion: (workloadSecondOpinion) =>
         setSettings((s) => ({ ...s, workloadSecondOpinion })),
+      setAutoNewestModel: (autoNewestModel) => setSettings((s) => ({ ...s, autoNewestModel })),
       setMcpServers: (names) =>
         setSettings((s) => {
           const mcpServers = mcpServerNames(names)

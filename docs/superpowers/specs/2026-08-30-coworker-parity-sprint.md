@@ -342,3 +342,33 @@ Rules:
   step leaves it with no plan (`new`).
 - The marker for jobs typed in the room (`jobsFrom`) moves with the steps
   before it and is dropped when no such job remains.
+
+## The day's model check (2026-11-14)
+
+The owner: "every time when we start working for the day on this software,
+check the new available AIs models and add to in our list and utilize the model
+according to your need. Primary AI is the one who is deciding. Always prefer a
+new one, the greatest one."
+
+On the first launch of each calendar day — and, for an app left open overnight,
+the first time its window is come back to — each connected AI is asked what
+models it offers (its own models endpoint; no tokens are spent). The answer is
+kept (`scprism.modelCheck`), so the next day's check can say what is new.
+
+A check may also MOVE an AI to a newer model. Every move is decided by rules
+(`lib/modelCheck.ts`), never by a model — the same invariant as routing:
+
+| AI | What a move may be | Proof required |
+|---|---|---|
+| A metered key (Claude, OpenAI, Gemini, a custom service) | a newer version of the SAME model line (`claude-fable-5-1` → `claude-fable-5-2`). Never another tier, a preview or a mini — those change the bill or the behaviour | the model is on that AI's own list for this key |
+| The primary on the Claude subscription CLI | the plan's top model (`opus` → `fable`). A tier move there costs limits, not money | the CLI answers once on that model (`probe_cli … --model`) |
+| Any other subscription CLI | none — its runs are not passed a model, so a "move" would change a value nothing reads | — |
+| The AI on this Mac | none. Its place on the workload slider was measured on the model it has; new local models are reported for the user to pick | — |
+
+An always-current alias (`gemini-flash-latest`), the CLI's own default and a
+hand-typed model id are never moved: each is a choice made on purpose.
+
+What changed is said once, by the app, in the Manager's room, and kept in
+Settings → Your AIs → Newest models, with a switch to stop the moving (the
+looking and reporting continue) and a Check now. A model that should have been
+moved to but did not answer is reported with the CLI's own reason.

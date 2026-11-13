@@ -1994,6 +1994,18 @@ fn is_safe_bin_name(bin: &str) -> bool {
     !bin.is_empty() && bin.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
+/// A model name that can be handed to a CLI as one argument: a short run of
+/// the characters model ids and aliases are made of, never starting with a
+/// dash — so it can only ever be read as the VALUE of `--model`, not a flag.
+fn is_safe_model_name(model: &str) -> bool {
+    !model.is_empty()
+        && model.len() <= 80
+        && !model.starts_with('-')
+        && model
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | ':' | '[' | ']'))
+}
+
 /// Absolute path of a subscription CLI on this machine, or None. PATH first,
 /// then the common install dirs — shared by `check_cli` and `probe_cli` so
 /// "installed" and "can it answer" always talk about the SAME binary.
@@ -2042,17 +2054,29 @@ const CLI_PROBE_PROMPT: &str = "Reply with the single word: ok";
 /// probe must exercise the same call shape the real runs use, or a green tick
 /// here would be about a command the app never makes. Unknown binaries are
 /// deliberately unprobeable (None) rather than guessed at.
-fn cli_probe_argv(bin: &str) -> Option<Vec<String>> {
+///
+/// `model` asks the CLI to answer on ONE named model — how the day's model
+/// check proves a better model really answers before the primary is moved to
+/// it. It is passed only to `claude`, the one CLI the gateway's real runs pass
+/// a model to; anywhere else it would prove a call the app never makes.
+fn cli_probe_argv(bin: &str, model: Option<&str>) -> Option<Vec<String>> {
     let s = |v: &str| v.to_string();
     match bin {
         // --setting-sources project: same as the gateway — do not load the
         // user's personal CLI config/memory just to say "ok".
-        "claude" => Some(vec![
-            s("-p"),
-            s(CLI_PROBE_PROMPT),
-            s("--setting-sources"),
-            s("project"),
-        ]),
+        "claude" => {
+            let mut argv = vec![
+                s("-p"),
+                s(CLI_PROBE_PROMPT),
+                s("--setting-sources"),
+                s("project"),
+            ];
+            if let Some(m) = model {
+                argv.push(s("--model"));
+                argv.push(s(m));
+            }
+            Some(argv)
+        }
         "gemini" => Some(vec![s("-p"), s(CLI_PROBE_PROMPT)]),
         "codex" => Some(vec![
             s("exec"),
@@ -2126,16 +2150,26 @@ fn cli_error_line(stderr: &str, stdout: &str) -> String {
 /// also an `Err`, worded distinctly; the caller (`pingProvider`) separates the
 /// two by asking `check_cli` first.
 #[tauri::command]
-async fn probe_cli(bin: String, timeout_secs: Option<u64>) -> Result<String, String> {
+async fn probe_cli(
+    bin: String,
+    timeout_secs: Option<u64>,
+    model: Option<String>,
+) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         if !is_safe_bin_name(&bin) {
             return Err("invalid binary name".into());
+        }
+        let model = model.map(|m| m.trim().to_string()).filter(|m| !m.is_empty());
+        if let Some(m) = &model {
+            if !is_safe_model_name(m) {
+                return Err("invalid model name".into());
+            }
         }
         let path = match find_cli_path(&bin) {
             Some(p) => p,
             None => return Err(format!("{bin} not found — install it and sign in once")),
         };
-        let args = match cli_probe_argv(&bin) {
+        let args = match cli_probe_argv(&bin, model.as_deref()) {
             Some(a) => a,
             None => return Err(format!("no probe is defined for {bin}")),
         };
@@ -4015,7 +4049,7 @@ mod path_tests {
     #[test]
     fn probe_argv_mirrors_the_gateways_own_one_shot_shape() {
         assert_eq!(
-            cli_probe_argv("claude"),
+            cli_probe_argv("claude", None),
             Some(vec![
                 "-p".to_string(),
                 CLI_PROBE_PROMPT.to_string(),
@@ -4024,11 +4058,11 @@ mod path_tests {
             ])
         );
         assert_eq!(
-            cli_probe_argv("gemini"),
+            cli_probe_argv("gemini", None),
             Some(vec!["-p".to_string(), CLI_PROBE_PROMPT.to_string()])
         );
         assert_eq!(
-            cli_probe_argv("codex"),
+            cli_probe_argv("codex", None),
             Some(vec![
                 "exec".to_string(),
                 "--skip-git-repo-check".to_string(),
@@ -4037,9 +4071,43 @@ mod path_tests {
         );
     }
 
+    // The day's model check moves the primary to a better model only once
+    // that model has ANSWERED — so the probe has to be able to name one, in
+    // the same flag the gateway's real runs use (claude only: it is the one
+    // CLI the gateway passes a model to).
+    #[test]
+    fn probe_argv_names_the_model_only_where_real_runs_do() {
+        assert_eq!(
+            cli_probe_argv("claude", Some("fable")),
+            Some(vec![
+                "-p".to_string(),
+                CLI_PROBE_PROMPT.to_string(),
+                "--setting-sources".to_string(),
+                "project".to_string(),
+                "--model".to_string(),
+                "fable".to_string(),
+            ])
+        );
+        assert_eq!(
+            cli_probe_argv("gemini", Some("gemini-pro-latest")),
+            Some(vec!["-p".to_string(), CLI_PROBE_PROMPT.to_string()])
+        );
+    }
+
+    #[test]
+    fn a_model_name_that_could_be_read_as_a_flag_is_refused() {
+        assert!(is_safe_model_name("fable"));
+        assert!(is_safe_model_name("claude-fable-5-2"));
+        assert!(is_safe_model_name("opus[1m]"));
+        assert!(!is_safe_model_name(""));
+        assert!(!is_safe_model_name("--dangerously-skip-permissions"));
+        assert!(!is_safe_model_name("fable --add-dir /"));
+        assert!(!is_safe_model_name(&"a".repeat(200)));
+    }
+
     #[test]
     fn an_unknown_binary_is_never_guessed_at() {
-        assert_eq!(cli_probe_argv("rm"), None);
+        assert_eq!(cli_probe_argv("rm", None), None);
         assert!(!is_safe_bin_name("../../bin/sh"));
         assert!(!is_safe_bin_name("gemini; rm -rf /"));
         assert!(!is_safe_bin_name(""));

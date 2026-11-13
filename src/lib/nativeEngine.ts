@@ -1638,10 +1638,12 @@ export async function checkCli(bin: string): Promise<string | null> {
 export async function probeCli(
   bin: string,
   timeoutSecs?: number,
+  /** Answer on this one model (claude only — see `cli_probe_argv`). */
+  model?: string,
 ): Promise<{ ok: boolean; reply: string; error: string }> {
   if (!isNative()) return { ok: false, reply: '', error: 'not running natively' }
   try {
-    const reply = await invoke<string>('probe_cli', { bin, timeoutSecs })
+    const reply = await invoke<string>('probe_cli', { bin, timeoutSecs, model: model || undefined })
     return { ok: true, reply, error: '' }
   } catch (e) {
     return { ok: false, reply: '', error: String((e as { message?: string })?.message ?? e ?? '') }

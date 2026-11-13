@@ -67,6 +67,7 @@ import {
 import { agentSlug, useAgents } from '../lib/agents'
 import { seatByWorkload } from '../lib/workloadSeats'
 import WorkloadCard from '../components/WorkloadCard'
+import ModelCheckCard from '../components/ModelCheckCard'
 import {
   SETTINGS_SECTIONS,
   findSections,
@@ -2618,6 +2619,9 @@ export default function Settings() {
           <button type="button" className="settings__addcustom" onClick={addCustomProvider}>
             + Add custom service — any OpenAI-compatible endpoint
           </button>
+          {/* The day's model check (2026-11-14): what it found, and whether it
+              may move an AI to a newer model. */}
+          <ModelCheckCard />
             </>
           )}
           {section === 'routing' && (

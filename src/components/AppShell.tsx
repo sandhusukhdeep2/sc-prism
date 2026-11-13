@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { runModelCheck } from '../lib/modelCheckRun'
+import { modelCheckDeps, useDailyModelCheck } from '../lib/useDailyModelCheck'
 import { useSettings } from '../lib/settings'
 import { initialsOf } from '../lib/initials'
 import { syncVaultAgents } from '../lib/agents'
@@ -33,7 +35,13 @@ import './AppShell.css'
 // rail. Until first-run setup is complete, the whole app redirects to
 // onboarding.
 export default function AppShell() {
-  const { settings: shellSettings, setMcpServers, setWorkloadMeasured } = useSettings()
+  const {
+    settings: shellSettings,
+    hydrated: settingsRead,
+    setMcpServers,
+    setWorkloadMeasured,
+    updateProvider,
+  } = useSettings()
   // The rail's slot for the Work page's rooms (lib/railSlot.ts).
   const [roomsSlot, setRoomsSlot] = useState<HTMLElement | null>(null)
   // Vault folders sync at APP START (2026-08-29): the agents and skills
@@ -69,7 +77,18 @@ export default function AppShell() {
   // THE LOCAL SHARE, always in view (design 2026-11-08 §C): the one split Stats,
   // Memory and Console already read, over real completions only, refreshed
   // while a run is live. Hooks sit above the onboarding redirect below.
-  const { state: appState } = useApp()
+  const { state: appState, postAppLine } = useApp()
+  // THE DAY'S MODEL CHECK (2026-11-14): on the first launch of the day each
+  // connected AI is asked what it offers; an AI may be moved to a newer model
+  // by the rules in lib/modelCheck.ts, and what changed is said once, in the
+  // Manager's room. Reads the settings as they are WHEN it runs.
+  const settingsNow = useRef(shellSettings)
+  settingsNow.current = shellSettings
+  useDailyModelCheck({
+    ready: isNative() && settingsRead,
+    check: (now) => runModelCheck(modelCheckDeps(settingsNow.current, updateProvider, now)),
+    notify: (line) => postAppLine(`Today’s model check — ${line}. Change it in Settings → Your AIs.`),
+  })
   const anyLive = activeRuns(appState.liveRuns).length > 0
   const dashRead = useLiveDashboard(shellSettings.vaultPath, anyLive)
   const share = dashRead.dash ? localShare(dashRead.dash.cost_by_model) : null

@@ -1,0 +1,10 @@
+/* The day's model check (2026-11-14). One sentence of outcome, one switch. */
+.modelcheck__outcome { margin: 8px 0 4px; font-size: 13px; line-height: 1.5; color: var(--v2-ink-2); text-wrap: pretty; }
+.modelcheck__now {
+  border: 1px solid var(--v2-line); background: none; color: var(--v2-ink-2);
+  border-radius: var(--v2-r-pill); padding: 5px 13px; font: inherit; font-size: 12px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.modelcheck__now:hover:not(:disabled) { background: var(--v2-fill); }
+.modelcheck__now:disabled { opacity: 0.6; cursor: default; }
+.modelcheck__now:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
