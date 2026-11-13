@@ -158,6 +158,11 @@
 .proj__steps { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .proj__step { display: flex; align-items: center; gap: 12px; padding: 9px 13px; border-radius: var(--v2-r-chip); background: rgba(0, 0, 0, 0.03); }
 .proj__step--done { background: rgba(110, 154, 131, 0.1); }
+/* One quiet ✕ for the two things a room lets you take away row by row: a loop
+   and a step that has not been started. Pushed to the row's end. */
+.proj__rowdel { margin-left: auto; flex: none; border: 0; background: none; color: var(--muted-2); font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: var(--v2-r-chip); }
+.proj__rowdel:hover { color: var(--danger-ink); background: rgba(206, 105, 105, 0.08); }
+.proj__rowdel:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
 .proj__step--current { background: rgba(131, 162, 219, 0.18); }
 .proj__stepnum { font-size: 11px; color: var(--muted-2); width: 20px; flex: 0 0 20px; }
 .proj__step--done .proj__stepnum { color: var(--ok-ink-2); }

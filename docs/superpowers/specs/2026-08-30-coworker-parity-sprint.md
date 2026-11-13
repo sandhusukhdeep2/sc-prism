@@ -319,3 +319,26 @@ Two things were really wrong after the small-message rule of 2026-11-11:
   It used to come from a separate reading of who would lead, which could name
   an AI the slider had since moved off that seat.
 - The sensitivity floor still comes before all of it.
+
+## Deleting what a room holds (2026-11-14)
+
+The owner: "give me option to delete project loop other stuff also." Audit of
+what could and could not be removed:
+
+| Thing | Before | Now |
+|---|---|---|
+| A project's standing loop | on/off only in the room (removable only from Automations) | ✕ on each loop row in the room |
+| A plan step not yet started | not removable | ✕ on the step; steps that ran, or were tried and sent back, stay as the record |
+| A project | removed the record only — its loops kept firing at nothing, its agents stayed assigned to nothing, its conversation stayed in the session store unseen | loops removed with it; agents kept and returned to the library; conversation archived to the vault (`conversations/<id>.md`) and then emptied — the same archive-before-drop contract as `New session` |
+| Conversation, agents, skills, jobs, plugins, custom AIs, vault notes | already removable | unchanged |
+
+Rules:
+
+- The Delete confirm states everything that will happen in one sentence
+  (`removalNote`), counted from the live stores (`removalScope`).
+- Nothing is taken off a plan under a build that is running, waiting on the
+  user, or stopped needing attention — the build holds the plan it started with.
+- Removing the only step still ahead leaves the project `done`; removing every
+  step leaves it with no plan (`new`).
+- The marker for jobs typed in the room (`jobsFrom`) moves with the steps
+  before it and is dropped when no such job remains.

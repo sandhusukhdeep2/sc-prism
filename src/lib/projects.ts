@@ -612,6 +612,60 @@ export function addProjectStep(id: string, text: string): FolderJob {
   return { ok: true, index, total: index + 1, starts: runsNext ? 'now' : 'with-plan' }
 }
 
+// ---------------------------------------------------------------------------
+// TAKING A STEP OFF THE PLAN (2026-11-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether step `index` can be taken off the plan: only a step that has not
+ * been started. A step that ran — or was tried and sent back — is the record
+ * of what happened and stays. Nothing moves under a build that is running,
+ * waiting on the user, or stopped on a step that needs attention: the build
+ * holds the plan it was started with.
+ */
+export function stepRemovable(
+  project: Pick<Project, 'plan' | 'status' | 'stepIndex' | 'refinePass'>,
+  index: number,
+): boolean {
+  if (index < 0 || index >= project.plan.length) return false
+  if (project.status !== 'planned' && project.status !== 'new' && project.status !== 'interviewing') {
+    return false
+  }
+  if (index < project.stepIndex) return false
+  if (index === project.stepIndex && project.refinePass > 0) return false
+  return true
+}
+
+/**
+ * Take a not-yet-started step off the plan. Returns false — and changes
+ * nothing — when the step cannot go (see `stepRemovable`). When no step is
+ * left to run the project is finished again; when no step is left at all it
+ * has no plan, as before it was planned.
+ */
+export function removeProjectStep(id: string, index: number): boolean {
+  const project = state.projects.find((p) => p.id === id)
+  if (!project || !stepRemovable(project, index)) return false
+  const plan = project.plan.filter((_, i) => i !== index)
+  // The marker for jobs typed in the room moves up with the steps before it,
+  // and goes when no such job is left.
+  const { jobsFrom: marker, ...rest } = project
+  const moved = marker === undefined ? undefined : index < marker ? marker - 1 : marker
+  const jobsFrom = moved !== undefined && moved < plan.length ? moved : undefined
+  const nothingAhead = project.stepIndex >= plan.length
+  const next: Project = {
+    ...rest,
+    plan,
+    ...(jobsFrom === undefined ? {} : { jobsFrom }),
+    ...(plan.length === 0
+      ? { status: 'new' as const, stepIndex: 0, refinePass: 0 }
+      : nothingAhead
+        ? { status: 'done' as const, stepIndex: plan.length, refinePass: 0 }
+        : {}),
+  }
+  setState({ ...state, projects: state.projects.map((p) => (p.id === id ? next : p)) })
+  return true
+}
+
 /** Which pipeline a send should run for the given active project (null =
  * universal). A project with no plan yet (and not done) is still being
  * interviewed; otherwise the project-aware companion handles the turn. */

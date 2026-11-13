@@ -25,16 +25,25 @@ import { seatByWorkload } from '../lib/workloadSeats'
 import { useConnectivity } from '../lib/connectivity'
 import { allowAllProviders, filterRoster, reassignLine, rosterGate, sitOutLine } from '../lib/roster'
 import { mergeReadiness } from '../lib/projectRun'
-import { addSchedule, projectSchedules, scheduleKind, updateSchedule, useSchedules } from '../lib/schedules'
+import {
+  addSchedule,
+  projectSchedules,
+  removeSchedule,
+  scheduleKind,
+  updateSchedule,
+  useSchedules,
+} from '../lib/schedules'
+import { removalNote, removalScope, removeProjectWithItsThings } from '../lib/projectRemoval'
 import {
   addProject,
   attachProject,
   defaultProjectPath,
   projectBuildRoster,
-  removeProject,
+  removeProjectStep,
   renameProject,
   slugify,
   staffRoster,
+  stepRemovable,
   updateProject,
   useProjects,
   type Project,
@@ -263,10 +272,21 @@ export function DeleteProjectControl({ projectId }: { projectId: string }) {
   const [alsoTrash, setAlsoTrash] = useState(false)
   const [refusal, setRefusal] = useState('')
   const [busy, setBusy] = useState(false)
-  const { state, setActiveProject } = useApp()
+  const { state, setActiveProject, newSession } = useApp()
   const { settings } = useSettings()
   const { projects } = useProjects()
   const project = projects.find((p) => p.id === projectId)
+  // What goes with it (2026-11-14): its loops are removed, its agents go back
+  // to the library, and a room that was talked in is filed in the vault. The
+  // confirm says all of it before anything happens.
+  const schedules = useSchedules()
+  const agents = useAgents()
+  const scope = removalScope(
+    projectId,
+    schedules,
+    agents,
+    isNative() ? (state.threads[projectId] ?? []).length : 0,
+  )
   const remove = async () => {
     setRefusal('')
     if (alsoTrash && project?.path) {
@@ -283,7 +303,14 @@ export function DeleteProjectControl({ projectId }: { projectId: string }) {
         return
       }
     }
-    removeProject(projectId)
+    // Archive-before-drop, the same contract as `New session`: the thread is
+    // emptied only once it is in the vault.
+    if (scope.conversation) {
+      setBusy(true)
+      await newSession(projectId)
+      setBusy(false)
+    }
+    removeProjectWithItsThings(projectId)
     // Deleting the room you are standing in returns you to the Manager —
     // never a ghost thread with no project behind it.
     if (state.activeProjectId === projectId) setActiveProject('')
@@ -298,9 +325,7 @@ export function DeleteProjectControl({ projectId }: { projectId: string }) {
   return (
     <span className="proj__deleteconfirm">
       <span className="proj__deletenote">
-        {alsoTrash
-          ? 'removes it from SC Prism and moves its folder to the Trash — you can put it back from the Finder'
-          : 'removes it from SC Prism — the folder on disk is untouched'}
+        {removalNote(scope, alsoTrash)}
       </span>
       {isNative() && Boolean(project?.path) && (
         <label className="proj__deletetrash">
@@ -600,6 +625,15 @@ export function ProjectLoops({ project }: { project: Project }) {
                   />
                   {s.enabled ? 'on' : 'off'}
                 </label>
+                <button
+                  type="button"
+                  className="proj__rowdel"
+                  aria-label={`Delete ${kind} loop`}
+                  title="delete this loop"
+                  onClick={() => removeSchedule(s.id)}
+                >
+                  ✕
+                </button>
               </div>
             )
           })}
@@ -902,6 +936,17 @@ export function ProjectContextPanel({ project }: { project: Project }) {
                   <li key={i} className={`proj__step proj__step--${st}`}>
                     <span className="proj__stepnum mono">{i + 1}</span>
                     <span className="proj__steplabel">{step}</span>
+                    {stepRemovable(project, i) && (
+                      <button
+                        type="button"
+                        className="proj__rowdel"
+                        aria-label={`Remove step ${i + 1}`}
+                        title="not started yet — take it off the plan"
+                        onClick={() => removeProjectStep(project.id, i)}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </li>
                 )
               })}
