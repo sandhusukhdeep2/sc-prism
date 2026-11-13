@@ -372,3 +372,36 @@ What changed is said once, by the app, in the Manager's room, and kept in
 Settings → Your AIs → Newest models, with a switch to stop the moving (the
 looking and reporting continue) and a Check now. A model that should have been
 moved to but did not answer is reported with the CLI's own reason.
+
+## Who writes a build's files (2026-11-14)
+
+Found by driving the installed app: a job sent to a project's folder ran its
+board three times over ten minutes and changed nothing — "all file writes
+rejected: planner was not granted the 'writes' capability".
+
+Cause. The engine lets ONE seat of a build write: the board's lead, the first
+seat of the roster, which synthesizes the FILE blocks. On 2026-11-09 the
+built-in agents were given grants of their own (vault, web). From then on every
+build on the default team sent a grant table — in which no seat held `writes` —
+with the Planner in front. No project build on the default team could write a
+file, and it only said so after the run. (A second fault hid in the same
+lookup: a roster names a seat by its slug, and "Reviewer / Verifier" was looked
+up by name only, so it entered the grant table holding nothing.)
+
+Rule (`lib/buildWriter.ts`), applied before anything runs:
+
+1. No seat carries any grant → nothing is gated; the roster is untouched.
+2. A seat holds `writes` → it leads the build. It is the one that writes.
+3. Every seat is a built-in agent → the seat that does the work (the
+   Implementer) is asked for `writes` for this build, and leads. Whether writes
+   are allowed at all is still the user's own project-writes grant, which the
+   engine intersects again.
+4. Otherwise — a team the user staffed with no seat approved to write — the
+   build is refused before it runs, saying what to change. The app never hands
+   `writes` to an agent the user configured without it.
+
+The engine refuses the same case itself before its first model call
+(`_writer_refusal`), so no client can pay for a board that cannot write.
+
+Not done: the built-in Implementer's card on the Agents page still lists only
+the vault grant, though a build asks it for writes.

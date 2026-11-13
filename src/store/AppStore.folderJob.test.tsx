@@ -142,6 +142,39 @@ describe('a job for the folder — through the real store', () => {
     expect(p.verdictIds).toContain('T-job')
   })
 
+  // Found in the real app, 2026-11-14: this exact job ran its board three
+  // times and changed nothing — "all file writes rejected: planner was not
+  // granted the 'writes' capability". The engine lets the FIRST seat write;
+  // the built-in team led with the Planner and no seat was asked for writes.
+  it('on the built-in team, the seat that does the work leads and is asked for writes', async () => {
+    localStorage.setItem(
+      'scprism.settings',
+      JSON.stringify({
+        providers: [
+          { id: 'claude-cli', name: 'Claude', baseUrl: '', apiKey: '', enabled: true, primary: true, connected: true },
+          { id: 'local', name: 'Local model', baseUrl: 'http://localhost:1234', apiKey: '', enabled: true, primary: false, connected: true },
+        ],
+        projectWrites: true,
+      }),
+    )
+    const id = finishedProject()
+    renderApp()
+    await settle()
+    await sendJob(id, 'Rewrite hello.md as a warmer greeting')
+
+    expect(h.runNativeProject).toHaveBeenCalledTimes(1)
+    const [, , , providers, opts] = h.runNativeProject.mock.calls[0]
+    const seats = String(opts.roster).split(',').map((s: string) => s.split(':')[0])
+    expect(seats.length).toBeGreaterThan(1)
+    expect(seats[0]).toBe('implementer')
+    const asked = JSON.parse(providers.agentCapabilities) as Record<string, string[]>
+    expect(asked.implementer).toContain('writes')
+    // Only the writer was asked for it, and the user's own grant rides along
+    // for the engine to intersect.
+    expect(Object.entries(asked).filter(([, caps]) => caps.includes('writes')).map(([n]) => n)).toEqual(['implementer'])
+    expect(String(providers.userCapabilities).split(',')).toContain('writes')
+  })
+
   it('says in the room what was sent and what became of it', async () => {
     const id = finishedProject()
     renderApp()

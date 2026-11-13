@@ -1039,6 +1039,29 @@ def _build_grants(args):
         return None, False
 
 
+def _writer_refusal(grants, roster) -> str:
+    """Why this BOARD could never write its files — or '' when it can.
+
+    The one seat that writes a project step is the board's lead: the roster's
+    first seat, which synthesizes the FILE blocks (``project.apply_file_ops``
+    checks ``writes`` for exactly that agent). That is known before a single
+    model is called, so a build that cannot write is refused here — not after
+    its board has run and been refined on the user's tokens.
+
+    No grant table, or no roster (a solo doer), is not this check's business.
+    """
+    if grants is None or not roster:
+        return ""
+    writer = roster[0].name
+    if grants.allows(writer, "writes"):
+        return ""
+    return (
+        f"this build cannot write its files: {grants.refusal(writer, 'writes')} "
+        f"— the first seat of the team is the one that writes, so put a seat "
+        f"that may write first"
+    )
+
+
 def _apply_capability_gate(tool_source, grants, agent=""):
     """Wrap ``tool_source`` in the per-agent capability gate when a grant exists.
 
@@ -1569,6 +1592,12 @@ def _cmd_project(args) -> int:
     if not ok:
         return 1
     writer_agent = roster[0].name if roster else ""
+    # Refused BEFORE anything runs (see `_writer_refusal`): the same honest
+    # `{"ok": false, ...}` + exit 1 as a malformed grant.
+    refusal = _writer_refusal(grants, roster)
+    if refusal:
+        print(json.dumps({"ok": False, "error": refusal}), file=sys.stderr)
+        return 1
     # Governed tool source for the STEP LOOP (2026-08-28) — the same wiring
     # `_cmd_run` feeds `loop.run`, minus MCP servers (not offered on this path
     # yet): `--web` opts the governed web provider in; the vault tools default

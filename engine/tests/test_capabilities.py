@@ -348,6 +348,43 @@ class TestCliSeam(unittest.TestCase):
         allowed = apply_file_ops([("y.txt", "hi")], project, grants=grants, agent="lead")
         self.assertEqual(allowed["written"], ["y.txt"])
 
+    def test_a_build_whose_lead_may_not_write_is_refused_before_it_runs(self):
+        # Seen in the installed app, 2026-11-14: a board ran three times over
+        # ten minutes and only THEN said "all file writes rejected: planner was
+        # not granted the 'writes' capability". Who may write is known before
+        # the first model call — the writer is the roster's first seat — so
+        # the refusal is too.
+        from scprism_engine.__main__ import _build_grants, _build_parser, _writer_refusal
+        from scprism_engine.team import parse_agents
+
+        args = _build_parser().parse_args(
+            [
+                "project",
+                "build it",
+                "--project-dir",
+                "/tmp/p",
+                "--vault",
+                "/tmp/v",
+                "--agents",
+                "planner:local,implementer:local",
+                "--user-capabilities",
+                "vault,writes",
+                "--agent-capabilities",
+                '{"planner": ["vault"], "implementer": ["vault", "writes"]}',
+            ]
+        )
+        grants, ok = _build_grants(args)
+        self.assertTrue(ok)
+        refusal = _writer_refusal(grants, parse_agents(args.agents))
+        self.assertIn("planner was not granted the 'writes' capability", refusal)
+        self.assertIn("first seat", refusal)
+        # The seat that may write, in front: nothing to refuse.
+        self.assertEqual(_writer_refusal(grants, parse_agents("implementer:local,planner:local")), "")
+        # No grant table means nothing is gated, exactly as before.
+        self.assertEqual(_writer_refusal(None, parse_agents(args.agents)), "")
+        # A solo doer is not a board: this check has nothing to say about it.
+        self.assertEqual(_writer_refusal(grants, None), "")
+
     def test_grants_serialize_for_the_audit_trail(self):
         grants = AgentGrants(user=["vault"], requested={"scout": ["vault", "web"]})
         blob = json.loads(json.dumps(grants.to_dict()))

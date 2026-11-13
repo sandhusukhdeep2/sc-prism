@@ -201,6 +201,7 @@ import { agentCapabilityNames,
   appRunCapabilities,
   teamCapabilityArgs,
 } from '../lib/delegation'
+import { buildWriter } from '../lib/buildWriter'
 import {
   blockedReason as rosterBlockedReason,
   parseRosterBlock,
@@ -4252,7 +4253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (unstaffed.length > 0) {
         notify('attention', `«${project.name}» builds without ${sitOutLine(unstaffed)}`)
       }
-      const { roster, sitOut: rosterSitOut } = filterRoster(
+      const { roster: availableRoster, sitOut: rosterSitOut } = filterRoster(
         staffedRoster,
         buildGate,
         settingsRef.current,
@@ -4260,13 +4261,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // An empty ASK is the honest single-doer case (no team configured at all)
       // and is allowed exactly as before; an ask that became empty because
       // nothing is connected is a refusal, not a solo run.
-      if (askedRoster && !roster) {
+      if (askedRoster && !availableRoster) {
         notify('attention', `«${project.name}» — ${emptyRosterRefusal(rosterSitOut)}`)
         return
       }
       if (rosterSitOut.length > 0) {
         notify('attention', `«${project.name}» builds without ${sitOutLine(rosterSitOut)}`)
       }
+      // WHO WRITES (lib/buildWriter.ts). The engine lets the FIRST seat of the
+      // roster write the folder, so the seat that may write has to lead — and a
+      // team on which nobody may is refused here, in words, before the board is
+      // run three times for nothing (seen 2026-11-14: "all file writes
+      // rejected: planner was not granted the 'writes' capability").
+      const writing = buildWriter(availableRoster, (role) => {
+        // A roster names a seat by its SLUG ("reviewer-verifier"); matching on
+        // the name key alone missed "Reviewer / Verifier", which then went
+        // into the grant table holding nothing.
+        const agent = listAgents().find(
+          (a) => agentSlug(a.name) === agentSlug(role) || agentNameKey(a.name) === agentNameKey(role),
+        )
+        return { capabilities: agentCapabilityNames(agent), builtIn: !!agent?.system }
+      })
+      if (!writing.ok) {
+        notify('attention', `«${project.name}» — ${writing.reason}`)
+        return
+      }
+      const roster = writing.roster
 
       let idx = project.stepIndex
       let rp = project.refinePass
@@ -4398,14 +4418,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // greyed-out button. An unstaffed project sends no flags and builds
             // exactly as it did before.
             {
-              const lib = listAgents()
+              // The seats and grants `buildWriter` settled on: the writer
+              // first, and on the built-in team the doer asked for `writes`.
               const buildCaps = teamCapabilityArgs(
-                splitRoster(roster).map((seat) => ({
-                  name: seat.role,
-                  capabilities: agentCapabilityNames(
-                    lib.find((a) => agentNameKey(a.name) === agentNameKey(seat.role)),
-                  ),
-                })),
+                writing.seats,
                 appRunCapabilities(settingsRef.current),
               )
               if (buildCaps) {
