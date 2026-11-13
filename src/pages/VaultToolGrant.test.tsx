@@ -145,7 +145,7 @@ describe('Settings — the Tools posture control pre-grants the vault source', (
   })
 
   it('toggling the posture writes vault into granted and preserves the rest', async () => {
-    renderPage(<Settings />, '/settings')
+    renderPage(<Settings />, '/settings?section=capabilities')
     const toggle = await screen.findByRole('switch', { name: /ask before tool calls/i })
     fireEvent.click(toggle)
     await waitFor(() => expect(writeApprovals).toHaveBeenCalled())

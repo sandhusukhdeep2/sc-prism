@@ -17,7 +17,7 @@ vi.mock('../lib/nativeEngine', async () => {
 // next; stop-hosting returns to solo and keeps the code.
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=connections']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />

@@ -49,7 +49,7 @@ const Settings = (await import('./Settings')).default
 
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=capabilities']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />

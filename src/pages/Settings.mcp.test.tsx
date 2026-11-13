@@ -21,7 +21,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
 
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=capabilities']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />

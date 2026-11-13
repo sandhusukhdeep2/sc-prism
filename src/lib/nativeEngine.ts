@@ -765,6 +765,12 @@ export async function checkExtensions(): Promise<ExtensionAvailability> {
 /** Whether the LightRAG graph index is built, and over how many notes. */
 export interface GraphIndexStatus {
   ready: boolean
+  /** A build was started and is not finished — it can be continued. */
+  partial?: boolean
+  /** Notes that are in the graph right now (a stopped build keeps them). */
+  indexed?: number
+  /** Notes the last build could not finish; the next build tries them again. */
+  failed?: number
   /** Notes the built graph covers. */
   docs: number
   /** Unix seconds; 0 when never built. */
@@ -794,6 +800,9 @@ export async function graphIndexStatus(vault: string): Promise<GraphIndexStatus 
     if (typeof s?.ready !== 'boolean') return null
     return {
       ready: s.ready,
+      partial: s.partial === true,
+      indexed: Number(s.indexed ?? 0),
+      failed: Number(s.failed ?? 0),
       docs: Number(s.docs ?? 0),
       built_at: Number(s.built_at ?? 0),
       notes: Number(s.notes ?? 0),
@@ -813,6 +822,9 @@ export async function runGraphIndex(
   vault: string,
   local: { baseUrl?: string; apiKey?: string; localModel?: string },
   runId = '',
+  /** Start over: discard the graph that is there. Without it the build
+   *  CONTINUES — notes already in the graph are kept. */
+  fresh = false,
 ): Promise<GraphIndexResult> {
   if (!isNative()) return { ok: false, reason: 'building the graph needs the installed app' }
   try {
@@ -823,6 +835,7 @@ export async function runGraphIndex(
       apiKey: local.apiKey ?? '',
       localModel: local.localModel ?? '',
       status: false,
+      fresh,
     })
     const r = JSON.parse(json) as { ok?: boolean; docs?: number; model_calls?: number; seconds?: number; reason?: string }
     if (r?.ok === true) {

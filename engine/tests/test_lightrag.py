@@ -210,6 +210,48 @@ class TestLightRAGIndexesAndRetrieves(unittest.TestCase):
         self.assertEqual(be._docid_by_name[lightrag_backend.flat_name("projects/beta/README.md")], "projects/beta/README.md")
         be.close()
 
+    # A BUILD CAN BE STOPPED AND CONTINUED (2026-11-12) — against the real
+    # library. A strict build fails a note the model did not really answer for
+    # (instead of filing an empty extraction as finished); building again in
+    # the same folder retries exactly those notes and leaves the done ones be.
+    def _statuses(self):
+        import json
+
+        with open(os.path.join(self._wd, "kv_store_doc_status.json"), encoding="utf-8") as fh:
+            return {k: v.get("status") for k, v in json.load(fh).items()}
+
+    def test_a_stand_in_reply_fails_its_note_in_a_strict_build(self):
+        gw = _offline_spy_gateway()
+        be = lightrag_backend.LightRAGBackend(gw, working_dir=self._wd)
+        self.addCleanup(be.close)
+        be.llm.strict = True
+        be.index_vault(self.vault)
+        statuses = self._statuses()
+        self.assertTrue(statuses, "the library recorded no notes at all")
+        self.assertNotIn("processed", statuses.values(), statuses)
+        be.close()
+
+    def test_building_again_retries_what_failed_and_skips_what_is_done(self):
+        # First build: strict, the model never really answers → every note fails.
+        first = lightrag_backend.LightRAGBackend(_offline_spy_gateway(), working_dir=self._wd)
+        first.llm.strict = True
+        first.index_vault(self.vault)
+        first.close()
+        self.assertNotIn("processed", self._statuses().values())
+        # Second build, same folder: the notes go through and are finished.
+        gw2 = _offline_spy_gateway()
+        second = lightrag_backend.LightRAGBackend(gw2, working_dir=self._wd)
+        second.index_vault(self.vault)
+        second.close()
+        self.assertEqual(set(self._statuses().values()), {"processed"})
+        self.assertGreater(len(gw2.calls), 0)
+        # Third build: everything is done, so no note goes through the model.
+        gw3 = _offline_spy_gateway()
+        third = lightrag_backend.LightRAGBackend(gw3, working_dir=self._wd)
+        third.index_vault(self.vault)
+        third.close()
+        self.assertEqual(len(gw3.calls), 0, "a finished note was sent through the model again")
+
     def test_all_calls_route_through_the_gateway_no_direct_network(self):
         gw = _offline_spy_gateway()
         be = self._backend(gw).index_vault(self.vault)

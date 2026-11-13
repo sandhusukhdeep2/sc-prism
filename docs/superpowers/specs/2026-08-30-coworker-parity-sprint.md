@@ -255,3 +255,30 @@ count and the Agents page say when the slider is re-seating.
 - A stop states the local model's measured speed, but not yet an expected
   run time or a cloud-token estimate for that stop.
 - A manager's own team jobs are not re-seated by the slider.
+
+## The graph build can be stopped and continued (2026-11-14)
+
+Measured on the owner's vault: 81 notes on a local model took about ten
+minutes a note — a thirteen-hour build. Every start wiped the folder, so
+stopping it, or the app restarting, threw the hours away.
+
+- **A build continues.** The library keeps a status row per note; a build run
+  again hands it only the notes it has never seen and then runs its own
+  processing step, which picks up everything unfinished — pending, failed, or
+  cut off mid-way. (Handing it a note it already has does not retry that note:
+  it files a second, failed "file name already exists" row. Found against the
+  real library.)
+- **Starting over is asked for by name** (`graph-index --fresh`; "Start over"
+  and "Rebuild" in Settings).
+- **Ready means every note.** A graph missing some notes is left unmarked and
+  continuable; a run attaches only to a finished one. While a graph is being
+  rebuilt it is not ready.
+- **A stand-in reply fails its note.** During a build a model that did not
+  really answer raises, so the library marks that note failed and retries it,
+  instead of filing an empty extraction as a finished note.
+- **Settings says how far it got**: "15 of 81 notes are in the graph", with
+  Continue and Start over; while building it shows the library's own count.
+
+Not built: an expected-time figure before a first build (the card says in
+words that a large vault takes hours); picking up notes that CHANGED since
+they were indexed without a full rebuild.

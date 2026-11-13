@@ -17,7 +17,7 @@ vi.mock('../lib/nativeEngine', async () => {
 // default, lost its third agent, and returned an empty answer.
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=routing']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />

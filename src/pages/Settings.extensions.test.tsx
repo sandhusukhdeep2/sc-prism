@@ -25,7 +25,7 @@ vi.mock('../lib/nativeEngine', async () => {
 
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=capabilities']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />

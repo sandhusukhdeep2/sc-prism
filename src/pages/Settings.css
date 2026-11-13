@@ -355,3 +355,28 @@ a.settings__navitem { text-decoration: none; }
 .settings__graphbtn:hover { background: var(--v2-fill); }
 .settings__graphbtn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
 .settings__graphfail { flex: 1 1 100%; font-size: 12px; color: var(--v2-coral-ink); line-height: 1.45; }
+
+/* ---- SETTINGS, IN CATEGORIES (2026-11-12, lib/settingsSections.ts) ----
+   A searchable list of categories on the left; one category on the right. */
+.settings__search {
+  width: 100%; border: 1px solid var(--v2-line); border-radius: var(--v2-r-chip); background: var(--v2-card);
+  color: var(--v2-ink); font: inherit; font-size: 13px; padding: 8px 12px; margin-bottom: 6px;
+}
+.settings__search:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 1px; }
+.settings__sections { display: flex; flex-direction: column; gap: 2px; }
+.settings__navitem { border-radius: var(--v2-r-inner); transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.settings__navitem:not(.is-active):hover { background: var(--v2-fill); color: var(--v2-ink); }
+.settings__navitem:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: -2px; }
+.settings__nomatch { padding: 10px 14px; font-size: 12.5px; color: var(--v2-muted); line-height: 1.5; }
+.settings__navrule { height: 1px; background: var(--v2-line); margin: 8px 6px; }
+.settings__sectionhead { padding: 2px 4px 2px; }
+.settings__sectiontitle { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--v2-ink); }
+.settings__sectionblurb { margin: 4px 0 0; font-size: 13.5px; color: var(--v2-muted); max-width: 64ch; }
+/* A category arriving is a small, quick move — the page changed, say so. */
+.settings__content { animation: settingsIn var(--dur-fast) var(--ease-out) both; }
+@keyframes settingsIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .settings__content { animation: none; }
+  .settings__navitem { transition: none; }
+}
+.settings__graphbtn--quiet { background: none; border-color: transparent; color: var(--v2-muted); text-decoration: underline; text-underline-offset: 3px; }

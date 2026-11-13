@@ -80,6 +80,15 @@ hover, and a finished project carries no mark. Leaving Work empties the slot.
 In the icon rail of a small window there is no room for them, so the Rooms
 menu stays.
 
+## Slice 4 — Settings, in categories
+
+Settings was one scroll of every control the app has. It is now six
+categories — Your AIs, Routing & workload, Capabilities, You & appearance,
+Connections, Setup — with one on screen at a time and a search that finds a
+control by what it is called (`lib/settingsSections.ts`). Which category is
+open is in the address (`?section=`), so a link can point at one. The doors to
+the app's other settings pages sit under the categories.
+
 ## What does not change
 
 - No new data: every mark is still a span or a store field.

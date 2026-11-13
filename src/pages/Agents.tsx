@@ -726,7 +726,7 @@ function WorkloadNote() {
     <p className="agents__workload" role="note" aria-label="Workload slider">
       <b>Workload: {copy.word}</b> — {copy.desc}. On the default team a seat runs where the
       slider puts it, whatever its card says below.{' '}
-      <Link to="/settings">Change in Settings</Link>
+      <Link to="/settings?section=routing">Change in Settings</Link>
     </p>
   )
 }

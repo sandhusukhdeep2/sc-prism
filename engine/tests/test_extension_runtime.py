@@ -226,7 +226,7 @@ class TestBuildingTheGraphIsItsOwnStep(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def _run(self, argv, *, available=True, saw_real=True, has_local=True):
+    def _run(self, argv, *, available=True, saw_real=True, has_local=True, fail_ids=(), boom=False):
         import io
         import json
         from contextlib import redirect_stderr, redirect_stdout
@@ -234,13 +234,32 @@ class TestBuildingTheGraphIsItsOwnStep(unittest.TestCase):
 
         indexed = {}
 
+        workdir = self.workdir
+
         class _FakeBackend:
             def __init__(self, gateway, **kw):
                 lightrag_backend.require_local(gateway)
                 self.llm = mock.Mock(calls=4, saw_real=saw_real)
 
             def index_docs(self, docs):
+                # Like the library: one status row per note, kept across builds.
                 indexed["ids"] = sorted(d.doc_id for d in docs)
+                path = os.path.join(workdir, "kv_store_doc_status.json")
+                os.makedirs(workdir, exist_ok=True)
+                try:
+                    with open(path, encoding="utf-8") as fh:
+                        rows = json.load(fh)
+                except (OSError, ValueError):
+                    rows = {}
+                indexed["already"] = sorted(k for k, v in rows.items() if v.get("status") == "processed")
+                for d in docs:
+                    if rows.get(d.doc_id, {}).get("status") == "processed":
+                        continue
+                    rows[d.doc_id] = {"status": "failed" if d.doc_id in fail_ids or not saw_real else "processed"}
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(rows, fh)
+                if boom:
+                    raise RuntimeError("the local server went away")
                 return self
 
         out = io.StringIO()
@@ -267,24 +286,72 @@ class TestBuildingTheGraphIsItsOwnStep(unittest.TestCase):
         self.assertIn("did not answer", obj["reason"])
         self.assertFalse(lightrag_backend.index_ready(self.workdir))
 
-    # A build that failed leaves the library's own half-written state behind —
-    # stand-in "extractions" it would treat as done and never redo. So a build
-    # always starts from an empty folder, and a failed one leaves an empty folder.
-    def test_a_build_starts_clean_and_a_failed_build_leaves_nothing_behind(self):
-        os.makedirs(self.workdir, exist_ok=True)
-        stale = os.path.join(self.workdir, "kv_store_doc_status.json")
-        with open(stale, "w", encoding="utf-8") as fh:
-            fh.write("{\"old\": true}")
+    # A BUILD CAN BE STOPPED AND CONTINUED (2026-11-12). Seen on a real vault:
+    # 81 notes on a local model took about ten minutes a note — a thirteen-hour
+    # build — and every start wiped the folder, so stopping it threw the hours
+    # away. The library already keeps one status row per note and skips the
+    # ones it has done; the build now leaves that alone.
+    def _status(self):
+        import json
+
+        with open(os.path.join(self.workdir, "kv_store_doc_status.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def test_a_build_that_was_stopped_is_continued_not_started_over(self):
+        code, obj, _ = self._run(["graph-index", "--vault", self.vault], fail_ids=("notes/b.md",))
+        self.assertEqual(code, 1)
+        self.assertFalse(lightrag_backend.index_ready(self.workdir))
+        self.assertEqual(obj["indexed"], 1)
+        self.assertEqual(obj["failed"], 1)
+        self.assertIn("1 of 2 notes", obj["reason"])
+        # The second build is handed the folder as it was: a.md is not redone.
+        code, obj, indexed = self._run(["graph-index", "--vault", self.vault])
+        self.assertEqual(code, 0)
+        self.assertEqual(indexed["already"], ["notes/a.md"])
+        self.assertTrue(lightrag_backend.index_ready(self.workdir))
+        self.assertEqual(obj["docs"], 2)
+
+    def test_the_graph_is_ready_only_when_every_note_is_in_it(self):
+        code, _obj, _ = self._run(["graph-index", "--vault", self.vault], fail_ids=("notes/a.md",))
+        self.assertEqual(code, 1)
+        self.assertFalse(lightrag_backend.index_ready(self.workdir))
+
+    def test_a_build_that_broke_half_way_keeps_what_it_had(self):
+        self._run(["graph-index", "--vault", self.vault], fail_ids=("notes/b.md",))
+        code, obj, _ = self._run(["graph-index", "--vault", self.vault], boom=True, fail_ids=("notes/b.md",))
+        self.assertEqual(code, 1)
+        self.assertIn("stopped", obj["reason"])
+        self.assertEqual(self._status()["notes/a.md"]["status"], "processed")
+        self.assertFalse(lightrag_backend.index_ready(self.workdir))
+
+    def test_starting_over_is_asked_for_by_name(self):
+        self._run(["graph-index", "--vault", self.vault], fail_ids=("notes/b.md",))
+        code, _obj, indexed = self._run(["graph-index", "--vault", self.vault, "--fresh"])
+        self.assertEqual(code, 0)
+        # Nothing was carried over: every note went through the model again.
+        self.assertEqual(indexed["already"], [])
+        self.assertTrue(lightrag_backend.index_ready(self.workdir))
+
+    def test_a_first_build_the_model_never_answered_leaves_nothing_behind(self):
+        # Nothing real was extracted and nothing was there before: an empty
+        # folder is the honest result, not rows that look like progress.
         code, _obj, _ = self._run(["graph-index", "--vault", self.vault], saw_real=False)
         self.assertEqual(code, 1)
-        self.assertFalse(os.path.exists(stale), "the failed build left stale state behind")
-        os.makedirs(self.workdir, exist_ok=True)
-        with open(stale, "w", encoding="utf-8") as fh:
-            fh.write("{\"old\": true}")
-        code, _obj, _ = self._run(["graph-index", "--vault", self.vault])
-        self.assertEqual(code, 0)
-        self.assertFalse(os.path.exists(stale), "a build did not start from a clean folder")
+        self.assertFalse(os.path.exists(os.path.join(self.workdir, "kv_store_doc_status.json")))
+
+    def test_a_continued_build_the_model_did_not_answer_keeps_the_earlier_work(self):
+        self._run(["graph-index", "--vault", self.vault], fail_ids=("notes/b.md",))
+        code, obj, _ = self._run(["graph-index", "--vault", self.vault], saw_real=False)
+        self.assertEqual(code, 1)
+        self.assertIn("did not answer", obj["reason"])
+        self.assertEqual(self._status()["notes/a.md"]["status"], "processed")
+
+    def test_a_rebuilt_graph_is_not_ready_while_it_is_being_rebuilt(self):
+        self._run(["graph-index", "--vault", self.vault])
         self.assertTrue(lightrag_backend.index_ready(self.workdir))
+        code, _obj, _ = self._run(["graph-index", "--vault", self.vault, "--fresh"], fail_ids=("notes/a.md",))
+        self.assertEqual(code, 1)
+        self.assertFalse(lightrag_backend.index_ready(self.workdir))
 
     def test_no_local_model_is_refused_in_plain_words(self):
         code, obj, _ = self._run(["graph-index", "--vault", self.vault], has_local=False)
@@ -297,10 +364,21 @@ class TestBuildingTheGraphIsItsOwnStep(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("LightRAG", obj["reason"])
 
+    def test_status_says_how_far_a_stopped_build_got(self):
+        self._run(["graph-index", "--vault", self.vault], fail_ids=("notes/b.md",))
+        code, obj, _ = self._run(["graph-index", "--vault", self.vault, "--status"])
+        self.assertEqual(code, 0)
+        self.assertEqual(obj["ready"], False)
+        self.assertEqual(obj["partial"], True)
+        self.assertEqual(obj["indexed"], 1)
+        self.assertEqual(obj["failed"], 1)
+        self.assertEqual(obj["notes"], 2)
+
     def test_status_reports_whether_the_graph_is_built(self):
         code, obj, _ = self._run(["graph-index", "--vault", self.vault, "--status"])
         self.assertEqual(code, 0)
         self.assertEqual(obj["ready"], False)
+        self.assertEqual(obj["partial"], False)
         self.assertEqual(obj["notes"], 2)
         self._run(["graph-index", "--vault", self.vault])
         code, obj, _ = self._run(["graph-index", "--vault", self.vault, "--status"])

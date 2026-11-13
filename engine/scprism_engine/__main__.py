@@ -771,7 +771,14 @@ def _build_parser() -> argparse.ArgumentParser:
     gi_p.add_argument("--vault", required=True, help="Vault directory.")
     gi_p.add_argument(
         "--status", action="store_true",
-        help="Do not build: print {ready, docs, built_at, notes, available}.",
+        help="Do not build: print {ready, partial, indexed, failed, docs, "
+        "built_at, notes, available}.",
+    )
+    gi_p.add_argument(
+        "--fresh", action="store_true",
+        help="Start over: discard the graph that is there and build from "
+        "nothing. Without it a build CONTINUES — the notes already in the "
+        "graph are kept and only the rest go through the model.",
     )
 
     # -- mcp -------------------------------------------------------------
@@ -1672,10 +1679,17 @@ def _cmd_graph_index(args) -> int:
         _emit({"ok": False, "reason": f"could not read the vault: {exc}"})
         return 1
 
+    note_ids = [d.doc_id for d in notes]
+
     if args.status:
         status = lrb.index_status(workdir)
+        progress = lrb.build_progress(workdir, note_ids)
         _emit({
             "ready": lrb.index_ready(workdir),
+            # A build was started and is not finished — it can be continued.
+            "partial": lrb.index_partial(workdir),
+            "indexed": progress["indexed"],
+            "failed": progress["failed"],
             "docs": int(status.get("docs", 0) or 0),
             "built_at": int(status.get("built_at", 0) or 0),
             "notes": len(notes),
@@ -1695,34 +1709,67 @@ def _cmd_graph_index(args) -> int:
     import shutil
 
     def _wipe() -> None:
-        # The library keeps its own "already processed" state. Left over from a
-        # failed or older build it would be treated as done and never redone —
-        # so a build always starts from an empty folder, and a failed build
-        # leaves an empty folder.
         shutil.rmtree(workdir, ignore_errors=True)
 
+    # A BUILD CONTINUES (2026-11-12). The library keeps one status row per note
+    # and skips the notes it has finished, so running the build again carries
+    # on from where the last one stopped — on a local model a full build is
+    # hours, and wiping the folder on every start threw them away. Starting
+    # over is asked for by name (--fresh).
+    had_before = lrb.build_progress(workdir, note_ids)["indexed"]
     started = time.time()
     try:
         gateway = make_gateway()
-        lrb.require_local(gateway)  # refuse BEFORE touching the old graph
-        _wipe()
+        lrb.require_local(gateway)  # refuse BEFORE touching the graph
+        if getattr(args, "fresh", False):
+            _wipe()
+            had_before = 0
+        # A graph that is being (re)built is not one a run should attach to.
+        lrb.clear_ready(workdir)
         backend = lrb.LightRAGBackend(gateway)
+        # A stand-in reply must fail its note, never be filed as a finished one.
+        backend.llm.strict = True
         backend.index_docs(notes)
     except lrb.LightRAGLocalOnly as exc:
         _emit({"ok": False, "reason": str(exc)})
         return 1
-    except Exception as exc:  # noqa: BLE001 - report it; never a silent half-build
-        _wipe()
-        _emit({"ok": False, "reason": f"the graph build stopped: {exc!r}"})
+    except Exception as exc:  # noqa: BLE001 - report it; what was built is kept
+        progress = lrb.build_progress(workdir, note_ids)
+        _emit({
+            "ok": False,
+            "reason": f"the graph build stopped: {exc!r} — "
+            f"{progress['indexed']} of {progress['total']} notes are in the "
+            "graph; build again to continue",
+            "indexed": progress["indexed"],
+            "failed": progress["failed"],
+        })
         return 1
     calls = int(getattr(backend.llm, "calls", 0) or 0)
-    if not getattr(backend.llm, "saw_real", False):
-        # Every model reply was a stand-in: nothing was really extracted.
-        _wipe()
+    progress = lrb.build_progress(workdir, note_ids)
+    if not getattr(backend.llm, "saw_real", False) and progress["indexed"] <= had_before:
+        # The model never really answered in this build. With nothing from an
+        # earlier build either, an empty folder is the honest result — not rows
+        # that look like progress. Earlier real work is kept.
+        if had_before == 0:
+            _wipe()
         _emit({
             "ok": False,
             "reason": "the local model did not answer, so nothing was indexed — "
             "check that it is running, then build again",
+            "model_calls": calls,
+            "indexed": had_before,
+            "failed": progress["failed"],
+        })
+        return 1
+    if progress["indexed"] < progress["total"]:
+        # READY MEANS EVERY NOTE. A graph missing some of the notes would
+        # answer as if it knew the vault; it is left unmarked and continuable.
+        _emit({
+            "ok": False,
+            "reason": f"{progress['indexed']} of {progress['total']} notes are in "
+            f"the graph and {progress['failed']} failed — build again to retry them",
+            "indexed": progress["indexed"],
+            "failed": progress["failed"],
             "model_calls": calls,
         })
         return 1

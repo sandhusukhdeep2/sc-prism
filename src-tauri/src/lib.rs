@@ -1699,6 +1699,9 @@ async fn run_engine_graph_index(
     api_key: String,
     local_model: Option<String>,
     status: Option<bool>,
+    // Start over instead of continuing (`--fresh`). Absent/false -> the build
+    // carries on from the notes already in the graph.
+    fresh: Option<bool>,
 ) -> Result<String, String> {
     let runs = runs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1708,6 +1711,8 @@ async fn run_engine_graph_index(
         let mut args: Vec<&str> = vec!["graph-index", "--vault", &vault];
         if status.unwrap_or(false) {
             args.push("--status");
+        } else if fresh.unwrap_or(false) {
+            args.push("--fresh");
         }
         let mut cmd = engine_command(&rt, &args);
         set_ext_data_env(&mut cmd, &rt, &vault);

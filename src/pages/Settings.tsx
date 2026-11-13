@@ -1,6 +1,6 @@
 import { mcpServerNames } from '../lib/mcpServers'
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type KeyboardEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CLI_MODEL_CHOICES,
   CLI_PROVIDERS,
@@ -67,6 +67,12 @@ import {
 import { agentSlug, useAgents } from '../lib/agents'
 import { seatByWorkload } from '../lib/workloadSeats'
 import WorkloadCard from '../components/WorkloadCard'
+import {
+  SETTINGS_SECTIONS,
+  findSections,
+  sectionFromParam,
+  type SettingsSectionId,
+} from '../lib/settingsSections'
 import { DEFAULT_TOKEN_BUDGET, clampBudget, dailyUsage } from '../lib/budget'
 import { brandBudgetStatus, brandOf, isEstimatedSpend, type Brand } from '../lib/providerBudget'
 import { buildKindPicks } from '../lib/localModelPick'
@@ -851,7 +857,7 @@ function GraphIndexControl() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const build = async () => {
+  const build = async (fresh: boolean) => {
     if (graphBuild) return
     setFailure('')
     setBuilding(true)
@@ -866,6 +872,7 @@ function GraphIndexControl() {
         localModel: local?.model ?? '',
       },
       runId,
+      fresh,
     )
     graphBuild = { runId, done }
     const res = await done
@@ -879,18 +886,32 @@ function GraphIndexControl() {
     if (graphBuild) void cancelEngineRun(graphBuild.runId)
   }
 
+  // While a build runs, read how far it has got — the library writes a status
+  // row per note, so this is its own count, not an estimate.
+  useEffect(() => {
+    if (!building) return
+    const t = setInterval(() => void refresh(), 20_000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [building])
+
   if (status === null && !building) return null
   const built = status?.ready
     ? `graph built from ${status.docs} note${status.docs === 1 ? '' : 's'}${
         status.built_at ? ` on ${new Date(status.built_at * 1000).toLocaleDateString()}` : ''
       }`
     : ''
+  const indexed = status?.indexed ?? 0
+  const failed = status?.failed ?? 0
+  const notes = status?.notes ?? 0
   return (
     <div className="settings__graph">
       {building ? (
         <>
           <span className="settings__graphline">
-            reading your notes on your local model — this takes minutes, and you can leave this page
+            reading your notes on your local model
+            {notes > 0 ? ` — ${indexed} of ${notes} notes in the graph so far` : ''} · you can leave
+            this page, and stopping keeps what is done
           </span>
           <button type="button" className="settings__graphbtn" onClick={stop}>
             Stop
@@ -902,17 +923,33 @@ function GraphIndexControl() {
             {built}
             {status.notes !== status.docs && ` · you have ${status.notes} now — rebuild to include the rest`}
           </span>
-          <button type="button" className="settings__graphbtn" onClick={() => void build()}>
+          <button type="button" className="settings__graphbtn" onClick={() => void build(true)}>
             Rebuild
+          </button>
+        </>
+      ) : status?.partial ? (
+        <>
+          <span className="settings__graphline">
+            {indexed} of {notes} notes are in the graph — the build was stopped before the rest
+            {failed > 0 ? ` · ${failed} failed and will be tried again` : ''} · the built-in recall
+            answers until it is finished
+          </span>
+          <button type="button" className="settings__graphbtn" onClick={() => void build(false)}>
+            Continue the build
+          </button>
+          <button type="button" className="settings__graphbtn settings__graphbtn--quiet" onClick={() => void build(true)}>
+            Start over
           </button>
         </>
       ) : (
         <>
           <span className="settings__graphline">
             graph not built yet — the built-in recall answers until it is
-            {status ? ` · ${status.notes} note${status.notes === 1 ? '' : 's'} to read` : ''}
+            {status ? ` · ${status.notes} note${status.notes === 1 ? '' : 's'} to read` : ''}. It
+            takes several model calls a note on your local model, so a large vault takes hours.
+            You can stop it and continue later.
           </span>
-          <button type="button" className="settings__graphbtn" onClick={() => void build()}>
+          <button type="button" className="settings__graphbtn" onClick={() => void build(false)}>
             Build the graph index
           </button>
         </>
@@ -1378,9 +1415,9 @@ function YourAIsRow() {
   return (
     <div className="settings__ais">
       <div className="settings__prow">
-        <span className="settings__kicker">Your AIs</span>
+        <span className="settings__kicker">Each AI</span>
         <span className="settings__spacer" />
-        <span className="settings__instant">a token alert for each one</span>
+        <span className="settings__instant">its seats, and a token alert</span>
       </div>
 
       {brands.length === 0 ? (
@@ -2489,34 +2526,18 @@ export default function Settings() {
     document.documentElement.dataset.theme = t
   }
 
-  // The sub-nav really navigates the scroll page now (no dead clickable items):
-  // Providers scrolls to the top, Appearance to its section, and the active
-  // highlight follows what's actually in view via a scroll listener.
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [activeSection, setActiveSection] = useState<'providers' | 'appearance'>('providers')
-
-  const scrollToProviders = () =>
-    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-  const scrollToAppearance = () =>
-    contentRef.current
-      ?.querySelector('#sec-appearance')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-  useEffect(() => {
-    const root = contentRef.current
-    if (!root) return
-    const onScroll = () => {
-      const appearance = root.querySelector('#sec-appearance')
-      if (!appearance) return
-      const rootTop = root.getBoundingClientRect().top
-      const appTop = appearance.getBoundingClientRect().top
-      // "Appearance" wins once its heading rises into the top third of the pane.
-      setActiveSection(appTop - rootTop <= root.clientHeight / 3 ? 'appearance' : 'providers')
-    }
-    root.addEventListener('scroll', onScroll, { passive: true })
-    onScroll()
-    return () => root.removeEventListener('scroll', onScroll)
-  }, [])
+  // ONE CATEGORY AT A TIME. Which one is open is in the address (`?section=`),
+  // so a link — or a test — can point straight at it; search narrows the list
+  // to where a control lives.
+  const [params, setParams] = useSearchParams()
+  const section = sectionFromParam(params.get('section'))
+  const sectionInfo = SETTINGS_SECTIONS.find((sec) => sec.id === section) ?? SETTINGS_SECTIONS[0]
+  const [query, setQuery] = useState('')
+  const found = findSections(query)
+  const openSection = (id: SettingsSectionId) => {
+    setParams({ section: id }, { replace: true })
+    setQuery('')
+  }
 
   return (
     <div className="settings">
@@ -2524,15 +2545,35 @@ export default function Settings() {
       <PageHead title="Settings" hint="keys are held by the Gateway · never rendered" />
 
       <div className="settings__body">
-        {/* sub-nav */}
+        {/* THE CATEGORIES, and a search that finds a control by its name.
+            Under them, the doors to the app's other settings pages. */}
         <div className="settings__nav">
-          <button
-            type="button"
-            className={`settings__navitem${activeSection === 'providers' ? ' is-active' : ''}`}
-            onClick={scrollToProviders}
-          >
-            Providers
-          </button>
+          <input
+            type="search"
+            className="settings__search"
+            placeholder="Search"
+            aria-label="Search settings"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="settings__sections" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+            {found.map((sec) => (
+              <button
+                key={sec.id}
+                type="button"
+                role="tab"
+                aria-selected={sec.id === section}
+                className={`settings__navitem${sec.id === section ? ' is-active' : ''}`}
+                onClick={() => openSection(sec.id)}
+              >
+                {sec.label}
+              </button>
+            ))}
+            {found.length === 0 && (
+              <div className="settings__nomatch">No setting matches “{query.trim()}”.</div>
+            )}
+          </div>
+          <div className="settings__navrule" />
           <Link to="/github" className="settings__navitem">GitHub (optional)</Link>
           {/* Work's "Your setup" panel used to summarise the governance rules
               (gates · never-touch · force-local). That panel is gone from Work
@@ -2541,17 +2582,10 @@ export default function Settings() {
               onboarding flow knew. This is that door; the page itself is
               unchanged. */}
           <Link to="/governance-review" className="settings__navitem">Your rules</Link>
-          {/* Five places in the rail (2026-11-08 §D): what left the rail is
-              reached from here — the app's own controls, in one place. */}
+          {/* What left the rail (2026-11-08 §D) is reached from here — the
+              app's own controls, in one place. */}
           <Link to="/automations" className="settings__navitem">Automations</Link>
           <Link to="/companion-grants" className="settings__navitem">Companion grants</Link>
-          <button
-            type="button"
-            className={`settings__navitem${activeSection === 'appearance' ? ' is-active' : ''}`}
-            onClick={scrollToAppearance}
-          >
-            Appearance
-          </button>
           <Link to="/welcome" className="settings__navitem settings__navitem--gold">
             Rerun setup wizard ↺
           </Link>
@@ -2559,7 +2593,16 @@ export default function Settings() {
         </div>
 
         {/* content */}
-        <div className="settings__content" ref={contentRef}>
+        <div className="settings__content" key={section}>
+          {/* ONE CATEGORY AT A TIME (lib/settingsSections.ts). The page was one
+              scroll of every control the app has; each block now lives under
+              the category a person would look for it in. */}
+          <header className="settings__sectionhead">
+            <h2 className="settings__sectiontitle">{sectionInfo.label}</h2>
+            <p className="settings__sectionblurb">{sectionInfo.blurb}</p>
+          </header>
+          {section === 'ais' && (
+            <>
           {local.map((p) => (
             <ProviderCard key={p.id} p={p} />
           ))}
@@ -2575,59 +2618,25 @@ export default function Settings() {
           <button type="button" className="settings__addcustom" onClick={addCustomProvider}>
             + Add custom service — any OpenAI-compatible endpoint
           </button>
-
-          <HostingCard />
+            </>
+          )}
+          {section === 'routing' && (
+            <>
           <RoutingModeCard />
           {/* THE WORKLOAD SLIDER (2026-11-12): who plans, who does the work,
               who checks. It replaces the dependency dial and the buttons that
               rewrote every agent's model — one control where there were three. */}
           <WorkloadSection />
-
+            </>
+          )}
+          {section === 'capabilities' && (
+            <>
           <EngineExtensions />
 
           <McpServers />
 
           <WebResearchCard />
           <ComputerControlCard />
-
-          {/* appearance preview */}
-          <div className="settings__provider" id="sec-appearance">
-            <div className="settings__prow">
-              <span className="settings__kicker">Appearance</span>
-              <span className="settings__spacer" />
-              <span className="settings__instant">theme applies instantly</span>
-            </div>
-            <div className="settings__themes" role="radiogroup" aria-label="Theme">
-              {THEMES.map((t) => (
-                <ThemeSwatch
-                  key={t.id}
-                  id={t.id}
-                  name={t.name}
-                  preview={t.preview}
-                  active={settings.theme === t.id}
-                  onPick={pickTheme}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* your name — what the app calls you */}
-          <div className="settings__provider">
-            <div className="settings__prow">
-              <span className="settings__kicker">Your name</span>
-              <span className="settings__spacer" />
-              <span className="settings__instant">optional</span>
-            </div>
-            <div className="settings__pfields">
-              <input
-                className="settings__input"
-                value={settings.yourName}
-                placeholder="what SC Prism calls you"
-                aria-label="Your name"
-                onChange={(e) => setYourName(e.target.value)}
-              />
-            </div>
-          </div>
 
           {/* MV5 (Manager View §5): approve-each-team (default) vs auto. Same
               toggle affordance as Engine extensions above — reused classes,
@@ -2729,10 +2738,61 @@ export default function Settings() {
               </div>
             </div>
           </div>
+            </>
+          )}
+          {section === 'you' && (
+            <>
+          {/* appearance preview */}
+          <div className="settings__provider" id="sec-appearance">
+            <div className="settings__prow">
+              <span className="settings__kicker">Appearance</span>
+              <span className="settings__spacer" />
+              <span className="settings__instant">theme applies instantly</span>
+            </div>
+            <div className="settings__themes" role="radiogroup" aria-label="Theme">
+              {THEMES.map((t) => (
+                <ThemeSwatch
+                  key={t.id}
+                  id={t.id}
+                  name={t.name}
+                  preview={t.preview}
+                  active={settings.theme === t.id}
+                  onPick={pickTheme}
+                />
+              ))}
+            </div>
+          </div>
 
+          {/* your name — what the app calls you */}
+          <div className="settings__provider">
+            <div className="settings__prow">
+              <span className="settings__kicker">Your name</span>
+              <span className="settings__spacer" />
+              <span className="settings__instant">optional</span>
+            </div>
+            <div className="settings__pfields">
+              <input
+                className="settings__input"
+                value={settings.yourName}
+                placeholder="what SC Prism calls you"
+                aria-label="Your name"
+                onChange={(e) => setYourName(e.target.value)}
+              />
+            </div>
+          </div>
+            </>
+          )}
+          {section === 'connections' && (
+            <>
+          <HostingCard />
           <TelegramCard />
-
+            </>
+          )}
+          {section === 'setup' && (
+            <>
           <ResetSetup />
+            </>
+          )}
         </div>
       </div>
     </div>

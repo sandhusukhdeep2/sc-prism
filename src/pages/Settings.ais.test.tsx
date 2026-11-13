@@ -37,7 +37,7 @@ function withAIs(...ids: string[]) {
 
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=routing']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />
@@ -54,7 +54,9 @@ describe('Your AIs — one row per connected AI', () => {
   it('lists every connected AI by name', () => {
     withAIs('claude-cli', 'gemini', 'local')
     renderSettings()
-    expect(screen.getByText(/your ais/i)).toBeInTheDocument()
+    // ("Your AIs" is the name of the category that CONNECTS them; this card
+    // is about each one's seats and its token alert.)
+    expect(screen.getByText('Each AI')).toBeInTheDocument()
     expect(screen.getAllByText(/claude/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/gemini/i).length).toBeGreaterThan(0)
   })

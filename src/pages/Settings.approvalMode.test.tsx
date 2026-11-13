@@ -20,7 +20,7 @@ vi.mock('../lib/nativeEngine', async () => {
 // "Approve each team before it runs" (default) vs "Run automatically".
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=capabilities']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />

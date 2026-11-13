@@ -129,6 +129,58 @@ def index_status(working_dir: str) -> Dict[str, Any]:
         return {}
 
 
+# A BUILD CAN BE STOPPED AND CONTINUED (2026-11-12). The library keeps one
+# status row per note in its own folder and skips the notes it has finished, so
+# a build that is run again carries on from where the last one stopped. These
+# read that file — nothing here writes it.
+_DOC_STATUS = "kv_store_doc_status.json"
+
+
+def build_progress(working_dir: str, note_ids: Sequence[str]) -> Dict[str, int]:
+    """How far the graph build has got for ``note_ids``: how many are in the
+    graph (`indexed`), how many the library marked failed, and how many are
+    not done yet (`pending`, which includes notes it has never seen)."""
+    import json as _json
+
+    try:
+        with open(os.path.join(working_dir, _DOC_STATUS), "r", encoding="utf-8") as fh:
+            rows = _json.load(fh)
+    except (OSError, ValueError):
+        rows = {}
+    if not isinstance(rows, dict):
+        rows = {}
+    indexed = failed = 0
+    for note_id in note_ids:
+        row = rows.get(note_id)
+        status = row.get("status") if isinstance(row, dict) else None
+        if status == "processed":
+            indexed += 1
+        elif status == "failed":
+            failed += 1
+    total = len(note_ids)
+    return {"total": total, "indexed": indexed, "failed": failed, "pending": total - indexed - failed}
+
+
+def index_partial(working_dir: str) -> bool:
+    """True iff a build was started here and is not finished: the library's
+    own status file is on disk and the ready marker is not."""
+    return os.path.isfile(os.path.join(working_dir, _DOC_STATUS)) and not index_ready(working_dir)
+
+
+def clear_ready(working_dir: str) -> None:
+    """Take the ready marker away — a graph that is being (re)built is not one
+    a run should attach to."""
+    try:
+        os.remove(os.path.join(working_dir, _READY_MARKER))
+    except OSError:
+        pass
+
+
+class LightRAGModelUnavailable(RuntimeError):
+    """The local model gave no real answer during a BUILD. Raised instead of
+    handing the library a stand-in, which it would file as a finished note."""
+
+
 class LightRAGLocalOnly(RuntimeError):
     """There is no local model, so the graph index cannot be built or queried:
     vault text is never sent to a cloud model to build it."""
@@ -314,6 +366,10 @@ class GatewayLLM:
         self.tokens_in = 0
         self.tokens_out = 0
         self.saw_real = False
+        # STRICT is for a BUILD: a stand-in reply raises, so the library marks
+        # that note failed (and retries it next time) instead of filing an
+        # empty extraction as a finished note. A run's query leaves it off.
+        self.strict = False
 
     async def __call__(
         self,
@@ -338,6 +394,10 @@ class GatewayLLM:
         self.tokens_out += int(getattr(res, "tokens_out", 0))
         if getattr(res, "is_real", False):
             self.saw_real = True
+        elif self.strict:
+            raise LightRAGModelUnavailable(
+                "the local model did not answer this call"
+            )
         return res.text
 
 
@@ -566,16 +626,28 @@ class LightRAGBackend:
             self._rag = await self._build()
             if not docs:
                 return
-            contents = [
-                (d.title + "\n\n" + d.body).strip() or d.title or d.doc_id
-                for d in docs
-            ]
-            ids = [d.doc_id for d in docs]
-            # Each note goes in under its whole path as ONE file name
-            # (`flat_name`), and `_docid_by_name` maps that name straight back.
-            await self._rag.ainsert(
-                contents, ids=ids, file_paths=[flat_name(i) for i in ids]
-            )
+            # A BUILD CONTINUES (2026-11-12). The library keeps a status row per
+            # note. Handing it a note it already has does not retry that note —
+            # it files a second, FAILED "file name already exists" row beside
+            # it (seen against the real library). So only notes it has never
+            # seen are handed over, and then its own processing step is run,
+            # which picks up everything unfinished: pending, failed, or cut off
+            # mid-way by a stopped build.
+            unseen = await self._rag.doc_status.filter_keys({d.doc_id for d in docs})
+            fresh = [d for d in docs if d.doc_id in unseen]
+            if fresh:
+                contents = [
+                    (d.title + "\n\n" + d.body).strip() or d.title or d.doc_id
+                    for d in fresh
+                ]
+                ids = [d.doc_id for d in fresh]
+                # Each note goes in under its whole path as ONE file name
+                # (`flat_name`), and `_docid_by_name` maps that name straight back.
+                await self._rag.ainsert(
+                    contents, ids=ids, file_paths=[flat_name(i) for i in ids]
+                )
+            else:
+                await self._rag.apipeline_process_enqueue_documents()
 
         self._run(_go())
         self._indexed = True

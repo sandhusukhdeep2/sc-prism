@@ -82,7 +82,7 @@ describe('Agents — the page says when the workload slider is re-seating the de
     const note = screen.getByRole('note', { name: 'Workload slider' })
     expect(note.textContent).toContain('All local')
     expect(note.textContent).toContain('everything runs on this Mac')
-    expect(screen.getByRole('link', { name: 'Change in Settings' })).toHaveAttribute('href', '/settings')
+    expect(screen.getByRole('link', { name: 'Change in Settings' })).toHaveAttribute('href', '/settings?section=routing')
   })
 
   it('says nothing when every agent runs on its own AI', () => {

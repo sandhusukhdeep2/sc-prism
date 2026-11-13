@@ -18,7 +18,7 @@ vi.mock('../lib/nativeEngine', async () => {
 // and the two it replaces are gone rather than left beside it.
 function renderSettings() {
   return render(
-    <MemoryRouter initialEntries={['/settings']}>
+    <MemoryRouter initialEntries={['/settings?section=routing']}>
       <SettingsProvider>
         <OnboardingProvider>
           <Settings />
