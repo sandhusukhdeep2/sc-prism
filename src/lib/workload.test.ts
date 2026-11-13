@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   WORKLOAD_STOPS,
   applyWorkload,
+  jobRoster,
   effectiveWorkload,
   seatKind,
   suggestWorkload,
@@ -185,5 +186,38 @@ describe('workloadCopy — each stop in one plain sentence', () => {
     expect(workloadCopy('local-all', 'Claude').desc).toBe(
       'everything runs on this Mac; your own tests are the independent check',
     )
+  })
+})
+
+// A JOB FOR TWO (2026-11-14). One piece of work does not need every AI: the
+// owner asked for "just him and local" before "him, local and all the others".
+// The two seats are taken from the default team AS THE SLIDER SEATED IT, so
+// the stop still decides who the second seat is.
+describe('jobRoster — one piece of work is two seats', () => {
+  it('keeps the seat that does the work and the lead — "just him and local"', () => {
+    expect(jobRoster('lead:claude-cli,researcher:local,critic:gemini', 'claude-cli')).toBe(
+      'lead:claude-cli,researcher:local',
+    )
+  })
+
+  it('when the stop put the primary on the check, the check is the second seat', () => {
+    // "Primary checks only": local plans and does, the primary checks.
+    expect(jobRoster('lead:local,researcher:local,critic:claude-cli', 'claude-cli')).toBe(
+      'researcher:local,critic:claude-cli',
+    )
+  })
+
+  it('with nobody on the primary (all local) it is the lead and the worker', () => {
+    expect(jobRoster('lead:local,researcher:local,critic:local', 'claude-cli')).toBe('lead:local,researcher:local')
+  })
+
+  it('a team of two or fewer is already small enough', () => {
+    expect(jobRoster('lead:claude-cli,researcher:local', 'claude-cli')).toBe('lead:claude-cli,researcher:local')
+    expect(jobRoster('lead:local', 'local')).toBe('lead:local')
+    expect(jobRoster('', 'claude-cli')).toBe('')
+  })
+
+  it('a team with no seat that does the work keeps its first two', () => {
+    expect(jobRoster('lead:claude-cli,critic:gemini,reviewer:local', 'claude-cli')).toBe('lead:claude-cli,critic:gemini')
   })
 })

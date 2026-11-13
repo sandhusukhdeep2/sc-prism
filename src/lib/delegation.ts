@@ -32,7 +32,7 @@
 
 import type { EngineSpan } from './nativeEngine'
 import { routeReasonLabel } from './nativeEngine'
-import { smallMessage, type SmallKind } from './messageWeight'
+import { messageLevel, type LevelChoice, type MessageLevel, type SmallKind } from './messageWeight'
 import {
   emptyRosterRefusal,
   seatReason,
@@ -423,6 +423,10 @@ export interface RoutingChoice {
   soloNote: string
   /** Seats that could not be used, with their reasons — never dropped quietly. */
   sitOut: SitOut[]
+  /** talk — one AI answers; job — one piece of work, two seats; big — the
+   *  full team (lib/messageWeight.ts `messageLevel`). A floor or a refusal
+   *  reports the level of the words all the same. */
+  level: MessageLevel
   /** What kind of small message this is ('' for a job): it was answered by one
    *  AI and no team was staffed (lib/messageWeight). */
   small: SmallKind
@@ -464,6 +468,11 @@ function matched(intent: string, words: readonly string[]): string {
  *   5. otherwise              -> the best-suited AI for the shape of the job
  */
 export function decideRouting(input: RoutingInput): RoutingChoice {
+  return decide(input, messageLevel(input.intent))
+}
+
+function decide(input: RoutingInput, weighed: LevelChoice): RoutingChoice {
+  const level = weighed.level
   const sitOut = [...(input.sitOut ?? [])]
   const team = [...input.team]
   const solo = team.length === 1
@@ -482,6 +491,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       soloNote: '',
       sitOut,
       small: '',
+      level,
     }
   }
 
@@ -504,6 +514,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
         soloNote,
         sitOut,
         small: '',
+        level,
       }
     }
     return {
@@ -517,6 +528,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       soloNote,
       sitOut,
       small: '',
+      level,
     }
   }
 
@@ -525,8 +537,8 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
   //     critic. The primary answers it alone — unless the team was picked by
   //     hand, or a file rides along. Decided by rule (lib/messageWeight), after
   //     the floor: a sensitive word keeps even a short message local.
-  const small =
-    input.teamExplicit || input.hasAttachments ? '' : smallMessage(input.intent)
+  const small: SmallKind =
+    input.teamExplicit || input.hasAttachments || weighed.level !== 'talk' ? '' : weighed.kind
   if (small) {
     const me =
       team.find((t) => t.token === input.managerToken) ??
@@ -541,6 +553,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       soloNote: '',
       sitOut,
       small,
+      level,
     }
   }
 
@@ -559,25 +572,49 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       soloNote,
       sitOut,
       small: '',
+      level,
     }
   }
 
-  // 3. A real team: 2+ usable AI and a job that wants more than one pair of
-  //    hands. Strongest reasoner leads; the rest follow in seat order.
+  // 3. A real team: 2+ usable AI and work to do. ONE piece of work is a job for
+  //    two — the strongest reasoner leads and the local model does the work
+  //    ("just him and local"); a big job, a team picked by hand, or a file
+  //    riding along gets everyone. Strongest reasoner leads either way.
   if (input.wantsTeam) {
     const lead = team.find((t) => t.strongestReasoner) ?? team[0]
     const rest = team.filter((t) => t !== lead)
+    const everyone = input.teamExplicit || input.hasAttachments || level !== 'job'
+    const worker = rest.find((t) => t.local)
+    if (!everyone && worker && rest.length > 1) {
+      return {
+        mode: 'team',
+        assigned: [lead, worker],
+        reason: `${lead.label} leads and ${worker.label} does the work — ${weighed.why || 'one piece of work'}, so two is enough (pick the team to put every AI on it)`,
+        engineReason: '',
+        floor: false,
+        soloNote: '',
+        sitOut,
+        small: '',
+        level: 'job',
+      }
+    }
+    const why = input.teamExplicit
+      ? 'you picked the team'
+      : input.hasAttachments
+        ? 'a file rides along'
+        : weighed.why || 'you asked for more than one pair of hands'
     return {
       mode: 'team',
       assigned: [lead, ...rest],
       reason: `${lead.label} leads (the strongest reasoner here, ~${lead.typicalSeconds}s a turn) and ${rest
         .map((t) => t.label)
-        .join(', ')} ${rest.length === 1 ? 'works' : 'work'} alongside — you asked for more than one pair of hands`,
+        .join(', ')} ${rest.length === 1 ? 'works' : 'work'} alongside — ${why}`,
       engineReason: '',
       floor: false,
       soloNote: '',
       sitOut,
       small: '',
+      level: input.teamExplicit || input.hasAttachments ? 'big' : level,
     }
   }
 
@@ -595,6 +632,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       soloNote,
       sitOut,
       small: '',
+      level,
     }
   }
   const localSeat = team.find((t) => t.local)
@@ -608,6 +646,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
       soloNote,
       sitOut,
       small: '',
+      level,
     }
   }
   const pick = team.find((t) => t.strongestReasoner) ?? team[0]
@@ -620,6 +659,7 @@ export function decideRouting(input: RoutingInput): RoutingChoice {
     soloNote,
     sitOut,
     small: '',
+    level,
   }
 }
 

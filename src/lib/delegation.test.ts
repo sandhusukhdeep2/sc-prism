@@ -580,3 +580,74 @@ describe('appRunCapabilities — plugin servers lift the ceiling', () => {
     expect(appRunCapabilities(base)).toEqual(['vault'])
   })
 })
+
+// THREE LEVELS (2026-11-14, lib/messageWeight.ts `messageLevel`). The owner:
+// "a normal hello or a normal thinking question — only the primary… a little
+// complex, the primary and local… more complex, all the AIs."
+describe('decideRouting — talk, a job for two, a job for everyone', () => {
+  const GEMINI: Teammate = {
+    token: 'gemini',
+    label: 'Gemini',
+    local: false,
+    typicalSeconds: 12,
+    strongestReasoner: false,
+  }
+  const base = { team: [CLAUDE, LOCAL, GEMINI], wantsTeam: true, managerToken: 'claude' }
+
+  it('a message with no words in it is answered by the primary alone', () => {
+    // He sent "?" and it staffed three AIs for 8,121 tokens.
+    const choice = decideRouting({ ...base, intent: '?' })
+    expect(choice.level).toBe('talk')
+    expect(choice.assigned).toEqual([CLAUDE])
+    expect(choice.small).toBe('a short message')
+  })
+
+  it('an ordinary question is answered by the primary alone, however long', () => {
+    const choice = decideRouting({ ...base, intent: 'What is the difference between RAG and fine-tuning?' })
+    expect(choice.level).toBe('talk')
+    expect(choice.assigned).toEqual([CLAUDE])
+    expect(choice.reason).toMatch(/a question, not a job/)
+  })
+
+  it('one piece of work is a job for two: the primary and the local model', () => {
+    const choice = decideRouting({ ...base, intent: 'fix the footer link' })
+    expect(choice.mode).toBe('team')
+    expect(choice.level).toBe('job')
+    expect(choice.assigned).toEqual([CLAUDE, LOCAL])
+    expect(choice.reason).toContain('one piece of work')
+    expect(choice.reason).toContain('two is enough')
+  })
+
+  it('a big job gets everyone, and says what made it big', () => {
+    const choice = decideRouting({ ...base, intent: 'audit the vault for stale notes' })
+    expect(choice.mode).toBe('team')
+    expect(choice.level).toBe('big')
+    expect(choice.assigned).toEqual([CLAUDE, LOCAL, GEMINI])
+    expect(choice.reason).toContain('“audit” asks for more than one pair of eyes')
+  })
+
+  it('picking the team by hand gets everyone, whatever the size', () => {
+    const choice = decideRouting({ ...base, intent: 'fix the footer link', teamExplicit: true })
+    expect(choice.level).toBe('big')
+    expect(choice.assigned).toHaveLength(3)
+    expect(choice.reason).toContain('you picked the team')
+  })
+
+  it('a file riding along gets everyone', () => {
+    const choice = decideRouting({ ...base, intent: 'fix the footer link', hasAttachments: true })
+    expect(choice.assigned).toHaveLength(3)
+  })
+
+  it('with no local model there is nobody to hand one job to, so the team takes it', () => {
+    const choice = decideRouting({ ...base, team: [CLAUDE, GEMINI], intent: 'fix the footer link' })
+    expect(choice.mode).toBe('team')
+    expect(choice.assigned).toEqual([CLAUDE, GEMINI])
+  })
+
+  it('with only two AIs connected a job and a big job are the same two', () => {
+    const job = decideRouting({ ...base, team: [CLAUDE, LOCAL], intent: 'fix the footer link' })
+    const big = decideRouting({ ...base, team: [CLAUDE, LOCAL], intent: 'audit the vault' })
+    expect(job.assigned).toEqual([CLAUDE, LOCAL])
+    expect(big.assigned).toEqual([CLAUDE, LOCAL])
+  })
+})

@@ -11,6 +11,8 @@ import ProjectFilesPane from '../components/ProjectFilesPane'
 import { paneAfterRun, roomPane, type PanePick, type PaneTab } from '../lib/roomPane'
 import { foldSeatTurns, seatFoldSummary, type SeatTurn } from '../lib/chatFold'
 import { RailSlotContext } from '../lib/railSlot'
+import { teamSend } from '../lib/teamSend'
+import { workloadAIs } from '../lib/workloadSeats'
 import AgentDossierPanel from '../components/AgentDossierPanel'
 import { Link } from 'react-router-dom'
 import VerdictCard, { toVerdictView } from '../components/VerdictCard'
@@ -282,7 +284,17 @@ export default function Workspace() {
   // (the same preset the Agents launcher shows) and editable right here.
   // The manager staffs the team (2026-08-31): the composer no longer edits a
   // roster string — the settings-derived default is what launch resolves.
-  const roster = teamRosterFromSettings(settings)
+  // THREE LEVELS (2026-11-14): a job for two or a job for everyone. `plan` is
+  // the roster that is really sent and the line that says so (lib/teamSend.ts)
+  // — built from the default team AS THE WORKLOAD SLIDER SEATED IT.
+  const plan = teamSend({
+    fullRoster: teamRosterFromSettings(settings),
+    primaryToken: workloadAIs(settings).primary,
+    text: draft,
+    picked: teamPicked,
+    attached: attachments.length > 0 || !!image,
+  })
+  const roster = plan.roster
   // The same provider gate the launch itself applies (AppStore.launchTeam), so
   // this hint and the run can never disagree: a role whose model maps to a
   // provider that isn't connected sits out, and it says so here first.
@@ -1492,7 +1504,11 @@ export default function Workspace() {
               }
               aria-label="Who takes this, and why"
             >
-              {lane.on ? lane.line : routingLine(routing)}
+              {lane.on
+                ? lane.line
+                : effectiveTarget === 'team' && routing.mode === 'team' && !routing.floor && plan.line
+                  ? plan.line
+                  : routingLine(routing)}
               {!lane.on && routing.soloNote && routing.mode !== 'refused' && (
                 <span className="chat__routingnote"> · {routing.soloNote}</span>
               )}

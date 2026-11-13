@@ -9,7 +9,13 @@
 // by hand always wins, so a wrong guess costs one click and never a silent run.
 
 /** '' when the message is a job; otherwise what kind of small message it is. */
-export type SmallKind = '' | 'a greeting' | 'a short message' | 'a short question'
+export type SmallKind =
+  | ''
+  | 'a greeting'
+  | 'a short message'
+  | 'a short question'
+  | 'a question'
+  | 'a remark'
 
 // Openers that make a message a greeting or an acknowledgement.
 const GREETINGS = [
@@ -49,31 +55,125 @@ function namesWork(word: string): boolean {
   })
 }
 
+// THREE LEVELS (2026-11-14). The owner, watching his tokens: "a normal hello,
+// or a normal thinking question — only the primary should answer… if things
+// get a little complex, the primary and local; more complex, all the AIs."
+//
+//   talk — a greeting, a question, a remark. One AI answers. No team.
+//   job  — one piece of work. Two seats: one leads, the local model works.
+//   big  — work in several parts, a long brief, or work that asks for more
+//          than one pair of eyes (review, research, audit…). The full team.
+//
+// Still a rule, never a model's guess: asking an AI how many AIs a message
+// needs would itself cost a call on every hello.
+
+/** Verbs a single AI can simply ANSWER — they are not a job on their own. */
+const TELL = ['explain', 'describe', 'define', 'tell', 'show', 'calculate', 'convert', 'translate']
+
+/** Words that ask for more than one pair of eyes. */
+const TEAM_WORDS = ['review', 'audit', 'critique', 'research', 'debate', 'compare']
+const TEAM_PHRASES = ['second opinion', 'pros and cons', 'whole team', 'full team', 'all the ais', 'all ais', 'everyone']
+
+/** Openers that make a sentence a REQUEST even when no work word is in it. */
+const REQUESTS = ['i need', 'i want', 'we need', 'we want', "i'd like", 'i would like', 'please', "let's", 'lets']
+
+/** Words that put one piece of work after another. */
+const SEQUENCE = /\b(?:and then|then|after that|afterwards|finally)\b/g
+
+const LONG_BRIEF_WORDS = 45
+const QUESTION_WORDS = 30
+const REMARK_WORDS = 12
+
+function stemOf(word: string, stems: readonly string[]): string {
+  return (
+    stems.find((stem) => {
+      if (word === stem || word === `${stem}s` || word === `${stem}es` || word === `${stem}ed` || word === `${stem}d` || word === `${stem}ing`) return true
+      if (stem.endsWith('e') && word === `${stem.slice(0, -1)}ing`) return true
+      return false
+    }) ?? ''
+  )
+}
+
+export type MessageLevel = 'talk' | 'job' | 'big'
+
+export interface LevelChoice {
+  level: MessageLevel
+  /** For talk: what kind of message it is. '' for work (and for nothing typed). */
+  kind: SmallKind
+  /** For work: the reason, in a few words the composer can show. */
+  why: string
+}
+
 /**
- * What kind of small message this is, or '' when it is a job (or empty).
- * First rule that fires wins:
- *   1. opens with a greeting, names no work, eight words or fewer -> a greeting
- *   2. one word (a verb with nothing to act on is not a job yet)   -> a short message
- *   3. names work                                                  -> a job
- *   4. a question of six words or fewer                            -> a short question
- *   5. three words or fewer                                        -> a short message
- *   6. otherwise                                                   -> a job
+ * Which level a message is. First rule that fires wins:
+ *   1. no words at all ("?", "👍")                     -> talk
+ *   2. opens with a greeting, no work, eight words     -> talk
+ *   3. one word                                        -> talk
+ *   4. asks for more than one pair of eyes             -> big
+ *   5. a list, a long brief, or work after work        -> big
+ *   6. a question that names nothing to MAKE           -> talk
+ *   7. names work, or opens as a request               -> job
+ *   8. a short remark                                  -> talk
+ *   9. otherwise                                       -> job
  */
-export function smallMessage(text: string): SmallKind {
+export function messageLevel(text: string): LevelChoice {
   const raw = text.trim()
+  if (!raw) return { level: 'talk', kind: '', why: '' }
   const norm = raw
     .toLowerCase()
     .replace(/[^\p{L}\p{N}' ]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  if (!norm) return ''
+  // 1. Something was typed, and none of it is a word.
+  if (!norm) return { level: 'talk', kind: 'a short message', why: '' }
   const words = norm.split(' ')
-  const work = words.some(namesWork)
+  const workWords = words.filter(namesWork)
+  const tellOnly = workWords.length > 0 && workWords.every((w) => stemOf(w, TELL))
+  const makes = workWords.some((w) => !stemOf(w, TELL))
   const greetingLed = GREETINGS.some((g) => norm === g || norm.startsWith(`${g} `))
-  if (greetingLed && !work && words.length <= 8) return 'a greeting'
-  if (words.length === 1) return 'a short message'
-  if (work) return ''
-  if ((raw.endsWith('?') || ASKING.includes(words[0])) && words.length <= 6) return 'a short question'
-  if (words.length <= 3) return 'a short message'
-  return ''
+  if (greetingLed && workWords.length === 0 && words.length <= 8) {
+    return { level: 'talk', kind: 'a greeting', why: '' }
+  }
+  if (words.length === 1) return { level: 'talk', kind: 'a short message', why: '' }
+
+  // 4. More than one pair of eyes.
+  const teamWord = words.map((w) => stemOf(w, TEAM_WORDS)).find(Boolean)
+  if (teamWord) {
+    return { level: 'big', kind: '', why: `“${teamWord}” asks for more than one pair of eyes` }
+  }
+  const teamPhrase = TEAM_PHRASES.find((p) => norm.includes(p))
+  if (teamPhrase) return { level: 'big', kind: '', why: `you asked for “${teamPhrase}”` }
+
+  // 5. Several parts.
+  const listItems = raw.split('\n').filter((line) => /^\s*(?:[-*•]|\d+[.)])\s+\S/.test(line)).length
+  const sequenced = (norm.match(SEQUENCE) ?? []).length > 0 && workWords.filter((w) => !stemOf(w, TELL)).length >= 2
+  if (listItems >= 2 || sequenced) return { level: 'big', kind: '', why: 'work in several parts' }
+  if (words.length > LONG_BRIEF_WORDS) return { level: 'big', kind: '', why: 'a long brief' }
+
+  // 6. A question that names nothing to make is answered, not staffed.
+  const asking = raw.endsWith('?') || ASKING.includes(words[0])
+  if (asking && !makes && words.length <= QUESTION_WORDS) {
+    return { level: 'talk', kind: words.length <= 6 ? 'a short question' : 'a question', why: '' }
+  }
+  // …and so is "explain how X works": one AI can simply answer it.
+  if (tellOnly && words.length <= QUESTION_WORDS) return { level: 'talk', kind: 'a question', why: '' }
+
+  // 7. Work.
+  if (makes) return { level: 'job', kind: '', why: 'one piece of work' }
+  const request = REQUESTS.some((r) => norm === r || norm.startsWith(`${r} `))
+  if (request) return { level: 'job', kind: '', why: 'one piece of work' }
+
+  // 8. A short remark.
+  if (words.length <= 3) return { level: 'talk', kind: 'a short message', why: '' }
+  if (words.length <= REMARK_WORDS) return { level: 'talk', kind: 'a remark', why: '' }
+  return { level: 'job', kind: '', why: 'one piece of work' }
+}
+
+/**
+ * What kind of small message this is, or '' when it is work (or nothing was
+ * typed). A small message is answered by one AI; no team is staffed.
+ */
+export function smallMessage(text: string): SmallKind {
+  const choice = messageLevel(text)
+  return choice.level === 'talk' ? choice.kind : ''
 }

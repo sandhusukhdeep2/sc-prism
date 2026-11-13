@@ -268,10 +268,12 @@ describe('Work composer target — who gets this task', () => {
     expect(target(/your local model/i)).toHaveAttribute('aria-checked', 'false')
     expect(composer().placeholder).toBe('Describe the task for the team…')
 
-    sendDraft('and now a quick question')
-    expect(h.sendTeam).toHaveBeenCalledTimes(1) // the default lane really runs the team
+    // A piece of WORK on the default lane really runs the team. (A remark like
+    // "and now a quick question" is talk since 2026-11-14 — one AI answers it.)
+    sendDraft('and now draft the launch note')
+    expect(h.sendTeam).toHaveBeenCalledTimes(1)
     expect(h.send).toHaveBeenCalledTimes(1) // still the one manager send
     expect(h.send.mock.calls[0][0]).toBe('plan the dashboard')
-    expect((h.sendTeam.mock.calls[0][0] as { task: string }).task).toBe('and now a quick question')
+    expect((h.sendTeam.mock.calls[0][0] as { task: string }).task).toBe('and now draft the launch note')
   })
 })

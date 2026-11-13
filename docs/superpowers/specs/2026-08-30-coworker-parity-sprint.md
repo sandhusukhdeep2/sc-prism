@@ -282,3 +282,40 @@ stopping it, or the app restarting, threw the hours away.
 Not built: an expected-time figure before a first build (the card says in
 words that a large vault takes hours); picking up notes that CHANGED since
 they were indexed without a full rebuild.
+
+## Three levels: talk, a job for two, a job for everyone (2026-11-14)
+
+The owner, watching his tokens: *"a normal hello, hi, or a normal thinking
+question — only the primary AI can answer them, no token burn. If things get a
+little complex, the primary and local; more complex, him, local and all the
+other AIs. Even a normal hello takes lots of tokens and all three AIs."*
+
+Two things were really wrong after the small-message rule of 2026-11-11:
+
+- A message with **no words in it** — he had sent `?` — was not "small": the
+  rule counted words and found none, so it staffed three AIs and spent 8,121
+  tokens.
+- An **ordinary question** longer than six words was a "job", so it staffed
+  three as well.
+
+### The rule (`lib/messageWeight.ts` `messageLevel`)
+
+| level | what it is | who gets it |
+| --- | --- | --- |
+| **talk** | a greeting, a message with no words, a question that names nothing to make, "explain…", a short remark | one AI — the primary. No team, no judge, not counted as a run |
+| **a job** | one piece of work, or a sentence that opens as a request | two seats: the one that does the work and one other (`lib/workload.ts` `jobRoster`) |
+| **a big job** | work that asks for more than one pair of eyes (review, research, audit, compare, debate, "second opinion"), a list, work after work ("…then…"), a brief over 45 words, a file riding along, or the team picked by hand | every seat of the default team |
+
+- **Still a rule, never a model's guess.** Asking an AI how many AIs a message
+  needs would itself cost a call on every hello. The level is shown above the
+  composer before the send, with its reason, and picking the team by hand
+  always wins.
+- **The second seat of a job follows the workload slider.** The two seats are
+  taken from the default team as the slider seated it: the worker, plus a seat
+  on the primary if there is one (the lead first, then the check — so "primary
+  checks only" keeps the check), else the lead.
+- **The line names the seats that are sent** (`lib/teamSend.ts`): "lead on
+  Claude + researcher on your local model · one piece of work, so two seats".
+  It used to come from a separate reading of who would lead, which could name
+  an AI the slider had since moved off that seat.
+- The sensitivity floor still comes before all of it.

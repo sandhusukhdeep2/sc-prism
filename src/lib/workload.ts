@@ -200,3 +200,29 @@ export function workloadCopy(stop: WorkloadStop, primaryName: string): { word: s
       return { word: 'Each agent’s own AI', desc: 'every agent runs on the AI set on it — the slider is off' }
   }
 }
+
+/**
+ * A JOB FOR TWO (2026-11-14). One piece of work does not need every AI. From
+ * the default team as the slider seated it, keep the seat that DOES the work
+ * and one other: a seat on the primary if there is one (the lead first, then
+ * the check — so "primary checks only" keeps the check), else the lead.
+ * A team of two or fewer is returned as it is.
+ */
+export function jobRoster(roster: string, primaryToken: string): string {
+  const seats = splitRoster(roster)
+  if (seats.length <= 2) return roster
+  const worker = seats.find((s) => seatKind(s.role) === 'do')
+  if (!worker) return seats.slice(0, 2).map((s) => `${s.role}:${s.token}`).join(',')
+  const others = seats.filter((s) => s !== worker)
+  const onPrimary = (kind: SeatKind) =>
+    others.find((s) => seatKind(s.role) === kind && !!primaryToken && s.token === primaryToken)
+  const second =
+    onPrimary('plan') ??
+    onPrimary('check') ??
+    others.find((s) => seatKind(s.role) === 'plan') ??
+    others[0]
+  return seats
+    .filter((s) => s === worker || s === second)
+    .map((s) => `${s.role}:${s.token}`)
+    .join(',')
+}
