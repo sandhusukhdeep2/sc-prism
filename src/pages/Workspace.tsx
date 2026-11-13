@@ -403,6 +403,10 @@ export default function Workspace() {
   const roomRuns = runsInRoom(liveRuns, roomKey)
   const elsewhere = runsElsewhere(liveRuns, roomKey)
   const executingAnywhere = activeRuns(liveRuns)
+  // One AI answering a message is not a run to DRAW: the chat's own "… is
+  // thinking" bubble says it, and saying it again in a strip (and a third time
+  // in the composer) is the repetition this room was rebuilt to remove.
+  const stripRuns = roomRuns.filter((r) => r.kind !== 'chat')
   const executing = activeRuns(roomRuns)
   const anyLive = executing.length > 0
   // The rail's visibility: the user's explicit choice wins; 'auto' folds it
@@ -953,7 +957,12 @@ export default function Workspace() {
                 (activeProject
                   ? roomCountLine(agents, activeProject.id, agentOrbs(boardSpans), false)
                   : '') ||
-                `${greeting(Date.now(), settings.yourName)} — nothing running right now`}
+                // "Nothing running" is a claim about the whole engine, so it
+                // is made only when that is true — not above a line saying
+                // the engine is busy in another room.
+                (executingAnywhere.length > 0
+                  ? greeting(Date.now(), settings.yourName)
+                  : `${greeting(Date.now(), settings.yourName)} — nothing running right now`)}
           </div>
         </div>
         <div className="ws__spacer" />
@@ -1046,10 +1055,11 @@ export default function Workspace() {
               and, for a room with no run of its own, one line saying where
               the engine is busy. */}
           <RunStrip
-            runs={roomRuns}
+            runs={stripRuns}
             spans={boardSpans}
             live={anyLive}
             elsewhere={elsewhere}
+            engines={executingAnywhere.length}
             roomName={(room) =>
               room === MANAGER_ROOM ? 'Manager' : (projects.find((p) => p.id === room)?.name ?? 'another room')
             }
@@ -1497,9 +1507,7 @@ export default function Workspace() {
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={
-                state.running
-                  ? `${thinkingLabel} — type your next message meanwhile`
-                  : `${composerLabel}…`
+                state.running ? 'Type your next message meanwhile…' : `${composerLabel}…`
               }
               aria-label={composerLabel}
             />

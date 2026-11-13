@@ -20,6 +20,7 @@ import { Link } from 'react-router-dom'
 import { STRIP_H, packetRadii, stageModel } from '../lib/stageModel'
 import { elapsedLabel, kindLabel, runRoom, type LiveRun } from '../lib/liveRuns'
 import { useNarrow } from '../lib/useNarrow'
+import { shortAi } from './CrewBoard'
 import { useNow } from '../lib/useNow'
 import type { EngineSpan } from '../lib/nativeEngine'
 import './RunStrip.css'
@@ -36,6 +37,7 @@ export default function RunStrip({
   onOpenRoom,
   onOpenAgent,
   fullViewHref,
+  engines,
   now: fixedNow,
 }: {
   /** THIS room's runs — executing or parked on the user. */
@@ -52,6 +54,10 @@ export default function RunStrip({
   onOpenRoom?: (room: string) => void
   /** A seat was opened: the page shows that agent's own record. */
   onOpenAgent?: (agent: string) => void
+  /** How many engines are executing in all, when the room knows of one this
+   *  strip is not shown (one AI answering a message). Default: counted from
+   *  `runs` and `elsewhere`. */
+  engines?: number
   /** Where the same run is drawn full window (the Live page). */
   fullViewHref?: string
   /** Injected wall clock (tests). Omitted → a 1 s tick while anything runs. */
@@ -77,7 +83,7 @@ export default function RunStrip({
   }, [drawn])
   const packet = packetRadii(box.w, box.h, STRIP_H)
   // Every engine executing right now, wherever it belongs.
-  const atOnce = runs.filter((r) => !r.paused).length + elsewhere.length
+  const atOnce = engines ?? runs.filter((r) => !r.paused).length + elsewhere.length
 
   if (runs.length === 0) {
     // Not this room's run to draw — but a message sent from here would wait
@@ -187,7 +193,9 @@ export default function RunStrip({
       {live && drawn && model.caption && (
         <p className="strip__caption" role="status">
           <b>{model.caption.who}</b>
-          <span className="strip__captionai mono">{model.caption.ai}</span>
+          <span className="strip__captionai mono" title={model.caption.ai}>
+            {shortAi(model.caption.ai, 26)}
+          </span>
           <span className="strip__captiontext">{model.caption.text}</span>
         </p>
       )}

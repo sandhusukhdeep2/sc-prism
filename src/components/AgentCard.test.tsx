@@ -112,7 +112,7 @@ describe('Live agent surface — real runs only', () => {
     await mounted()
 
     await act(async () => {
-      captured.app!.beginLiveRun({ kind: 'chat', intent: 'add a rate-limit guard to the uploader' })
+      captured.app!.beginLiveRun({ kind: 'team', intent: 'add a rate-limit guard to the uploader' })
     })
     await act(async () => {
       await Promise.resolve()

@@ -87,6 +87,36 @@ describe('the room says each thing once', () => {
     expect(within(details).getByText('ship the thing')).toBeInTheDocument()
   })
 
+  // Seen in the real app during a build, 2026-11-14: Details said "RUNNING",
+  // then "running — step 2 of 2", then "step 2 of 2 — <the step>" over a bar,
+  // then a live narration console — beside a strip already saying who was
+  // working, and a Steps tab holding the log.
+  it('a build in progress is one line in Details: which step, and how far', async () => {
+    const project = addProject('Once Only', 'ship the thing', '', '/tmp/once-only')
+    updateProject(project.id, { status: 'running', plan: ['lay the base', 'add the page'], stepIndex: 1 })
+    localStorage.setItem(
+      'scprism.session',
+      JSON.stringify({
+        threads: { universal: [], [project.id]: [] },
+        verdicts: [],
+        stats: { tokensToday: 0, costToday: 0, tier1Saves: 0, localSharePct: 0, evalAvg: 0 },
+        activeProjectId: project.id,
+      }),
+    )
+    renderWorkspace()
+    await screen.findByRole('heading', { level: 1, name: 'Once Only' })
+    // A project persisted as 'running' is read back as interrupted; put it
+    // back to running the way the build driver does.
+    updateProject(project.id, { status: 'running' })
+    const details = await screen.findByRole('tabpanel')
+    expect(await within(details).findByText('step 2 of 2 — add the page')).toBeInTheDocument()
+    expect(within(details).queryByText(/running — step/)).not.toBeInTheDocument()
+    expect(details.querySelector('.prs__console')).toBeNull()
+    expect(details.querySelector('.prs__orb')).toBeNull()
+    // How far: the bar is still there.
+    expect(details.querySelector('.prs__bar')).not.toBeNull()
+  })
+
   it('with the team taking a message, who gets it is said by the line that names the seats — once', async () => {
     threeAIs()
     renderWorkspace()

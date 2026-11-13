@@ -167,6 +167,25 @@ describe('Work — one strip above the chat, and no Stage', () => {
     expect(screen.queryByText(/nothing is running now/)).not.toBeInTheDocument()
   }, 15000)
 
+  // Seen in the real app, 2026-11-14: a plain "hello" put up the strip ("chat ·
+  // hello · working…") above a chat bubble that already said "… is thinking",
+  // over a composer placeholder saying it a third time.
+  it('one AI answering a message is not a run to draw — the chat says it is thinking, once', async () => {
+    renderWorkspace()
+    await settle()
+    let id = ''
+    await act(async () => {
+      id = captured.app!.beginLiveRun({ kind: 'chat', intent: 'hello' })
+      await Promise.resolve()
+    })
+    await settle()
+    expect(document.querySelector('.strip')).toBeNull()
+    await act(async () => {
+      captured.app!.endLiveRun(id, 'passed')
+      await Promise.resolve()
+    })
+  })
+
   it('a run that belongs to another room is not drawn here — the room says where the engine is', async () => {
     const project = addProject('Side Room', 'ship it', '', '/tmp/side-room')
     updateProject(project.id, { status: 'done', plan: ['step one'], stepIndex: 1 })
@@ -190,6 +209,10 @@ describe('Work — one strip above the chat, and no Stage', () => {
     await settle()
     expect(document.querySelector('.strip.is-live')).toBeNull()
     expect(screen.getByText(/Busy in Manager — Ops · morning sweep/)).toBeInTheDocument()
+    // Seen in the real app, 2026-11-14: the head said "nothing running right
+    // now" directly above "Busy in Manager — …". The head may not say that
+    // while the engine is at work anywhere.
+    expect(screen.queryByText(/nothing running right now/)).not.toBeInTheDocument()
     expect(document.querySelectorAll('.strip__seat')).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name: 'Go to Manager' }))
     await settle()

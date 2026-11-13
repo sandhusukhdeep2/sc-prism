@@ -1,33 +1,25 @@
-// SC Prism — the cinematic run stage (Task B5). Renders inside a project's
-// detail view while its build is live: an agent orb "spawns" out of the
-// floating Companion orb's corner for the active step, completed steps
-// collapse into a row of dots, a glowing bar tracks stepIndex/plan.length,
-// a narration strip reuses the EngineConsole span-tail pattern, and an
-// awaiting run parks behind a circle-anchored Yes/No request card.
+// ProjectRunStage — where a project's build stands, inside its Details: the
+// steps already done as a row of dots, the step being worked ("step 2 of 3 —
+// …") over a bar, and, when the build parks on the user, the Yes/No card.
 //
-// Native-gated visuals only — no simulation fallback (a project never runs
-// in the browser demo), so this stays silent whenever there is nothing real
-// to show. All motion is transform/opacity keyframes (GPU-friendly) except
-// the explicitly-requested glow pulses (box-shadow, matching the app's
-// existing dockPulse/approvalPulse language) — every animation here has a
-// `prefers-reduced-motion` static fallback (see ProjectRunStage.css).
+// It used to carry an orb and a live narration console as well (Task B5).
+// Since 2026-11-14 the strip above the chat draws who is working and the
+// Steps tab holds the log, so here a build is said ONCE: which step, how far.
+//
+// Native-gated — a project never runs in the browser demo — so this stays
+// silent whenever there is nothing real to show. Motion is transform/opacity
+// with a `prefers-reduced-motion` static fallback (see ProjectRunStage.css).
 
 import { useEffect, useRef } from 'react'
 import { useApp, latestNotice } from '../store/AppStore'
-import { useSettings } from '../lib/settings'
-import { useSpanTail } from '../lib/engineConsole'
-import { FAIL_GLYPH } from '../lib/glyphs'
-import { isNative } from '../lib/nativeEngine'
 import type { Project } from '../lib/projects'
 import './ProjectRunStage.css'
 
 export default function ProjectRunStage({ project }: { project: Project }) {
   const { state, answerProjectRequest } = useApp()
-  const { settings } = useSettings()
 
   const running = project.status === 'running'
   const awaiting = project.status === 'awaiting'
-  const { lines, seen, boxRef } = useSpanTail(settings.vaultPath, running)
 
   // Focus management for the awaiting-decision modal (aria-modal). When the gate
   // parks, move focus to its primary action; while open, Escape resolves it as
@@ -64,15 +56,6 @@ export default function ProjectRunStage({ project }: { project: Project }) {
           {project.plan.slice(0, doneCount).map((label, i) => (
             <span key={i} className="prs__dot prs__dot--pop" title={label} />
           ))}
-          {running && (
-            // Keyed by step + refine pass so a fresh spawn animation plays
-            // for every new attempt, not just every new step.
-            <span
-              key={`${project.stepIndex}-${project.refinePass}`}
-              className="prs__orb"
-              aria-hidden="true"
-            />
-          )}
         </div>
         {project.refinePass > 0 && (
           <span className="prs__refine mono">refine pass {project.refinePass}</span>
@@ -87,30 +70,6 @@ export default function ProjectRunStage({ project }: { project: Project }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-
-      {isNative() && (lines.length > 0 || running) && (
-        <div className="prs__console">
-          <div className="prs__consolehead mono">
-            <span className={'prs__consoledot' + (running ? ' prs__consoledot--live' : '')} />
-            narration {running ? '· live' : `· last run (${seen} spans)`}
-          </div>
-          <div className="prs__consolebody mono" ref={boxRef}>
-            {lines.map((l, i) => (
-              <div
-                key={i}
-                className={'prs__consoleline' + (l.startsWith(FAIL_GLYPH) ? ' prs__consoleline--err' : '')}
-              >
-                {l}
-              </div>
-            ))}
-            {running && (
-              <div className="prs__consoleline prs__consoleline--wait">
-                … working (narration appears as each phase completes)
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {awaiting && (
         <div

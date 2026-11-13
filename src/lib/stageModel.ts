@@ -128,17 +128,23 @@ export function stageModel(
   const row = shape === 'row'
   const boxH = row ? STRIP_H : STAGE_H
   const spots = row ? stripLayout(orbs.length) : stageLayout(orbs.length)
-  const seats: StageSeat[] = orbs.map((o, i) => ({
-    name: o.agent,
-    ai: [o.provider, o.model].filter(Boolean).join(' · ') || 'an AI',
-    local: o.provider === 'local',
-    tint: agentTint(o.provider, o.model),
-    letter: monogram(o.agent),
-    state: seatState(spans as EngineSpan[], o.agent, live),
-    running: live && o.outcome === 'running',
-    x: spots[i].x,
-    y: spots[i].y,
-  }))
+  const seats: StageSeat[] = orbs.map((o, i) => {
+    const state = seatState(spans as EngineSpan[], o.agent, live)
+    return {
+      name: o.agent,
+      ai: [o.provider, o.model].filter(Boolean).join(' · ') || 'an AI',
+      local: o.provider === 'local',
+      tint: agentTint(o.provider, o.model),
+      letter: monogram(o.agent),
+      state,
+      // Working right now: its model call is open — or, between calls, a tool
+      // of its own is (`seatState` only says 'thinking' / 'tool' for an OPEN
+      // span on a LIVE run, so a parked or finished run cannot reach here).
+      running: live && (o.outcome === 'running' || state.kind === 'thinking' || state.kind === 'tool'),
+      x: spots[i].x,
+      y: spots[i].y,
+    }
+  })
   const at = new Map(seats.map((s, i) => [s.name, i] as const))
 
   // One link per ordered pair, carrying its LATEST label; first-seen order.
@@ -183,9 +189,14 @@ export function stageModel(
   })
 
   // Who is speaking: the seat working now, else the seat that took the last turn.
+  // When more than one seat has work open, it is the one the latest handoff
+  // went to — the same seat the moving link points at.
+  const receiver = last && at.has(last.to) ? seats[at.get(last.to)!] : undefined
   const speaking =
+    (receiver?.running ? receiver : undefined) ??
     seats.find((s) => s.running) ??
-    (last ? seats[at.get(last.to)!] : seats[seats.length - 1])
+    receiver ??
+    seats[seats.length - 1]
   const caption = speaking
     ? { who: speaking.name, ai: speaking.ai, text: speaking.state.text }
     : null

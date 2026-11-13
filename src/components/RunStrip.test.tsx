@@ -179,6 +179,23 @@ describe('RunStrip', () => {
     expect(screen.queryByText(/no engine step reported yet/)).not.toBeInTheDocument()
   })
 
+  it('…and when the other engine is one the strip does not draw (one AI answering a message)', () => {
+    // The room tells the strip how many engines are at work in all.
+    render(<RunStrip {...base} runs={[run()]} spans={[]} live engines={2} />)
+    expect(screen.getByRole('status')).toHaveTextContent('2 runs at once')
+  })
+
+  it('a long model name is shortened in the sentence, and kept whole on hover', () => {
+    const long = 'Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled-MLX-oQ4-MTP'
+    render(
+      <RunStrip {...base} runs={[run()]} spans={[working('researcher', 1, { model: long })]} live />,
+    )
+    const ai = document.querySelector('.strip__captionai') as HTMLElement
+    expect(ai.textContent).not.toContain(long)
+    expect(ai.textContent).toMatch(/^local · Qwen3\.6-35B.*…$/)
+    expect(ai).toHaveAttribute('title', `local · ${long}`)
+  })
+
   it('opening a seat hands the page that agent', () => {
     const onOpenAgent = vi.fn()
     render(

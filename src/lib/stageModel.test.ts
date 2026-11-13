@@ -178,3 +178,55 @@ describe('packetRadii in the strip', () => {
     expect(packetRadii(500, 50, STRIP_H)).toEqual({ rx: 10, ry: 10 })
   })
 })
+
+// Seen in a real two-seat run, 2026-11-14: the researcher was "searching the
+// web" — its model call had closed and a tool call was open — and nothing on
+// the strip moved: the seat did not breathe and the link into it lay still.
+// A seat using a tool on a live run IS working, and the drawing says so.
+describe('a seat using a tool is working', () => {
+  const tool = (agent: string, start: number, open: boolean): EngineSpan =>
+    ({
+      span_id: `${agent}-tool-${start}`,
+      type: 'tool_exec',
+      name: 'tool_exec',
+      start,
+      ...(open ? { status: 'open' } : { status: 'ok', end: start + 1 }),
+      attrs: { agent, tool: 'web_search' },
+    }) as unknown as EngineSpan
+  const spans = [call('lead', 1), call('researcher', 2), tool('researcher', 3, true)]
+
+  it('on a live run its seat is running and the handoff into it is in flight', () => {
+    const m = stageModel(spans, true, 'row')
+    const researcher = m.seats.find((s) => s.name === 'researcher')!
+    expect(researcher.state.text).toBe('searching the web')
+    expect(researcher.running).toBe(true)
+    expect(m.links.find((l) => l.to === 'researcher')!.live).toBe(true)
+  })
+
+  it('once the tool call has closed, nothing claims it is still working', () => {
+    const m = stageModel([call('lead', 1), call('researcher', 2), tool('researcher', 3, false)], true, 'row')
+    expect(m.seats.find((s) => s.name === 'researcher')!.running).toBe(false)
+    expect(m.links.find((l) => l.to === 'researcher')!.live).toBe(false)
+  })
+
+  it('a parked run moves nothing, whatever its last span says', () => {
+    const m = stageModel(spans, false, 'row')
+    expect(m.seats.some((s) => s.running)).toBe(false)
+    expect(m.links.some((l) => l.live)).toBe(false)
+  })
+})
+
+// Seen in a real build, 2026-11-14: packets ran implementer → reviewer while
+// the sentence under them said the implementer was thinking — two seats had a
+// call open, and the sentence took the first of them. The link that moves and
+// the sentence must be about the same seat.
+describe('who is speaking agrees with the link that moves', () => {
+  it('with two seats at work, it is the one the latest handoff went to', () => {
+    const open = (agent: string, start: number) =>
+      call(agent, start, { status: 'open', end: undefined } as never)
+    const m = stageModel([call('planner', 1), open('implementer', 2), open('reviewer', 3)], true, 'row')
+    const moving = m.links.find((l) => l.live)!
+    expect(moving.to).toBe('reviewer')
+    expect(m.caption?.who).toBe('reviewer')
+  })
+})

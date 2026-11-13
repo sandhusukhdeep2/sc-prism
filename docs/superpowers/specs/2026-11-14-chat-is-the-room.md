@@ -66,6 +66,26 @@ its own tabs.
 - The session's finished-run rows above the chat are gone: the answer and
   verdict in the chat, and Recent runs, are the record.
 
+## Found in the real app the same day, and fixed
+
+Driving the installed build through a real hello, a real two-seat job and a
+real project build showed five more repeats and one contradiction:
+
+- One AI answering a message put up the strip above a bubble already saying
+  "… is thinking", over a composer placeholder saying it a third time. A plain
+  chat answer is no longer a run to draw, and the placeholder only invites the
+  next message.
+- A seat using a tool between model calls ("searching the web") did not move:
+  it now counts as working, and the handoff into it is in flight.
+- With two seats at work, the sentence named one and the packets pointed at
+  the other. Who is speaking is now the seat the latest handoff went to.
+- A long local model name ran off the sentence: it is shortened, whole on hover.
+- The head said "nothing running right now" directly above "Busy in Manager".
+  It says that only when no engine is at work anywhere.
+- During a build, Details said RUNNING, then "running — step 2 of 2", then
+  "step 2 of 2 — …" over a bar, then a live narration console. It is now the
+  step and the bar; the strip draws who is working and Steps holds the log.
+
 ## Not built here
 
 - **Stop.** There is still no way to stop a run from the room. A chat send

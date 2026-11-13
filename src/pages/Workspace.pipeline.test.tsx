@@ -155,9 +155,9 @@ describe('Work page — the v2 board', () => {
     // the strip (the board beside the chat draws none).
     expect(seats()).toHaveLength(4)
     // Each coworker names the AI that really answered.
-    expect(strip().getByTitle(/local · Qwen3\.6-35B/)).toBeInTheDocument()
+    expect(strip().getAllByTitle(/local · Qwen3\.6-35B/).length).toBeGreaterThan(0)
     expect(strip().getAllByTitle(/claude-cli · opus/).length).toBeGreaterThan(0)
-    expect(strip().getByTitle(/gemini · gemini-2\.0/)).toBeInTheDocument()
+    expect(strip().getAllByTitle(/gemini · gemini-2\.0/).length).toBeGreaterThan(0)
     // The board is not on screen until asked for.
     expect(document.querySelector('.crew')).toBeNull()
     // The columns are the rounds the ENGINE reported, not phases we named.
@@ -218,7 +218,7 @@ describe('Work page — the v2 board', () => {
     h.readSpansTail.mockResolvedValue(crewSpans(base))
     await mounted()
     await act(async () => {
-      captured.app!.beginLiveRun({ kind: 'chat', intent: 'ask one' })
+      captured.app!.beginLiveRun({ kind: 'manager', intent: 'ask one' })
     })
     await act(async () => {
       await Promise.resolve()

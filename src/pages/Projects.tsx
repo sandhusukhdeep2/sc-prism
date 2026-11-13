@@ -894,11 +894,6 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               Resume build →
             </button>
           )}
-          {project.status === 'running' && (
-            <div className="proj__runningnote">
-              ⏳ running — step {Math.min(project.stepIndex + 1, project.plan.length)} of {project.plan.length}
-            </div>
-          )}
           {project.status === 'awaiting' && (
             <div className="proj__askbanner">
               <div className="proj__askbannertext">
