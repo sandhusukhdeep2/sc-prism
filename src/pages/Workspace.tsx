@@ -5,7 +5,7 @@ import { useNarrow } from '../lib/useNarrow'
 import { useSchedules } from '../lib/schedules'
 import { useManagers } from '../lib/managers'
 import { agentDossier, agentsInRun } from '../lib/agentDossier'
-import RunStage from '../components/RunStage'
+import RunStrip from '../components/RunStrip'
 import RoomPane from '../components/RoomPane'
 import ProjectFilesPane from '../components/ProjectFilesPane'
 import { paneAfterRun, roomPane, type PanePick, type PaneTab } from '../lib/roomPane'
@@ -24,7 +24,7 @@ import ChatRunStream from '../components/ChatRunStream'
 import UserBubble from '../components/UserBubble'
 import CopyButton from '../components/CopyButton'
 import { renderChatMarkdown } from '../lib/chatMarkdown'
-import { narrateStatus, narrationLines } from '../lib/narrate'
+import { narrateStatus } from '../lib/narrate'
 import { modelColor } from '../lib/modelColor'
 import {
   activeMessages,
@@ -45,13 +45,18 @@ import { greeting, statusLine, deskSummary } from '../lib/desk'
 import { isNative, pickFile, pickFolder, readImageBase64, readTextFile, revealVaultNote, revealPath } from '../lib/nativeEngine'
 import { composeWithAttachments, displayLine, type ChatAttachment } from '../lib/attachments'
 import { useSpanTail } from '../lib/engineConsole'
-import { stageSpans, type PipelineStage,
-  projectRunSpans,
-} from '../lib/pipeline'
-import type { EngineSpan } from '../lib/nativeEngine'
-import LiveRunCards from '../components/LiveRunCards'
-import { activeRuns, crewSize, currentRunSpans, lastFinishedRunSpans } from '../lib/liveRuns'
+import { projectRunSpans, stageSpans, type PipelineStage } from '../lib/pipeline'
 import CrewBoard from '../components/CrewBoard'
+import type { EngineSpan } from '../lib/nativeEngine'
+import {
+  MANAGER_ROOM,
+  activeRuns,
+  crewSize,
+  currentRunSpans,
+  lastFinishedRunSpans,
+  runsElsewhere,
+  runsInRoom,
+} from '../lib/liveRuns'
 import RunLedger from '../components/RunLedger'
 import { availableTeam, decideRouting, managerToken, routingLine } from '../lib/delegation'
 import { useInterview } from '../lib/interview'
@@ -182,7 +187,6 @@ function SeatBubble({ m }: { m: SeatTurn }) {
 
 /** The words on the buttons that open the pane beside the chat. */
 const PANE_LABEL: Record<PaneTab, string> = {
-  stage: 'Stage',
   steps: 'Steps',
   files: 'Files',
   details: 'Details',
@@ -392,7 +396,14 @@ export default function Workspace() {
   // refine?" gate) is registered but its engine has already exited, so it must
   // not make anything on this page glow, pulse or read "live" — it can sit
   // there all night. Its card stays, saying "waiting on you".
-  const executing = activeRuns(liveRuns)
+  // A RUN BELONGS TO ONE ROOM (spec 2026-11-14 §2). Everything on this page
+  // that says "live" is about THIS room's run; what the engine is doing for
+  // another room is one quiet line in the strip, and nothing else.
+  const roomKey = activeThreadKey(state.activeProjectId)
+  const roomRuns = runsInRoom(liveRuns, roomKey)
+  const elsewhere = runsElsewhere(liveRuns, roomKey)
+  const executingAnywhere = activeRuns(liveRuns)
+  const executing = activeRuns(roomRuns)
   const anyLive = executing.length > 0
   // The rail's visibility: the user's explicit choice wins; 'auto' folds it
   // exactly while something is genuinely executing.
@@ -416,7 +427,9 @@ export default function Workspace() {
   // The spans of whatever is running right now (by real span start time) — []
   // when nothing is live AND when 2+ runs are (they can't be told apart), so
   // narration can never outlive a run or be pinned on the wrong one.
-  const liveSpans = currentRunSpans(tail.spans, executing)
+  // Attribution asks about EVERY run executing, not only this room's: with a
+  // second engine at work anywhere, no span can be honestly pinned on ours.
+  const liveSpans = anyLive ? currentRunSpans(tail.spans, executingAnywhere) : []
   // WHAT THE BOARD DRAWS. While a run executes, only that run's spans (which is
   // [] whenever two runs are in flight, so one crew can never be attributed to
   // another). When nothing is running, the LAST FINISHED run's spans — but only
@@ -448,24 +461,16 @@ export default function Workspace() {
       : showsLastCrew
         ? finishedSpans
         : []
-  const narration = narrationLines(liveSpans, 4)
   // THE PANE BESIDE THE CHAT. The chat is always the chat; the run drawn to
   // be watched, the engine's steps, and a project's files and details open
   // next to it. A team at work takes the pane with the stage; a pick made by
   // hand holds until the next run starts; when a run ends the stage stays put
   // unless the project now needs the user (its details hold that button).
   const hasCrew = agentsInRun(boardSpans).length > 0
-  const paneFacts = {
-    hasCrew,
-    // Team work — a team run or a project build — is what takes the pane by
-    // itself. One AI answering a chat message does not pop a stage open.
-    team: executing.some((r) => r.kind === 'team' || r.kind === 'project'),
-    // A run parked on the user's answer: the board's "Your call" card is the
-    // only place that says what it is waiting for.
-    parked: liveRuns.some((r) => r.paused),
-    project: !!activeProject,
-    narrow,
-  }
+  // Steps are offered when there is a crew whose steps can be listed, and
+  // for a run parked on the user: the board in that tab says what it waits for.
+  const parked = roomRuns.some((r) => r.paused)
+  const paneFacts = { hasCrew: hasCrew || parked, project: !!activeProject, narrow }
   const projectNeedsYou =
     !!activeProject && ['planned', 'awaiting', 'attention'].includes(activeProject.status)
   // A run starting or ending moves the pick (lib/roomPane.ts `paneAfterRun`).
@@ -473,27 +478,17 @@ export default function Workspace() {
   // showed — so the pane never closes for a frame and reopens: the drawing
   // would restart its entrance under the reader's eyes.
   const [seenLive, setSeenLive] = useState(anyLive)
-  const [shownTab, setShownTab] = useState<PaneTab | null>(null)
   if (seenLive !== anyLive) {
     setSeenLive(anyLive)
-    setPanePick(
-      paneAfterRun({
-        pick: panePick,
-        wasLive: seenLive,
-        live: anyLive,
-        showing: shownTab,
-        needsYou: projectNeedsYou,
-      }),
-    )
+    setPanePick(paneAfterRun({ pick: panePick, wasLive: seenLive, live: anyLive, needsYou: projectNeedsYou }))
   }
-  const pane = roomPane({ pick: panePick, live: anyLive, ...paneFacts })
-  if (shownTab !== pane.tab) setShownTab(pane.tab)
+  const pane = roomPane({ pick: panePick, ...paneFacts })
   // A room of its own: another room starts from the rule, not from the tab
   // the last room happened to have open.
   useEffect(() => {
     setPanePick(null)
   }, [state.activeProjectId])
-  // The seat opened from the stage, held by NAME (a crew can grow mid-run).
+  // The seat opened from the strip, held by NAME (a crew can grow mid-run).
   const [stageAgent, setStageAgent] = useState<string | null>(null)
   const stageDossier = stageAgent ? agentDossier(boardSpans, stageAgent, anyLive) : null
   // (The active project's activity feed used to be piped into the console box
@@ -950,11 +945,15 @@ export default function Workspace() {
             {/* With a room open, the honest head count (design 2026-11-08 §A):
                 the project's agents from the store, who is working from the
                 board's spans, only while a run is genuinely live. */}
-            {status ||
-              (activeProject
-                ? roomCountLine(agents, activeProject.id, agentOrbs(boardSpans), anyLive)
-                : '') ||
-              `${greeting(Date.now(), settings.yourName)} — nothing running right now`}
+            {/* ONE STATEMENT PER FACT: while this room's run is live the strip
+                above the chat is speaking, and the head says nothing. */}
+            {anyLive
+              ? ''
+              : status ||
+                (activeProject
+                  ? roomCountLine(agents, activeProject.id, agentOrbs(boardSpans), false)
+                  : '') ||
+                `${greeting(Date.now(), settings.yourName)} — nothing running right now`}
           </div>
         </div>
         <div className="ws__spacer" />
@@ -1016,16 +1015,6 @@ export default function Workspace() {
             scrolls. (Until this fix the column itself was the scroller, with
             six page-shaped blocks stacked inside it — see Workspace.css.) */}
         <div className="ws__chatcol">
-          {/* WHAT IS RUNNING RIGHT NOW — one slim row per run in flight (its
-              timer and its Stop), `:empty` when nothing is running. The crew
-              itself is drawn in the pane beside the chat, once. */}
-          <div className={'ws__stage' + (anyLive ? ' ws__stage--live' : '')}>
-            {/* Live task cards — one per run the app has in flight, then the
-                recent outcome rows of THIS SESSION (which is what
-                state.finishedRuns is; the durable record is the ledger in the
-                rail). A card glows ONLY because its run is in state.liveRuns. */}
-            <LiveRunCards live={liveRuns} finished={state.finishedRuns} spans={tail.spans} compact={agentsInRun(boardSpans).length > 0} />
-          </div>
         <div className="chat">
           <div className="chat__tabs">
             <span className="chat__tab is-active">Chat</span>
@@ -1051,6 +1040,23 @@ export default function Workspace() {
             )}
           </div>
 
+          {/* THIS ROOM'S RUN, ONCE (spec 2026-11-14): what is running, who is
+              on it with the handoff in flight, who is speaking. It is here
+              only while this room's run is working or parked on the user —
+              and, for a room with no run of its own, one line saying where
+              the engine is busy. */}
+          <RunStrip
+            runs={roomRuns}
+            spans={boardSpans}
+            live={anyLive}
+            elsewhere={elsewhere}
+            roomName={(room) =>
+              room === MANAGER_ROOM ? 'Manager' : (projects.find((p) => p.id === room)?.name ?? 'another room')
+            }
+            onOpenRoom={(room) => pickRoom(room === MANAGER_ROOM ? '' : room)}
+            onOpenAgent={setStageAgent}
+            fullViewHref="/live"
+          />
           <div className="chat__body" ref={bodyRef}>
             {activeMessages(state).length === 0 && !state.running && (
               activeProject && nextSendMode(activeProject) === 'project-interview' ? (
@@ -1260,43 +1266,6 @@ export default function Workspace() {
                 ends; the verdict card is the durable record. */}
             {anyLive && <ChatRunStream spans={liveSpans} />}
 
-            {/* Plain-English narration (Mission Control §Plain-English
-                narration): ONE line per REAL span of the run in flight, so the
-                user follows along without opening a trace. Every line comes
-                from `narrateSpan`, which interpolates only what the span's
-                attrs actually carry — a missing attr yields a generic honest
-                phrase, never an invented model or agent. With no spans yet we
-                say exactly that instead of narrating something that hasn't
-                happened. The block is gated on `anyLive`, so it disappears the
-                moment the last live run clears. */}
-            {anyLive && (
-              <div className="chat__earlier chat__earlier--narrate">
-                <i className="dot dot--ok" />
-                <div className="chat__narration">
-                  {executing.length > 1 ? (
-                    /* 2+ runs are executing. Every span in the file could
-                       belong to either, so this strip narrates NEITHER — it
-                       says so and points at the cards, which are per-run and
-                       stay honest. It used to silently mix the two. */
-                    <span className="mono">
-                      {executing.length} runs in flight — their steps can&rsquo;t be told apart; see
-                      the task cards above
-                    </span>
-                  ) : narration.length > 0 ? (
-                    narration.map((l) => (
-                      <div key={l.key} className="chat__narrateline mono">
-                        {l.text}
-                      </div>
-                    ))
-                  ) : (
-                    // The simulator's live-agent line used to be preferred here;
-                    // it could only ever be empty on a native install, so the
-                    // honest fallback is the only line left.
-                    <span className="mono">working — no engine step reported yet</span>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {(attachments.length > 0 || image || attachError) && (
@@ -1443,10 +1412,8 @@ export default function Workspace() {
                 </>
               ) : effectiveTarget === 'team' ? (
                 <>
-                  <span className="chat__targethint">
-                    your manager staffs the team — who really worked shows in the run, seat by
-                    seat
-                  </span>
+                  {/* Who gets a team message is said ONCE, by the line under
+                      this that names the seats really being sent (teamSend). */}
                   {teamSitOut && (
                     <span className="chat__targethint chat__targethint--warn">
                       {teamSitOut}
@@ -1769,18 +1736,16 @@ export default function Workspace() {
             and the setup lives on Settings. Both are one click away in More. */}
         {pane.tab && (
           <RoomPane tab={pane.tab} tabs={pane.tabs} onTab={setPanePick} onClose={() => setPanePick('closed')}>
-            {pane.tab === 'stage' && (
+            {pane.tab === 'steps' && (
               <>
-                {/* THE RUN, DRAWN TO BE WATCHED. The stage draws each seat
-                    once; the board above it is one slim line — the count, the
-                    steps, anything parked on you. Both read `boardSpans`, which
-                    is [] whenever two runs are in flight, so a crew can never
-                    be attributed to the wrong run; `anyLive` is the only
-                    liveness signal, so a parked run's seat cannot glow. */}
+                {/* THE RUN'S STEPS, ON REQUEST: the rounds the engine reported
+                    (each opens its own engine detail), the count, anything
+                    parked on the user — then the whole run's log. No seats
+                    here: the strip above the chat draws each one once. */}
                 <CrewBoard
                   spans={boardSpans}
                   live={anyLive}
-                  runs={liveRuns}
+                  runs={roomRuns}
                   hideSeats
                   renderStageDetail={(stage: PipelineStage) => (
                     <EngineConsole
@@ -1791,25 +1756,8 @@ export default function Workspace() {
                     />
                   )}
                 />
-                <RunStage spans={boardSpans} live={anyLive} onOpenAgent={setStageAgent} />
-                {/* Nothing is claimed to be happening once the run is over:
-                    the drawing is a still picture, and it says of what. (A
-                    run parked on the user is not over, so it is not captioned
-                    as if it were.) */}
-                {!anyLive && hasCrew && !paneFacts.parked && (
-                  <div className="ws__lastcrew">
-                    {activeProject
-                      ? 'this project’s build so far · nothing is running now'
-                      : 'the last team run · nothing is running now'}
-                  </div>
-                )}
-                {stageDossier && (
-                  <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />
-                )}
+                <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
               </>
-            )}
-            {pane.tab === 'steps' && (
-              <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
             )}
             {pane.tab === 'files' && activeProject && (
               <ProjectFilesPane
@@ -1819,8 +1767,9 @@ export default function Workspace() {
             )}
             {pane.tab === 'details' && activeProject && (
               <div className="ws__details">
+                {/* The room's heading already says which project this is — here
+                    only where it stands. */}
                 <div className="ws__railhead">
-                  <div className="ws__railname">{activeProject.name || '(untitled)'}</div>
                   <StatusChip status={activeProject.status} />
                 </div>
                 {activeProject.goal && (
@@ -1833,6 +1782,7 @@ export default function Workspace() {
             )}
           </RoomPane>
         )}
+        {stageDossier && <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />}
       </section>
 
       {/* THE EVIDENCE ROW — full width, under the work, the shape Sukhdeep's

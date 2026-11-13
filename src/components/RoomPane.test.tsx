@@ -3,14 +3,14 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import RoomPane from './RoomPane'
 
-// The pane beside the chat: tabs for what the work produces, a way to give
-// the stage the whole window, and a way to close it.
+// The pane beside the chat: tabs for what the work produces, and a way to
+// close it. (No Stage tab since 2026-11-14 — a run is watched in the strip.)
 function show(over: Partial<Parameters<typeof RoomPane>[0]> = {}) {
   const onTab = vi.fn()
   const onClose = vi.fn()
   render(
     <MemoryRouter>
-      <RoomPane tab="stage" tabs={['stage', 'steps', 'files', 'details']} onTab={onTab} onClose={onClose} {...over}>
+      <RoomPane tab="steps" tabs={['steps', 'files', 'details']} onTab={onTab} onClose={onClose} {...over}>
         <p>the panel’s own content</p>
       </RoomPane>
     </MemoryRouter>,
@@ -22,9 +22,9 @@ describe('RoomPane', () => {
   it('offers the tabs it was given, in order, and marks the one on screen', () => {
     show()
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((t) => t.textContent)).toEqual(['Stage', 'Steps', 'Files', 'Details'])
-    expect(screen.getByRole('tab', { name: 'Stage' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Steps' })).toHaveAttribute('aria-selected', 'false')
+    expect(tabs.map((t) => t.textContent)).toEqual(['Steps', 'Files', 'Details'])
+    expect(screen.getByRole('tab', { name: 'Steps' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'false')
   })
 
   it('shows the content of the tab on screen', () => {
@@ -44,14 +44,9 @@ describe('RoomPane', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('the stage can be given the whole window', () => {
+  it('has no way out to another page — it is only ever beside the chat', () => {
     show()
-    expect(screen.getByRole('link', { name: 'Open the stage on its own page' })).toHaveAttribute('href', '/live')
-  })
-
-  it('…and only the stage — the other tabs have no page of their own', () => {
-    show({ tab: 'details' })
-    expect(screen.queryByRole('link', { name: 'Open the stage on its own page' })).toBeNull()
+    expect(screen.queryByRole('link')).toBeNull()
   })
 
   it('only offers what the room has', () => {

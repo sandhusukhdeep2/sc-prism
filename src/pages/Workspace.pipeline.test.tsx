@@ -62,15 +62,20 @@ function renderWorkspace() {
 /** Queries scoped to the board — the live cards and the engine console name the
  *  same agents/models elsewhere on the page, and those are not what is under
  *  test here. */
-// WHERE THE CREW IS DRAWN (2026-11-12). The room is split: the chat on the
-// left, and beside it a pane whose Stage tab holds the run drawn to be watched
-// — one slim board line (the count, the steps, anything parked on you) over
-// the stage, which draws each seat once. A team at work opens it by itself.
-// Every honesty rule these tests hold is unchanged; only the surface moved.
-const board = () => within(document.querySelector('.pane .crew') as HTMLElement)
-const stage = () => within(document.querySelector('.pane .stage') as HTMLElement)
-const seats = () => document.querySelectorAll('.pane .stage__seat')
-const working = () => document.querySelectorAll('.pane .stage__seat.is-running')
+// WHERE THE CREW IS DRAWN (2026-11-14, "The chat is the room"). Each seat is
+// drawn ONCE, in the strip at the top of the chat card. The board — the rounds
+// the engine reported, the count, the lock, anything parked on the user — is
+// the Steps tab beside the chat, opened on request. Every honesty rule these
+// tests hold is unchanged; only the surface moved.
+const strip = () => within(document.querySelector('.chat .strip') as HTMLElement)
+const seats = () => document.querySelectorAll('.chat .strip__seat')
+const working = () => document.querySelectorAll('.chat .strip__seat.is-running')
+/** Open the Steps tab (if it is not already) and scope to its board. */
+const board = () => {
+  const open = screen.queryByRole('button', { name: 'Steps' })
+  if (open) fireEvent.click(open)
+  return within(document.querySelector('.pane .crew') as HTMLElement)
+}
 
 async function mounted() {
   const view = renderWorkspace()
@@ -146,17 +151,19 @@ describe('Work page — the v2 board', () => {
       await Promise.resolve()
     })
 
-    // One seat per agent that really has a model_call span — drawn ONCE, on
-    // the stage (the board above it draws none).
+    // One seat per agent that really has a model_call span — drawn ONCE, in
+    // the strip (the board beside the chat draws none).
     expect(seats()).toHaveLength(4)
-    expect(document.querySelectorAll('.crew__cluster .crew__mono')).toHaveLength(0)
+    // Each coworker names the AI that really answered.
+    expect(strip().getByTitle(/local · Qwen3\.6-35B/)).toBeInTheDocument()
+    expect(strip().getAllByTitle(/claude-cli · opus/).length).toBeGreaterThan(0)
+    expect(strip().getByTitle(/gemini · gemini-2\.0/)).toBeInTheDocument()
+    // The board is not on screen until asked for.
+    expect(document.querySelector('.crew')).toBeNull()
     // The columns are the rounds the ENGINE reported, not phases we named.
     expect(board().getByText('Round 1')).toBeInTheDocument()
     expect(board().getByText('Pulling together')).toBeInTheDocument()
-    // Each coworker names the AI that really answered.
-    expect(stage().getByTitle('local · Qwen3.6-35B')).toBeInTheDocument()
-    expect(stage().getAllByTitle('claude-cli · opus').length).toBeGreaterThan(0)
-    expect(stage().getByTitle('gemini · gemini-2.0')).toBeInTheDocument()
+    expect(document.querySelectorAll('.crew__cluster .crew__mono')).toHaveLength(0)
     // rule 5 — the count is the real state of those spans.
     expect(board().getByText('3 working · 1 answered')).toBeInTheDocument()
     // rule 4 — a vault read really happened, so the badge is earned.
@@ -186,8 +193,9 @@ describe('Work page — the v2 board', () => {
 
     // Not one seat breathes, nothing travels a link, and no progress line
     // claims movement…
-    expect(document.querySelector('.stage__seat.is-running')).toBeNull()
-    expect(document.querySelector('.stage__packet')).toBeNull()
+    expect(document.querySelector('.strip__seat.is-running')).toBeNull()
+    expect(document.querySelector('.strip__packet')).toBeNull()
+    expect(strip().getByText('waiting on you')).toBeInTheDocument()
     expect(document.querySelector('.crew__mono--pulse')).toBeNull()
     expect(document.querySelector('.crew__bar')).toBeNull()
     // …while the real reason it stopped is stated in the black "Your call" card.
@@ -195,7 +203,7 @@ describe('Work page — the v2 board', () => {
     expect(board().getByText('Waiting on your answer')).toBeInTheDocument()
     // A parked run is not "the last run": nothing captions it as finished.
     expect(screen.queryByText(/nothing is running now/)).toBeNull()
-    expect(board().getByText('build the dashboard')).toBeInTheDocument()
+    expect(strip().getByText('build the dashboard')).toBeInTheDocument()
 
     // Answered: live again.
     await act(async () => {
@@ -215,18 +223,18 @@ describe('Work page — the v2 board', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    // One AI's chat run offers the stage without opening it; asked for, it
-    // draws that run's seats.
-    fireEvent.click(screen.getByRole('button', { name: 'Stage' }))
-    expect(stage().getByRole('button', { name: 'What researcher is doing' })).toBeInTheDocument()
+    // One run: its seats are drawn in the strip.
+    expect(strip().getByRole('button', { name: 'What researcher is doing' })).toBeInTheDocument()
 
     await act(async () => {
       captured.app!.beginLiveRun({ kind: 'team', intent: 'ask two' })
     })
 
     // Every span in the file could belong to either run, so NONE is claimed:
-    // no stage, no columns, no crew cluster, no lock badge, no counts.
-    expect(document.querySelector('.stage')).toBeNull()
+    // no seats, no columns, no crew cluster, no lock badge, no counts — each
+    // run still has its own line and clock.
+    expect(document.querySelectorAll('.strip__run')).toHaveLength(2)
+    expect(seats()).toHaveLength(0)
     expect(document.querySelector('.crew')).toBeNull()
     expect(document.querySelector('.crew__cols')).toBeNull()
     expect(screen.queryByText('researcher')).not.toBeInTheDocument()

@@ -2323,7 +2323,13 @@ interface AppContextValue {
   // register the same way the in-store runners do — one source of live truth,
   // not two. Contract: `const id = beginLiveRun(...)`, then ALWAYS
   // `endLiveRun(id, ...)` in a `finally`. A leaked id glows forever.
-  beginLiveRun: (run: { kind: LiveRunKind; intent: string; models?: string[]; id?: string }) => string
+  beginLiveRun: (run: {
+    kind: LiveRunKind
+    intent: string
+    models?: string[]
+    id?: string
+    room?: string
+  }) => string
   endLiveRun: (id: string, outcome: RunOutcome, detail?: string) => void
   /** PARK / UNPARK a registered run that is waiting on a HUMAN, so nothing on
    *  the page glows or pulses while no engine is executing. Exposed alongside
@@ -2475,7 +2481,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // SET_HEARTBEAT_LIVE transition (see the reducer) so the orb and the card
   // share one signal instead of two that could drift apart.
   const beginLiveRun = useMemo(() => {
-    return (run: { kind: LiveRunKind; intent: string; models?: string[]; id?: string }): string => {
+    return (run: {
+      kind: LiveRunKind
+      intent: string
+      models?: string[]
+      id?: string
+      /** The room it belongs to (a project id); omit for the Manager's. */
+      room?: string
+    }): string => {
       const id = run.id ?? newRunId()
       dispatch({
         type: 'LIVE_RUN_START',
@@ -2485,6 +2498,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           intent: shortIntent(run.intent) || kindFallbackIntent(run.kind),
           startedAt: Date.now(),
           models: run.models ?? [],
+          ...(run.room && run.room !== UNIVERSAL ? { room: run.room } : {}),
         },
       })
       return id
@@ -2618,6 +2632,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kind: 'team',
         intent: task,
         models: roster.split(',').map((a) => a.trim()).filter(Boolean),
+        // A board asked from a project's room is that room's run.
+        room: opts.projectId || undefined,
       })
       let outcome: RunOutcome = 'stopped'
       let detail = 'the team run ended without a recorded outcome'
@@ -3656,7 +3672,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // detail the honesty law forbids; the card fills models in from the run's
       // REAL spans. `chatEnd` records the honest ending, defaulting to
       // 'stopped' so an unexpected exit never claims a pass.
-      const chatRunLiveId = beginLiveRun({ kind: 'chat', intent: display })
+      const chatRunLiveId = beginLiveRun({ kind: 'chat', intent: display, room: originThread })
       let chatEnd: { outcome: RunOutcome; detail: string } = {
         outcome: 'stopped',
         detail: 'the send ended without a recorded outcome',
@@ -3920,6 +3936,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               id: sumRunId,
               kind: 'compaction',
               intent: `tidying the conversation — ${threadKey}`,
+              room: threadKey,
             })
             let sumEnd: { outcome: RunOutcome; detail: string } = {
               outcome: 'stopped',
@@ -4032,6 +4049,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const liveId = beginLiveRun({
         kind: 'project',
         intent: `interview — ${project.name || '(untitled)'}`,
+        room: project.id,
       })
       let end: { outcome: RunOutcome; detail: string } = {
         outcome: 'stopped',
@@ -4308,6 +4326,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // The roster the app ASKED the engine to build with — a real
         // request fact. Who actually answered comes from the run's spans.
         models: roster.split(',').map((r) => r.trim()).filter(Boolean),
+        room: project.id,
       })
       let buildEnd: { outcome: RunOutcome; detail: string } = {
         outcome: 'stopped',
@@ -4794,6 +4813,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const testLiveId = beginLiveRun({
             kind: 'test',
             intent: `checking «${project.name}» — ${project.verifyCommand}`,
+            room: project.id,
           })
           let testEnd: { outcome: RunOutcome; detail: string } = {
             outcome: 'stopped',

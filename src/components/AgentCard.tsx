@@ -4,7 +4,7 @@
 // the store's old live-agent slice, whose ONLY producer was the SIMULATOR's
 // `agent` events. On a native install with a real primary that code path is
 // never reached, so the card was empty 100% of the time — sitting directly
-// under LiveRunCards, which was glowing with a real run. It also showed a
+// under the live run cards of the time, which were glowing with a real run. It also showed a
 // `progress` percentage and a token `burn` the engine never reported.
 //
 // It now derives from the SAME truth every other live surface on the page

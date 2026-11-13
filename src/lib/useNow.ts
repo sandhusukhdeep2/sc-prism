@@ -1,6 +1,6 @@
 // useNow — the app's ONE live wall clock for elapsed-time labels.
 //
-// Extracted from LiveRunCards (2026-08-16) so every surface that shows "how
+// Extracted from the old live run cards (2026-08-16) so every surface that shows "how
 // long has this been running" ticks the same way instead of growing its own
 // copy: the Live-run cards and the Work page's Live agent card now share it.
 //

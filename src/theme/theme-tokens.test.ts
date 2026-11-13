@@ -346,31 +346,25 @@ describe('the engine console uses the room’s surfaces', () => {
 })
 
 // SMALL WINDOWS (clear-room spec 2026-11-09 §C). At 1000×760 during a live
-// run the stage kept its full height (`flex: 0 0 auto`) and the chat — the
-// hero — was a sliver with its composer clipped. In a small window the live
-// stage yields and the chat column keeps a floor.
-describe('the live stage yields in a small window', () => {
-  it('caps the live stage and floors the chat column under a narrow or short media query', () => {
+// run the stage above the chat kept its full height and the chat — the hero —
+// was a sliver with its composer clipped. Since 2026-11-14 the run is ONE
+// STRIP inside the chat card: a fixed, small height that cannot grow, so there
+// is nothing left to cap — and the chat column still keeps its floor.
+describe('a live run never squeezes the chat in a small window', () => {
+  it('floors the chat column under a narrow or short media query', () => {
     const ws = read('src/pages/Workspace.css')
     const small = ws.slice(ws.indexOf('@media (max-width: 1180px), (max-height: 820px)'))
     expect(small.length).toBeGreaterThan(10)
-    expect(small).toMatch(/\.ws__stage--live:not\(:empty\) \{[^}]*max-height: 4\d%/)
     expect(small).toMatch(/\.ws__chatcol \{[^}]*min-height: 2\d\dpx/)
+    // The row that had to be capped is gone, not merely restyled.
+    expect(ws).not.toMatch(/\.ws__stage\b/)
   })
-})
-
-// THE STAGE IS NEVER A SLIVER (seen 2026-11-11, idle, full-screen): with
-// `flex: 0 1 auto` the stage shrank in proportion to its size against a chat
-// thousands of pixels tall, so a finished-run row showed as a clipped strip
-// above the chat. The stage keeps its content height up to its cap and scrolls
-// inside; only the chat, which scrolls, yields.
-describe('the stage is never squeezed to a sliver', () => {
-  it('does not shrink; it is capped and scrolls inside', () => {
-    const ws = read('src/pages/Workspace.css')
-    const rule = ws.match(/^\.ws__stage \{[^}]*\}/m)?.[0] ?? ''
-    expect(rule).toMatch(/flex: 0 0 auto/)
-    expect(rule).toMatch(/max-height: \d+%/)
-    expect(rule).toMatch(/overflow-y: auto/)
+  it('the strip is a fixed band: it neither shrinks to a sliver nor grows', () => {
+    const css = read('src/components/RunStrip.css')
+    const rule = css.match(/^\.strip \{[^}]*\}/m)?.[0] ?? ''
+    expect(rule).toMatch(/flex: none/)
+    // The one part with any height of its own is the line of seats.
+    expect(css).toMatch(/\.strip__track \{[^}]*height: \d\dpx/)
   })
 })
 

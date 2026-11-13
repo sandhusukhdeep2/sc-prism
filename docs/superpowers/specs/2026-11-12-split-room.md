@@ -100,3 +100,9 @@ the app's other settings pages sit under the categories.
 
 - A live browser in the pane (it needs a browser plugin server).
 - Pages an agent fetched, shown as readable snapshots (slice 5).
+
+## Superseded in part (2026-11-14)
+
+The Stage tab described above is gone. A run is watched in one strip at the
+top of the chat card, and the pane holds Steps, Files and Details on request.
+See `2026-11-14-chat-is-the-room.md`.

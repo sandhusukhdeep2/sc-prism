@@ -12,7 +12,7 @@
 // mocked `readSpansTail` exactly as the engine writes them, and the card is
 // read out of the rendered Work page. A literal is never constructed.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, fireEvent, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -78,18 +78,13 @@ async function mounted() {
 // deleted — the Editor still renders it, and its own honesty rules are
 // unchanged — so nothing here is dropped: every claim these tests protected is
 // re-asserted against the surface that now carries it.
-const liveCard = (): HTMLElement | null => document.querySelector('.lrun__card')
-// WHERE THE CREW IS DRAWN (2026-11-12): in the pane beside the chat. Its Stage
-// tab holds one slim board line over the stage, which draws each seat once.
-// Team work opens it by itself; one AI answering a chat message only OFFERS it
-// (the `Stage` button), so a single answer does not pop a stage open.
-const board = (): HTMLElement | null => document.querySelector('.pane .crew')
-const stage = (): HTMLElement | null => document.querySelector('.pane .stage')
-function openStage() {
-  // The chat's header offers the button only while the pane is closed.
-  const btn = screen.queryByRole('button', { name: 'Stage' })
-  if (btn) fireEvent.click(btn)
-}
+// UPDATED AGAIN (2026-11-14, "The chat is the room"). The run card above the
+// chat, the crew board and the Stage tab are gone: one STRIP at the top of the
+// chat card now says what is running (kind · intent · elapsed), draws each
+// seat once, and says who is speaking. Every claim these tests protected is
+// re-asserted against the strip.
+const strip = (): HTMLElement | null => document.querySelector('.chat .strip')
+const runLine = (): HTMLElement | null => document.querySelector('.strip__run')
 
 describe('Live agent surface — real runs only', () => {
   beforeEach(() => {
@@ -123,16 +118,12 @@ describe('Live agent surface — real runs only', () => {
       await Promise.resolve()
     })
 
-    const live = liveCard()!.textContent ?? ''
-    // Beside the board the card is the task and the clock; the seat names the agent and its model (clear-room §A3).
+    const live = runLine()!.textContent ?? ''
     expect(live).toContain('add a rate-limit guard to the uploader')
     expect(live).toMatch(/\d+:\d\d/) // elapsed, a real clock over a real start
-    // One AI answering does not open the pane by itself…
-    expect(stage()).toBeNull()
-    // …and the stage, when asked for, says the same two facts: who, on what.
-    openStage()
-    expect(stage()!.textContent ?? '').toContain('implementer')
-    expect(within(stage()!).getAllByTitle('openai · gpt-4o').length).toBeGreaterThan(0)
+    // The seat names the agent, and carries the model that really answered.
+    const seat = within(strip()!).getByRole('button', { name: 'What implementer is doing' })
+    expect(seat.getAttribute('title') ?? '').toContain('openai · gpt-4o')
     // The fabrications are gone: no progress bar, no percentage, no token burn.
     expect(live).not.toContain('%')
     expect(document.querySelector('.agentcard__bar')).toBeNull()
@@ -144,14 +135,12 @@ describe('Live agent surface — real runs only', () => {
       captured.app!.beginLiveRun({ kind: 'manager', intent: 'Vault health' })
     })
 
-    const live = liveCard()!.textContent ?? ''
+    const live = runLine()!.textContent ?? ''
     expect(live).toContain('manager')
     expect(live).toContain('Vault health')
-    // The old card said "no model call reported yet" in words. The v2 surfaces
-    // say it by claiming nothing at all: no model chip on the card, and no
-    // board (no crew → no pipeline). Strictly stronger, same promise.
-    expect(document.querySelector('.lrun__model')).toBeNull()
-    expect(board()).toBeNull()
+    // No seat is drawn and no model is named — and the strip says so in words.
+    expect(document.querySelector('.strip__seat')).toBeNull()
+    expect(strip()!).toHaveTextContent('working — no engine step reported yet')
   })
 
   it('a run PARKED on the user is not shown as executing — nothing is behind it', async () => {
@@ -160,23 +149,23 @@ describe('Live agent surface — real runs only', () => {
     await act(async () => {
       id = captured.app!.beginLiveRun({ kind: 'project', intent: 'build the dashboard' })
     })
-    expect(liveCard()!.className).toContain('lrun__card--glow')
+    expect(strip()!.className).toContain('is-live')
 
     await act(async () => {
       captured.app!.pauseLiveRun(id, true)
     })
-    expect(liveCard()!.className).not.toContain('lrun__card--glow')
-    expect(liveCard()!.className).toContain('lrun__card--paused')
+    // Still on screen — it is waiting on him — but nothing glows, pulses,
+    // travels or speaks: no engine is behind it.
+    expect(strip()!.className).not.toContain('is-live')
     expect(screen.getByText('waiting on you')).toBeInTheDocument()
-    // and the board says WHAT it is waiting for, without one glowing monogram
-    expect(document.querySelector('.crew__mono--pulse')).toBeNull()
-    expect(screen.getByText('Waiting on your answer')).toBeInTheDocument()
+    expect(document.querySelector('.strip__seat.is-running')).toBeNull()
+    expect(document.querySelector('.strip__packet')).toBeNull()
+    expect(document.querySelector('.strip__caption')).toBeNull()
   })
 
   it('nothing running → the honest empty state, and no elapsed clock', async () => {
     await mounted()
-    expect(liveCard()).toBeNull()
-    expect(board()).toBeNull()
+    expect(strip()).toBeNull()
     expect(document.querySelector('.agentcard__elapsed')).toBeNull()
     // The Work page says, in the ledger, that it has measured nothing yet.
     expect(screen.getByText(/no runs yet — your first run's story lands here/)).toBeInTheDocument()

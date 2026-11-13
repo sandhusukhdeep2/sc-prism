@@ -97,47 +97,40 @@ describe('Work page live signals', () => {
   })
 
   // H1 — the park.
-  it('a PARKED run lights nothing: no glow, no live console, no narration strip', async () => {
+  it('a PARKED run lights nothing: no glow, no live console, no one speaking', async () => {
     await mounted()
     let id = ''
     await act(async () => {
       id = captured.app!.beginLiveRun({ kind: 'project', intent: 'build the dashboard' })
     })
-    // Executing: everything is lit, as it should be.
+    // Executing: the strip is lit, as it should be.
     //
-    // UPDATED 2026-08-19: the page-level black "engine console · live" header
-    // is gone — the console became a per-STEP detail you open on the step you
-    // want, so there is no page-wide header left to assert. The page's live
-    // signal is the run card's glow, which is what these lines now carry.
-    expect(document.querySelector('.lrun__card--glow')).not.toBeNull()
+    // UPDATED 2026-11-14 ("The chat is the room"): the run card above the chat
+    // and the narration block are gone — the strip at the top of the chat card
+    // is the page's one live signal, so these lines now read it.
+    expect(document.querySelector('.strip.is-live')).not.toBeNull()
 
     await act(async () => {
       captured.app!.pauseLiveRun(id, true)
     })
 
-    // Parked: the card remains (it really does resume on the answer) but says
-    // so, and NOTHING on the page claims work is happening.
-    //
-    // UPDATED (visual system v2, 2026-08-18): scoped to the live-run card. The
-    // v2 board now ALSO names the parked run — in the black "Your call" column
-    // that says what it is waiting for — so the intent legitimately appears
-    // twice on the page. The claim under test is unchanged: this card still
-    // carries the run and still says "waiting on you".
-    const cards = document.querySelector('.lrun') as HTMLElement
-    expect(within(cards).getByText('build the dashboard')).toBeInTheDocument()
-    expect(within(cards).getByText('waiting on you')).toBeInTheDocument()
-    expect(document.querySelector('.lrun__card--glow')).toBeNull()
-    expect(document.querySelector('.chat__earlier--narrate')).toBeNull()
+    // Parked: the strip remains (the run really does resume on the answer)
+    // and says so, and NOTHING on the page claims work is happening.
+    const strip = document.querySelector('.chat .strip') as HTMLElement
+    expect(within(strip).getByText('build the dashboard')).toBeInTheDocument()
+    expect(within(strip).getByText('waiting on you')).toBeInTheDocument()
+    expect(document.querySelector('.strip.is-live')).toBeNull()
+    expect(document.querySelector('.strip__caption')).toBeNull()
 
     // Answered: live again.
     await act(async () => {
       captured.app!.pauseLiveRun(id, false)
     })
-    expect(document.querySelector('.lrun__card--glow')).not.toBeNull()
+    expect(document.querySelector('.strip.is-live')).not.toBeNull()
   })
 
   // M3 — two runs in flight.
-  it('with 2 runs in flight the narration strip claims neither run’s steps', async () => {
+  it('with 2 runs in flight the strip claims neither run’s steps', async () => {
     h.readSpansTail.mockResolvedValue([
       {
         name: 'tier1',
@@ -154,14 +147,13 @@ describe('Work page live signals', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    expect(screen.queryByText(/runs in flight/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/runs at once/)).not.toBeInTheDocument()
 
     await act(async () => {
       captured.app!.beginLiveRun({ kind: 'team', intent: 'ask two' })
     })
-    const strip = document.querySelector('.chat__narration')
-    expect(strip?.textContent).toMatch(/2 runs in flight/)
-    expect(strip?.textContent).toMatch(/see the task cards above/)
+    const said = document.querySelector('.strip__caption')
+    expect(said?.textContent).toMatch(/2 runs at once — their steps can’t be told apart/)
     // ...and no step is narrated as belonging to either run. The guarantee that
     // used to be doubled in the page-level console header is now structural:
     // `currentRunSpans` returns [] whenever 2+ runs are in flight, so there are

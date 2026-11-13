@@ -64,6 +64,13 @@ export interface LiveRun {
    * project build's "one more refine?" gate can park all night).
    */
   paused?: boolean
+  /**
+   * The room this run belongs to: a project's id, or the Manager's room. Unset
+   * means the Manager's — a heartbeat, a manager's job and a standing job are
+   * the app working for itself, and that is where the app speaks. A room
+   * draws only its own run (see `runsInRoom`).
+   */
+  room?: string
 }
 
 export interface FinishedRun {
@@ -114,6 +121,26 @@ export function kindLabel(kind: LiveRunKind): string {
  */
 export function activeRuns(live: readonly LiveRun[]): LiveRun[] {
   return live.filter((r) => !r.paused)
+}
+
+/** The Manager's room — the universal thread's key (store/AppStore `UNIVERSAL`). */
+export const MANAGER_ROOM = 'universal'
+
+/** The room a run belongs to. */
+export function runRoom(run: Pick<LiveRun, 'room'>): string {
+  return run.room || MANAGER_ROOM
+}
+
+/** This room's own runs — executing or parked. */
+export function runsInRoom<T extends Pick<LiveRun, 'room'>>(runs: readonly T[], room: string): T[] {
+  return runs.filter((r) => runRoom(r) === room)
+}
+
+/** What is EXECUTING in other rooms. The engine takes one job at a time, so a
+ *  message sent from here would wait for these; a parked run holds no engine
+ *  and is not among them. */
+export function runsElsewhere(runs: readonly LiveRun[], room: string): LiveRun[] {
+  return activeRuns(runs).filter((r) => runRoom(r) !== room)
 }
 
 /** m:ss (or h:mm:ss past an hour) since `startedAt`. Never negative. */
