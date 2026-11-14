@@ -7,8 +7,8 @@
 // five seats.
 //
 // So a job typed in a project's room is sized by the same rule. One piece of
-// work goes to two seats — the one that does the work, and the one that plans
-// (on the primary when the primary is on the team: `jobRoster`). Work in
+// work goes to two seats — the one that writes, and one other (`stepTeam`
+// says which; on the default team: the Implementer and the Planner). Work in
 // several parts, a long brief, or a job that asks for more than one pair of
 // eyes ("review…", "…with the whole team") gets every seat.
 //
@@ -25,7 +25,7 @@ import { agentCapabilityNames, type Capability } from './delegation'
 import { messageLevel } from './messageWeight'
 import type { Project } from './projects'
 import { splitRoster } from './roster'
-import { jobRoster } from './workload'
+import { seatKind, type SeatKind } from './workload'
 
 /** These words are one piece of work — not several parts, not a call for everyone. */
 export function jobForTwo(text: string): boolean {
@@ -48,9 +48,15 @@ export type StepTeam =
 /**
  * The seats a step is sent to, the writer first (`buildWriter`).
  *
- * The WHOLE team is settled first, so a team nobody may write on is refused
- * for the reason that is true of the team, not of a cut of it. A cut that
- * could not write (or is no smaller) falls back to the whole team.
+ * WHO MAY DO WHAT IS SETTLED ONCE, FOR THE WHOLE TEAM. A cut is two of the
+ * seats that settlement produced, each holding exactly what it held there:
+ * the seat that writes for the team, and one other. It is never settled
+ * again on the two — that could hand `writes` to a seat the team's own
+ * settlement did not give it to, or turn a gated team into an ungated pair.
+ *
+ * The other seat: beside a writer that does the work, the one that plans (on
+ * the primary when the primary is on the team, then the one that checks);
+ * beside a writer that plans or checks, the seat that does the work.
  */
 export function stepTeam(input: {
   /** The build team in its own order, after the staffing and provider gates. */
@@ -65,12 +71,29 @@ export function stepTeam(input: {
 }): StepTeam {
   const whole = buildWriter(input.roster, input.seatInfo)
   if (!whole.ok) return whole
-  if (!input.defaultTeam || !input.forTwo) return { ...whole, cut: false }
-  const two = buildWriter(jobRoster(input.roster, input.primaryToken), input.seatInfo)
-  if (!two.ok || splitRoster(two.roster).length >= splitRoster(whole.roster).length) {
-    return { ...whole, cut: false }
+  const seats = splitRoster(whole.roster)
+  if (!input.defaultTeam || !input.forTwo || seats.length <= 2) return { ...whole, cut: false }
+
+  const [writer, ...others] = seats
+  const first = (kind: SeatKind, onPrimary = false) =>
+    others.find(
+      (s) =>
+        seatKind(s.role) === kind &&
+        (!onPrimary || (!!input.primaryToken && s.token === input.primaryToken)),
+    )
+  const second =
+    seatKind(writer.role) === 'do'
+      ? (first('plan', true) ?? first('check', true) ?? first('plan') ?? first('check') ?? others[0])
+      : (first('do') ?? others[0])
+  const kept = [writer, second]
+  return {
+    ok: true,
+    roster: kept.map((s) => `${s.role}:${s.token}`).join(','),
+    writer: whole.writer,
+    // The team's own settlement, seat for seat — never recomputed.
+    seats: kept.map((s) => whole.seats.find((w) => w.name === s.role) ?? { name: s.role, capabilities: [] }),
+    cut: true,
   }
-  return { ...two, cut: true }
 }
 
 /** What the library has to say about a seat: the fields read here, no more. */

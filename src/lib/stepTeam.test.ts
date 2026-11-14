@@ -88,6 +88,55 @@ describe('stepTeam — the seats a step is sent to', () => {
     expect(team.ok && team.roster).toBe('implementer:local,planner:local')
   })
 
+  // THE CUT NEVER MOVES A GRANT. Who may write is settled once, for the whole
+  // team (`buildWriter`). Settling it again on two seats could hand `writes`
+  // to a seat the team's own settlement did not give it to: here the user
+  // gave Writes to the Reviewer, so on the whole team the Reviewer writes and
+  // the Implementer does not — and a cut of "Implementer + Planner", settled
+  // afresh, would have asked the Implementer for it.
+  describe('a cut carries the team’s own settlement', () => {
+    const reviewerWrites = (role: string) => ({
+      capabilities: (role === 'reviewer-verifier' ? ['writes', 'vault'] : ['vault']) as Capability[],
+      builtIn: true,
+    })
+
+    it('the seat that writes for the team is the seat that writes for the cut', () => {
+      const whole = ask({ seatInfo: reviewerWrites, forTwo: false })
+      const team = ask({ seatInfo: reviewerWrites })
+      expect(whole.ok && whole.writer).toBe('reviewer-verifier')
+      expect(team.ok && team.writer).toBe('reviewer-verifier')
+      expect(team.ok && team.roster).toBe('reviewer-verifier:claude-cli,implementer:local')
+      expect(team.ok && team.cut).toBe(true)
+    })
+
+    it('no seat of the cut holds anything it did not hold on the team', () => {
+      const whole = ask({ seatInfo: reviewerWrites, forTwo: false })
+      const team = ask({ seatInfo: reviewerWrites })
+      if (!whole.ok || !team.ok) throw new Error('expected both to be settled')
+      for (const seat of team.seats) {
+        const before = whole.seats.find((s) => s.name === seat.name)
+        expect(before, seat.name).toBeDefined()
+        expect(seat.capabilities).toEqual(before!.capabilities)
+      }
+      // The Implementer was not given Writes by the team's settlement.
+      expect(team.seats.find((s) => s.name === 'implementer')!.capabilities).not.toContain('writes')
+    })
+
+    it('a gated team is never cut into an ungated one', () => {
+      // One seat with a grant gates the whole team; the cut keeps the writer,
+      // and the writer of a gated team always holds `writes`.
+      const onlyResearcher = (role: string) => ({
+        capabilities: (role === 'researcher' ? ['web'] : []) as Capability[],
+        builtIn: true,
+      })
+      const team = ask({ seatInfo: onlyResearcher })
+      if (!team.ok) throw new Error('expected a settled team')
+      expect(team.cut).toBe(true)
+      expect(team.seats.some((s) => s.capabilities.length > 0)).toBe(true)
+      expect(team.seats[0].capabilities).toContain('writes')
+    })
+  })
+
   it('a team nobody may write on is refused whole — never cut into a different refusal', () => {
     const staffed = () => ({ capabilities: ['vault'] as Capability[], builtIn: false })
     const team = ask({ seatInfo: staffed })

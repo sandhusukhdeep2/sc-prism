@@ -4540,10 +4540,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             {
               // The seats and grants `buildWriter` settled on: the writer
               // first, and on the built-in team the doer asked for `writes`.
-              const buildCaps = teamCapabilityArgs(
-                team.seats,
-                appRunCapabilities(settingsRef.current),
-              )
+              // A cut's seats are taken from the team's own settlement
+              // (lib/stepTeam), so its table is the team's, narrowed. Should a
+              // cut ever come back with no table while the team has one, the
+              // team's is sent: fewer seats must never mean fewer gates.
+              const userCaps = appRunCapabilities(settingsRef.current)
+              const buildCaps =
+                teamCapabilityArgs(team.seats, userCaps) ?? teamCapabilityArgs(writing.seats, userCaps)
               if (buildCaps) {
                 stepProviders.userCapabilities = buildCaps.userCapabilities
                 stepProviders.agentCapabilities = buildCaps.agentCapabilities
