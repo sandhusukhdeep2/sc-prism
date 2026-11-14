@@ -13,6 +13,7 @@ import {
   WAKE_TIMEOUT_MS,
   chatWallMs,
   wakeWallMs,
+  stepWallMs,
 } from './AppStore'
 import { ABS_CEILING_MS, UNATTENDED_CEILING_MS } from '../lib/runBudget'
 import type { Verdict } from '../engine/types'
@@ -328,5 +329,38 @@ describe('a wake is one piece of work, so it plans one step', () => {
     // Measured: the default three-step plan cost 15m24s and 69,976 tokens to
     // return "I ran out of tool turns"; one step cost 4m29s and 8,993.
     expect(WAKE_STEPS).toBeLessThan(3)
+  })
+})
+
+// THE WALL FOR A BUILD STEP IS SIZED BY ITS TEAM (2026-11-15). A step was
+// given the wake's wall — one piece of work, a few calls. Seen in the
+// installed app: a five-seat step's board alone took 5m41s (24 model calls),
+// the review then had under a minute, and the step was killed at 420s —
+// three times, with no verdict, until the build asked "one more try?".
+// Whether a five-seat step survived depended on how slow recent calls had
+// happened to be.
+describe('stepWallMs — a build step’s wall', () => {
+  // No measurements: the wake's wall sits on its floor.
+  const quiet = { ceilingMs: 0, stallMs: 0 } as never
+
+  it('one or two seats: the wake’s wall, unchanged', () => {
+    expect(stepWallMs(quiet, 1)).toBe(wakeWallMs(quiet))
+    expect(stepWallMs(quiet, 2)).toBe(wakeWallMs(quiet))
+  })
+
+  it('more seats, more room: every two seats add one wake’s worth', () => {
+    expect(stepWallMs(quiet, 3)).toBe(2 * wakeWallMs(quiet))
+    // Five seats would be three — just past the ceiling for unattended work, which holds.
+    expect(stepWallMs(quiet, 5)).toBe(Math.min(UNATTENDED_CEILING_MS, 3 * wakeWallMs(quiet)))
+    // The five-seat step that was killed at 420s needed about nine minutes.
+    expect(stepWallMs(quiet, 5)).toBeGreaterThanOrEqual(540_000)
+  })
+
+  it('never past the ceiling for unattended work', () => {
+    expect(stepWallMs(quiet, 40)).toBe(UNATTENDED_CEILING_MS)
+  })
+
+  it('no seats at all (a solo doer) is the wake’s wall', () => {
+    expect(stepWallMs(quiet, 0)).toBe(wakeWallMs(quiet))
   })
 })

@@ -1238,6 +1238,25 @@ export function wakeWallMs(budget: TurnBudget): number {
 }
 
 /**
+ * THE WALL FOR A BUILD STEP, SIZED BY ITS TEAM (2026-11-15).
+ *
+ * A step was given the wake's wall — a wall for one piece of work and a few
+ * calls. A board step makes a round of calls per seat and is then reviewed:
+ * seen in the installed app, a five-seat step's board alone took 5m41s (24
+ * model calls), the review had under a minute left, and the step was killed at
+ * 420s three times running with no verdict. Whether a five-seat step lived
+ * depended on how slow the last calls had happened to be.
+ *
+ * One or two seats keep the wake's wall. Every further two seats add one
+ * wake's worth — five seats, three — and nothing passes the ceiling for
+ * unattended work. A rule on the team's size, which is known before the run.
+ */
+export function stepWallMs(budget: TurnBudget, seats: number): number {
+  const shares = Math.max(1, Math.ceil(Math.max(0, seats) / 2))
+  return Math.min(UNATTENDED_CEILING_MS, wakeWallMs(budget) * shares)
+}
+
+/**
  * Floor for the chat composer's client wall. It was a bare `120_000` at the
  * call site; it is named here because it is now a FLOOR, not the whole answer.
  *
@@ -4554,12 +4573,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // loop-driven build step: an opus planning turn over a real step prompt
       // honestly runs past five minutes, and the implementer steps run LOCAL
       // at 4-6 tok/s. Computed once per build; nobody is watching a loop run.
-      const stepWall = wakeWallMs(
-        turnBudget(
-          latencyFromSpans(
-            await readSpansTail(vault, 200),
-            settingsRef.current.providers.find((p) => p.id === 'local')?.model ?? '',
-          ),
+      const stepBudget = turnBudget(
+        latencyFromSpans(
+          await readSpansTail(vault, 200),
+          settingsRef.current.providers.find((p) => p.id === 'local')?.model ?? '',
         ),
       )
       const buildLiveId = beginLiveRun({
@@ -4628,6 +4645,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // The seats THIS step is sent to (a retry of it keeps them).
             const team = teamFor(idx)
             const roster = team.roster
+            // …and the wall sized by how many of them there are (stepWallMs).
+            const stepWall = stepWallMs(stepBudget, splitRoster(roster).length)
             const opts =
               rp === 0
                 ? {

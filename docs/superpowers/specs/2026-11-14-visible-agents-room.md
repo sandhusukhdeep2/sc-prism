@@ -416,6 +416,17 @@ researcher's searches had run at all, and called its answer "unsubstantiated"
 — a seat's measured tool use is shown to the user (the run lines) but not to
 the rest of the board.
 
+## A build step's wall is sized by its team (2026-11-15)
+
+Found by building a real site in the app: the first step of a five-seat build
+was killed at 420s three times running, with no verdict, and the build asked
+"one more try?". Its board alone took 5m41s (24 model calls); the review then
+had under a minute. A step had been given the wake's wall — one piece of
+work, a few calls — so whether a five-seat step survived depended on how
+slow the last calls had happened to be. One or two seats keep that wall;
+every further two seats add one wake's worth, up to the ceiling for
+unattended work (`stepWallMs`). The size of the team is known before the run.
+
 ## A message's id is its own, across restarts (2026-11-15)
 
 Seen in the installed app: an old answer in the Manager's room had two later
