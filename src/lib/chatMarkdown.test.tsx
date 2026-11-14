@@ -54,3 +54,63 @@ describe('renderChatMarkdown', () => {
     expect(document.querySelectorAll('a').length).toBe(1)
   })
 })
+
+// Seen in the installed app, 2026-11-14: a team asked for "a short table"
+// answered with one, and the chat printed it as rows of pipes —
+// "| Backup | Manual (scanning) only | Automatic sync/history |". A table a
+// model writes is a table on screen.
+describe('renderChatMarkdown — tables', () => {
+  const TABLE = [
+    'Here is the comparison:',
+    '',
+    '| Criterion | Paper | Apps |',
+    '|---|:---:|---:|',
+    '| Cost | **low** | varies |',
+    '| Backup | manual | `auto` |',
+    '',
+    'Recommendation: apps.',
+  ].join('\n')
+
+  it('draws a header row and a row per line, with no pipes left as text', () => {
+    draw(TABLE)
+    const table = screen.getByRole('table')
+    const heads = [...table.querySelectorAll('th')].map((c) => c.textContent)
+    expect(heads).toEqual(['Criterion', 'Paper', 'Apps'])
+    const rows = [...table.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].map((c) => c.textContent))
+    expect(rows).toEqual([
+      ['Cost', 'low', 'varies'],
+      ['Backup', 'manual', 'auto'],
+    ])
+    expect(screen.getByTestId('md').textContent).not.toContain('|')
+    expect(screen.getByTestId('md').textContent).not.toContain('---')
+  })
+
+  it('keeps inline formatting inside cells, and the text around the table', () => {
+    draw(TABLE)
+    const table = screen.getByRole('table')
+    expect(table.querySelector('td strong')?.textContent).toBe('low')
+    expect(table.querySelector('td code')?.textContent).toBe('auto')
+    expect(screen.getByTestId('md').textContent).toContain('Here is the comparison:')
+    expect(screen.getByTestId('md').textContent).toContain('Recommendation: apps.')
+  })
+
+  it('a row shorter or longer than the header still lands in the header’s columns', () => {
+    draw(['| A | B |', '|---|---|', '| one |', '| x | y | z |'].join('\n'))
+    const rows = [...document.querySelectorAll('tbody tr')].map((r) => [...r.querySelectorAll('td')].map((c) => c.textContent))
+    expect(rows).toEqual([
+      ['one', ''],
+      ['x', 'y'],
+    ])
+  })
+
+  it('a line with pipes but no separator row under it is not a table — it stays text', () => {
+    draw('use a | b to pipe\nand c | d')
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.getByTestId('md').textContent).toContain('use a | b to pipe')
+  })
+
+  it('pipes inside a code fence are never a table', () => {
+    draw(['```', '| A | B |', '|---|---|', '| 1 | 2 |', '```'].join('\n'))
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+})

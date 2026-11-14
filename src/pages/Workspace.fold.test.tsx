@@ -64,10 +64,10 @@ const settle = async (n = 8) => {
 const turn = (from: string, provider: string, content: string, round = 1) =>
   JSON.stringify({ from, provider, model: 'm', is_real: true, content, round })
 
-async function runTeam(board: string) {
+async function runTeam(board: string, synthesis = 'Here is the plan the team agreed on.') {
   h.board = board
   h.runNativeTeam.mockResolvedValue({
-    run_id: 'r1', board: [], synthesis: 'Here is the plan the team agreed on.',
+    run_id: 'r1', board: [], synthesis,
     board_path: '/vault/agents/board-r1.jsonl', tokens: 120, passed: true, overBudget: false,
     tokenBudget: 100000, reason: '', taskId: 'r1', spansPath: '', verdictPath: '',
   } as unknown as TeamResult)
@@ -143,5 +143,22 @@ describe('Work — a run is written as one line per seat turn, then its outcome'
     expect(screen.getByRole('button', { name: 'Reveal board-r1.jsonl' })).toHaveAttribute('title', '/vault/agents/board-r1.jsonl')
     // The app's raw line is not printed beside its own strip.
     expect(screen.queryByText(/team run passed ·/)).not.toBeInTheDocument()
+  })
+
+  // Seen in the installed app, 2026-11-14: the local model's server was down,
+  // the lead's final turn came back as the gateway's stand-in, and the chat
+  // printed it as the Manager's answer — "[offline:local:…] the server refused
+  // the connection — is it running?" in an answer bubble. A stand-in is not
+  // an answer: the app says, in its own voice, that none was written and why.
+  it('a final turn that got no answer is not printed as the Manager’s answer', async () => {
+    await runTeam(
+      turn('lead', 'local', 'Lead turn.'),
+      '[offline:local:gemma-3] the server refused the connection — is it running?',
+    )
+    expect(screen.queryByText(/\[offline:/)).not.toBeInTheDocument()
+    expect(document.querySelector('.msg--ai')).toBeNull()
+    const said = screen.getByText(/The Manager did not write a final answer/)
+    expect(said).toHaveTextContent('the server refused the connection — is it running?')
+    expect(said.closest('.msg--notice')).not.toBeNull()
   })
 })

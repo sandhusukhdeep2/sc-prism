@@ -428,6 +428,9 @@ export default function Workspace() {
   const projectSpans = activeProject
     ? dedupeSpans([...projectRunSpans(tail.spans, activeProject.verdictIds), ...(anyLive ? liveSpans : [])])
     : []
+  // THE RUN, AS IT HAPPENS: this room's working run, as seat-attributed lines
+  // (lib/runLines.ts). One AI answering a message is not a run to write out.
+  const liveLines = stripRuns.some((r) => !r.paused) ? runLines(liveSpans, true) : []
   // THE ROOM'S TEAM (spec 2026-11-14 "Visible agents"). Who is ON it is the
   // roster this room would send — the project's own build team, or the
   // default team as the workload slider seats it. What each seat DID is read
@@ -597,11 +600,13 @@ export default function Workspace() {
             ? hasContent && !!chosenAgent
             : hasContent
 
-  // keep the newest message / verdict in view as the task streams
+  // keep the newest message / verdict in view as the task streams — and the
+  // run's own lines as they are written under it (they used to appear below
+  // the fold and stay there).
   useEffect(() => {
     const el = bodyRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [activeMessages(state), state.liveRuns])
+  }, [activeMessages(state), state.liveRuns, liveLines.length, liveLines[liveLines.length - 1]?.text])
 
   // Auto-grow the composer textarea to fit its content, up to a max height
   // (then it scrolls). Runs on every draft change, including the reset to '' on
@@ -1210,7 +1215,7 @@ export default function Workspace() {
                 ends; what each seat contributed and the outcome strip are the
                 durable record. One AI answering a message is not a run to
                 write out: its bubble says it is thinking. */}
-            {stripRuns.some((r) => !r.paused) && <RunLines lines={runLines(liveSpans, true)} />}
+            <RunLines lines={liveLines} />
 
           </div>
 

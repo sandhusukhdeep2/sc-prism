@@ -2877,7 +2877,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // The lead's real synthesis, when the run produced one. An empty
       // synthesis posts NOTHING rather than a placeholder reply.
       const synthesis = launch.result.synthesis.trim()
-      if (synthesis) {
+      if (synthesis && !isRealCompletion(synthesis)) {
+        // The lead's final turn came back as the gateway's stand-in. That is
+        // not an answer, so it is not printed as one: the app says none was
+        // written, with the engine's own cause when it named one.
+        const cause = offlineReason(synthesis)
+        notice(
+          cause
+            ? `The Manager did not write a final answer — ${cause}`
+            : 'The Manager did not write a final answer — its AI could not be reached.',
+        )
+      } else if (synthesis) {
         dispatch({
           type: 'ADD_MESSAGE',
           thread,

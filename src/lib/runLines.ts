@@ -272,6 +272,18 @@ export function verdictOutcome(v: Verdict): OutcomeView {
 }
 
 /**
+ * The reviewer's raw line, read apart. The engine writes
+ * "[llm-judge] <sentence> | score=0.51 vs threshold=0.7 -> BELOW | envelope ok";
+ * the sentence is the reason, and the score with its bar is a figure. A reason
+ * that is already a plain sentence comes back untouched.
+ */
+function judgeLine(raw: string): { why: string; score?: number; bar?: number } {
+  const m = /^(?:\[[\w-]+\]\s*)?(.*?)\s*\|\s*score=([\d.]+) vs threshold=([\d.]+)\s*(?:->|→)\s*\w+(?:\s*\|\s*envelope [\w ]+)?\s*$/s.exec(raw)
+  if (!m) return { why: raw }
+  return { why: m[1].trim(), score: Number(m[2]), bar: Number(m[3]) }
+}
+
+/**
  * A team run's result, read back from the line the app itself wrote for it
  * (`teamNoticeText`: "team run passed · 7,024/100,000 tok · board saved: …").
  * `turns` are the seat turns recorded just before it — the local share is
@@ -288,13 +300,17 @@ export function teamOutcome(text: string, turns: readonly SeatTurn[]): OutcomeVi
     const local = turns.filter((t) => t.provider === 'local').length
     chips.push({ text: `${local} of ${plural(turns.length, 'turn')} local`, kind: local > 0 ? 'local' : 'plain' })
   }
+  const judge = m[2] ? judgeLine(m[2]) : undefined
+  if (judge && judge.score !== undefined && judge.bar !== undefined) {
+    chips.push({ text: `review: ${judge.score.toFixed(2)} — needs ${judge.bar.toFixed(2)}`, kind: 'warn' })
+  }
   if (m[5]) chips.push({ text: 'over budget', kind: 'warn' })
   return {
     tone: passed ? 'passed' : 'failed',
     head: passed ? '✓ routed → verified → written' : '✕ did not pass',
     chips,
     cost: `${m[3]} of ${m[4]} tokens`,
-    ...(m[2] ? { why: m[2] } : {}),
+    ...(judge?.why ? { why: judge.why } : {}),
     ...(m[6] ? { path: m[6].trim() } : {}),
   }
 }

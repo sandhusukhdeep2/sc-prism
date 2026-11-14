@@ -76,10 +76,13 @@ describe('a chat notice reads, and its file is reachable', () => {
   it('a team run’s result reads as a strip in body type, with the saved board as a reveal action by name', async () => {
     seed()
     renderWorkspace()
-    const why = await screen.findByText(/\[llm-judge\] two seats answered/)
+    const why = await screen.findByText('two seats answered')
     const strip = why.closest('.outcome') as HTMLElement
     expect(strip).not.toBeNull()
     expect(strip).toHaveTextContent('✕ did not pass')
+    // The reviewer's raw line is read apart: a sentence, and a figure.
+    expect(strip).toHaveTextContent('review: 0.68 — needs 0.70')
+    expect(strip.textContent).not.toMatch(/llm-judge|score=|threshold=|envelope/)
     expect(why.className).not.toMatch(/\bmono\b/)
     expect(strip).toHaveTextContent('2,967 of 100,000 tokens')
     // The absolute path is not printed anywhere in it…

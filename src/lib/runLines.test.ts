@@ -281,6 +281,27 @@ describe('teamOutcome — a team run’s result, from the line the app already w
     expect(o.chips).toContainEqual({ text: 'over budget', kind: 'warn' })
   })
 
+  // Seen in the installed app, 2026-11-14: the strip printed the judge's raw
+  // line — "[llm-judge] … | score=0.5125 vs threshold=0.7 -> BELOW | envelope
+  // ok". The sentence is the reason; the score and its bar are a chip.
+  it('the reviewer’s raw line is read apart: its sentence is the reason, its score and bar are a chip', () => {
+    const o = teamOutcome(
+      'team run did not pass — [llm-judge] two seats answered, but the note invents a reply | score=0.5125 vs threshold=0.7 -> BELOW | envelope ok · 6,128/100,000 tok · board saved: /v/agents/board-x.jsonl',
+      turns,
+    )!
+    expect(o.why).toBe('two seats answered, but the note invents a reply')
+    expect(o.chips).toContainEqual({ text: 'review: 0.51 — needs 0.70', kind: 'warn' })
+    expect(o.path).toBe('/v/agents/board-x.jsonl')
+    // The same line with the arrow the engine also writes.
+    const arrow = teamOutcome('team run did not pass — [llm-judge] too thin | score=0.675 vs threshold=0.7 → BELOW | envelope ok · 10/100 tok', [])!
+    expect(arrow.why).toBe('too thin')
+    expect(arrow.chips).toContainEqual({ text: 'review: 0.68 — needs 0.70', kind: 'warn' })
+  })
+
+  it('a reason that is already a sentence is left exactly as written', () => {
+    expect(teamOutcome('team run did not pass — the token budget ran out · 10/100 tok', [])!.why).toBe('the token budget ran out')
+  })
+
   it('with no turns recorded it claims no local share', () => {
     const o = teamOutcome('team run passed · 10/100 tok', [])!
     expect(o.chips.some((c) => c.text.includes('turns'))).toBe(false)

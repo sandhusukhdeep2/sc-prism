@@ -118,6 +118,28 @@ describe('Work — the Team board above the chat, and no Stage', () => {
       await new Promise((r) => setTimeout(r, 3200))
     })
     await settle()
+    // Seen in the installed app, 2026-11-14: the run's lines were written
+    // under the last message and the chat stayed where it was — they could
+    // only be found by scrolling. The chat follows the run as it is written:
+    // the engine reports one more step, and the chat is moved to it.
+    expect(document.querySelectorAll('.rl__line')).toHaveLength(2)
+    const body = document.querySelector('.chat__body') as HTMLElement
+    let followed = 0
+    Object.defineProperty(body, 'scrollTop', { configurable: true, get: () => 0, set: () => void followed++ })
+    {
+      const t = Date.now() / 1000
+      const runId = (h.spans[0] as { run_id: string }).run_id
+      h.spans = [
+        ...h.spans,
+        { span_id: 'c', run_id: runId, type: 'tool_exec', name: 'tool_exec', start: t - 1, end: t, status: 'ok', attrs: { agent: 'researcher', provider: 'web', tool: 'web_search' } },
+      ]
+    }
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1500))
+    })
+    await settle()
+    expect(document.querySelector('.rl')).toHaveTextContent('searched the web')
+    expect(followed).toBeGreaterThan(0)
     // The board is live without anyone asking for it — above the chat card,
     // and the conversation never leaves the screen.
     const board = document.querySelector('.ws__chatcol .board') as HTMLElement
@@ -192,7 +214,7 @@ describe('Work — the Team board above the chat, and no Stage', () => {
     expect(screen.getByRole('button', { name: 'What Researcher is doing' })).toHaveTextContent('done')
     expect(document.querySelector('.ws__count')).toHaveTextContent('2 agents · 2 have worked')
     expect(screen.queryByText(/nothing is running now/)).not.toBeInTheDocument()
-  }, 15000)
+  }, 20000)
 
   // Seen in the real app, 2026-11-14: a plain "hello" put up the strip ("chat ·
   // hello · working…") above a chat bubble that already said "… is thinking",

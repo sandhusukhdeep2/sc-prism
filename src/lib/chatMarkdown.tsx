@@ -6,8 +6,8 @@
 // injected markup can never execute; anything unrecognized falls through as
 // literal text, never dropped. Scope is the subset real model replies use:
 // fenced code (with language tag), inline code, bold, italic, ### headings,
-// bullet/numbered lists, bare http(s) links and [label](https://…) links.
-// javascript:/data: links stay literal text.
+// bullet/numbered lists, pipe tables, bare http(s) links and
+// [label](https://…) links. javascript:/data: links stay literal text.
 import type { ReactNode } from 'react'
 
 const BARE_URL = /https?:\/\/[^\s<>)"']+/g
@@ -72,6 +72,27 @@ function inline(text: string, keyBase: string): ReactNode[] {
   return out
 }
 
+/** The cells of one `| a | b |` row, outer pipes optional. */
+function cells(line: string): string[] {
+  let t = line.trim()
+  if (t.startsWith('|')) t = t.slice(1)
+  if (t.endsWith('|')) t = t.slice(0, -1)
+  return t.split('|').map((c) => c.trim())
+}
+
+/** `|---|:---:|---:|` — the row under a header that makes the two a table. */
+function isSeparator(line: string): boolean {
+  if (!line.includes('-') || !line.includes('|')) return false
+  const parts = cells(line)
+  return parts.length > 0 && parts.every((c) => /^:?-{1,}:?$/.test(c))
+}
+
+function alignOf(cell: string): 'left' | 'center' | 'right' | undefined {
+  const l = cell.startsWith(':')
+  const r = cell.endsWith(':')
+  return l && r ? 'center' : r ? 'right' : l ? 'left' : undefined
+}
+
 export function renderChatMarkdown(text: string): ReactNode {
   const lines = (text ?? '').split('\n')
   const out: ReactNode[] = []
@@ -94,6 +115,49 @@ export function renderChatMarkdown(text: string): ReactNode {
         <pre key={`k${k++}`} className="md__pre">
           <code data-lang={lang}>{body.join('\n')}</code>
         </pre>,
+      )
+      continue
+    }
+    // A pipe table: a header row with a separator row directly under it. A
+    // line that merely contains a pipe is text. (Seen 2026-11-14: a team asked
+    // for a table answered with one, and it was printed as rows of pipes.)
+    if (line.includes('|') && i + 1 < lines.length && isSeparator(lines[i + 1])) {
+      const head = cells(line)
+      const aligns = cells(lines[i + 1]).map(alignOf)
+      i += 2
+      const rows: string[][] = []
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
+        rows.push(cells(lines[i]))
+        i++
+      }
+      const tk = k++
+      out.push(
+        <div key={`k${tk}`} className="md__tablewrap">
+          <table className="md__table">
+            <thead>
+              <tr>
+                {head.map((c, ci) => (
+                  <th key={ci} style={aligns[ci] ? { textAlign: aligns[ci] } : undefined}>
+                    {inline(c, `k${tk}h${ci}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  {/* Every row lands in the header's columns: a short row is
+                      padded, a long one is cut — never a ragged table. */}
+                  {head.map((_, ci) => (
+                    <td key={ci} style={aligns[ci] ? { textAlign: aligns[ci] } : undefined}>
+                      {inline(r[ci] ?? '', `k${tk}r${ri}c${ci}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
       )
       continue
     }
