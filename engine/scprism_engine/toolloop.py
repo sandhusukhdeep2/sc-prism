@@ -3,7 +3,7 @@
 ADR-035 stance: the model REQUESTS a tool; this DETERMINISTIC loop GRANTS or
 denies it. The model never steers orchestration (ADR-007 holds): it only asks
 for tools within its own turn, through a loop that is **bounded** (at most
-``max_iters`` tool executions and ``max_iters + 1`` model calls), **gated**
+``max_iters`` tool executions and ``max_iters + 2`` model calls), **gated**
 (``tool_exec`` is the governed ``MCPClient.call_tool`` — allowlist +
 sensitivity gates run before any bytes egress; a blocked call becomes an honest
 ``ok: false`` observation, never a fabricated success), and **telemetered by
@@ -90,6 +90,22 @@ INCOMPLETE_PREFIX = "[incomplete:"
 TOOL_TURNS_REASON = (
     "I ran out of tool turns (%d used) while still researching — this is what "
     "I had, not a finished answer."
+)
+#: What the model is told when its tool turns are spent (2026-11-15). Until this
+#: existed the loop only ever asked "what next?" — a model that answered every
+#: turn with a bare tool request was cut off having written nothing about the
+#: results it had read. It is asked ONCE, and no tool runs after it.
+LAST_WORD_REQUEST = (
+    "Your tool turns are used up (%d used). The tool request you just made was "
+    "not run. No more tools will run in this turn. Write your answer now, from "
+    "what the tools already returned. Do not ask for another tool. Say plainly "
+    "what you could not check."
+)
+#: The line added under an answer written that way, so a reader knows the
+#: research was cut short rather than finished.
+LAST_WORD_NOTE = (
+    "(Research stopped at the limit of %d tool turns — this answer is written "
+    "from what was gathered by then.)"
 )
 #: Reason text when the run's token budget stopped the loop mid-investigation.
 TOKEN_BUDGET_REASON = (
@@ -560,8 +576,9 @@ def run_tool_loop(
     secret NEVER reaches the next POST; ``withheld`` is recorded truthfully on
     the ``ToolCallTrace``. Default None = identity (byte-identical).
 
-    Bounds: at most ``max_iters`` tool executions and ``max_iters + 1`` model
-    calls. ``max_iters`` defaults to ``None`` = ``resolve_max_iters(None)`` —
+    Bounds: at most ``max_iters`` tool executions and ``max_iters + 2`` model
+    calls (the last is the one request for an answer once the tool turns are
+    spent — it never runs a tool). ``max_iters`` defaults to ``None`` = ``resolve_max_iters(None)`` —
     the ``SCPRISM_TOOL_TURNS`` env value, else ``DEFAULT_MAX_ITERS``; any
     explicit value is clamped to ``[MIN_MAX_ITERS, MAX_MAX_ITERS]`` so no caller
     can unbound the loop. When the budget is exhausted and the model still asks
@@ -686,9 +703,36 @@ def run_tool_loop(
                 truncated=bool(getattr(res, "truncated", False)),
             )
         if iters >= max_iters:
-            # Budget spent and the model wants another tool: stop honestly. The
-            # request it just made is UNEXECUTED, so it is stripped rather than
-            # shown — what the user gets is the prose plus the honest count.
+            # Budget spent and the model wants another tool. Ask it ONCE for
+            # its answer from what it already has (see LAST_WORD_REQUEST) — but
+            # never past the run's token budget. A real answer is returned with
+            # a plain note of where the research stopped.
+            if token_budget is None or (tokens_in + tokens_out) < token_budget:
+                last = model_fn(
+                    cur
+                    + [
+                        {"role": "assistant", "content": res.text},
+                        {"role": "user", "content": LAST_WORD_REQUEST % max_iters},
+                    ]
+                )
+                tokens_in += int(last.tokens_in)
+                tokens_out += int(last.tokens_out)
+                answer = strip_gap_block(last.text or "").strip()
+                if bool(last.is_real) and answer and not has_tool_call_fence(answer):
+                    return ToolLoopResult(
+                        text="%s\n\n%s" % (answer, LAST_WORD_NOTE % max_iters),
+                        tokens_in=tokens_in,
+                        tokens_out=tokens_out,
+                        is_real=True,
+                        iterations=iters,
+                        tool_calls=traces,
+                        capability_gap=_parse_gap(last.text),
+                        cache="miss",
+                        truncated=bool(getattr(last, "truncated", False)),
+                    )
+            # No usable last word: stop honestly. The request the model made is
+            # UNEXECUTED, so it is stripped rather than shown — what the user
+            # gets is the prose plus the honest count.
             return ToolLoopResult(
                 text=incomplete_answer(res.text, TOOL_TURNS_REASON % max_iters),
                 tokens_in=tokens_in,

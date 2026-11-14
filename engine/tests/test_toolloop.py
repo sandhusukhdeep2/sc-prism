@@ -252,9 +252,11 @@ class TestToolRounds(unittest.TestCase):
             tool_exec=tool_exec,
             max_iters=max_iters,
         )
-        # Bounded: exactly max_iters tool execs, max_iters + 1 model calls.
+        # Bounded: exactly max_iters tool execs, and max_iters + 2 model calls
+        # — the last is the one request for an answer (2026-11-15), which this
+        # model also spends on asking for a tool. It is never run.
         self.assertEqual(len(execs), max_iters)
-        self.assertEqual(len(model_calls), max_iters + 1)
+        self.assertEqual(len(model_calls), max_iters + 2)
         self.assertEqual(result.iterations, max_iters)
         self.assertEqual(len(result.tool_calls), max_iters)
         # HONEST + SAFE: the unexecuted request the model just made is stripped,

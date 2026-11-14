@@ -442,6 +442,23 @@ old message with it. Each session now stamps its ids (`m<stamp>-<n>`), so
 they cannot meet an id from any other session, whenever the saved threads
 arrive. What the collisions already did to saved threads is not undone.
 
+## Out of tool turns, a seat is asked for its answer once (2026-11-15)
+
+Seen in the installed app: a researcher on a local model ran nine searches
+and three page fetches, asked for a thirteenth tool, and was cut off. Its
+whole contribution to the board was the `[incomplete: I ran out of tool
+turns (12 used)…]` marker with nothing under it, because every one of its
+replies had been a bare tool request. The summary said "0 businesses
+confirmed" over seventy-odd results nobody had written a word about.
+
+The loop only ever asked "what next?". When the cap is reached it now asks
+once: the last request was not run, no more tools will run, write the answer
+from what the tools already returned. A real answer is returned with a line
+saying research stopped at that many tool turns. Another tool request, an
+empty reply or a stand-in leaves the marker as it was. It is one more model
+call and never a tool, and it is not made when the run's token budget is
+already spent.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the
