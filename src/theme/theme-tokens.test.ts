@@ -370,6 +370,16 @@ describe('a live run never squeezes the chat in a small window', () => {
     expect(css).toMatch(/\.board__links \{[^}]*height: \d\dpx/)
     expect(css).toMatch(/\.board__state \{[^}]*line-clamp: 2/)
   })
+  // Seen in the split room, 2026-11-14: in a narrow column the AI under a seat
+  // read "l · Qwen3.6-35B-A3E" — centred in a flex row, it was cut at BOTH
+  // ends. A name that does not fit is cut at its end, with an ellipsis.
+  it('a seat’s AI line that does not fit is cut at its end, not at both', () => {
+    const css = read('src/components/TeamBoard.css')
+    const rule = css.match(/^\.board__ai \{[^}]*\}/m)?.[0] ?? ''
+    expect(rule).toMatch(/text-overflow: ellipsis/)
+    expect(rule).toMatch(/display: block/)
+    expect(rule).not.toMatch(/inline-flex|justify-content/)
+  })
   it('in a short window the board gives up its token line before the chat gives up room', () => {
     const css = read('src/components/TeamBoard.css')
     const short = css.slice(css.indexOf('@media (max-height: 820px)'))

@@ -175,6 +175,26 @@ describe('TeamBoard', () => {
     expect(screen.getByRole('img', { name: 'Manager handed to Researcher: research' })).toHaveTextContent('research')
   })
 
+  // Seen in a real build, 2026-11-14: the handoff's "stage" was the whole step
+  // — "4 · Add a third line to hello.md that thanks…" — printed across the
+  // rings. A stage name is a word or two; a sentence is not one, and the run
+  // line and the chat already say which step this is.
+  it('a handoff labelled with a whole sentence is drawn without the sentence', () => {
+    render(
+      <TeamBoard
+        {...base}
+        runs={[run()]}
+        spans={[
+          call('lead', 1),
+          working('researcher', 2, { stage: '4 · Add a third line to hello.md that thanks the crew' }),
+        ]}
+        live
+      />,
+    )
+    expect(document.querySelectorAll('.board__link')).toHaveLength(1)
+    expect(document.querySelector('.board__handoff')).toBeNull()
+  })
+
   it('a run parked on the user says so, and nothing moves', () => {
     stubReducedMotion(false)
     const { container } = render(

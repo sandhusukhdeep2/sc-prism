@@ -65,6 +65,7 @@ function stretchLine(
   spans: EngineSpan[],
   live: boolean,
   next: string,
+  nameOf: (agent: string) => string,
 ): RunLine {
   const tools = spans.filter(isTool)
   const calls = spans.filter(isWork)
@@ -115,19 +116,24 @@ function stretchLine(
       tone = 'warn'
     } else {
       phrases.push('answered')
-      if (next) phrases.push(`handed to ${seatLabel(next)}`)
+      if (next) phrases.push(`handed to ${nameOf(next)}`)
     }
   } else if (live && tools.some(isOpen)) {
     tone = 'live'
   }
-  return { key, who: seatLabel(agent), ai: aiOf(a), local, text: phrases.join(' · '), tone, chips }
+  return { key, who: nameOf(agent), ai: aiOf(a), local, text: phrases.join(' · '), tone, chips }
 }
 
 /**
  * A run, as lines. `live` — the run is genuinely executing (an open call on
- * any other run claims nothing).
+ * any other run claims nothing). `nameOf` — what the room calls a seat (its
+ * board's name for it), so the lines and the board never name one seat twice.
  */
-export function runLines(spans: readonly EngineSpan[], live: boolean): RunLine[] {
+export function runLines(
+  spans: readonly EngineSpan[],
+  live: boolean,
+  nameOf: (agent: string) => string = seatLabel,
+): RunLine[] {
   const ordered = spans.slice().sort((x, y) => (x.start ?? 0) - (y.start ?? 0))
   // Stretches: consecutive work spans of one seat. A tool span that names no
   // agent belongs to the stretch it happened in.
@@ -145,7 +151,7 @@ export function runLines(spans: readonly EngineSpan[], live: boolean): RunLine[]
     }
   }
   const lines: RunLine[] = stretches.map((st, i) =>
-    stretchLine(`${st.agent}-${i}`, st.agent, st.spans, live, stretches[i + 1]?.agent ?? ''),
+    stretchLine(`${st.agent}-${i}`, st.agent, st.spans, live, stretches[i + 1]?.agent ?? '', nameOf),
   )
 
   // The deterministic checks, then the reviewer — in the words of what ran.
@@ -198,7 +204,7 @@ const TURN_LEAD = 140
 
 /** A seat's recorded turn (from the saved board), as one line: who, on which
  *  AI, and the first thing it wrote. The whole turn opens from the line. */
-export function turnLine(turn: SeatTurn): RunLine {
+export function turnLine(turn: SeatTurn, nameOf: (agent: string) => string = seatLabel): RunLine {
   // The first two lines that say something; a heading's marks are not words.
   const said = turn.text
     .split('\n')
@@ -208,7 +214,7 @@ export function turnLine(turn: SeatTurn): RunLine {
   const text = lead.length > TURN_LEAD ? `${lead.slice(0, TURN_LEAD).trimEnd()}…` : lead
   return {
     key: turn.id,
-    who: seatLabel(turn.agent),
+    who: nameOf(turn.agent),
     ai: [turn.provider, turn.model].filter(Boolean).join(' · '),
     local: turn.provider === 'local',
     text,

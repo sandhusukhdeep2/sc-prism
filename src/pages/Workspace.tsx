@@ -4,7 +4,7 @@ import { noticeParts } from '../lib/noticeParts'
 import { useNarrow } from '../lib/useNarrow'
 import { agentDossier, agentsInRun } from '../lib/agentDossier'
 import TeamBoard from '../components/TeamBoard'
-import { boardCountLine, rosterSeats, teamBoard } from '../lib/teamBoard'
+import { boardCountLine, rosterNameOf, rosterSeats, teamBoard } from '../lib/teamBoard'
 import RoomPane from '../components/RoomPane'
 import ProjectFilesPane from '../components/ProjectFilesPane'
 import { paneAfterRun, roomPane, type PanePick, type PaneTab } from '../lib/roomPane'
@@ -428,9 +428,6 @@ export default function Workspace() {
   const projectSpans = activeProject
     ? dedupeSpans([...projectRunSpans(tail.spans, activeProject.verdictIds), ...(anyLive ? liveSpans : [])])
     : []
-  // THE RUN, AS IT HAPPENS: this room's working run, as seat-attributed lines
-  // (lib/runLines.ts). One AI answering a message is not a run to write out.
-  const liveLines = stripRuns.some((r) => !r.paused) ? runLines(liveSpans, true) : []
   // THE ROOM'S TEAM (spec 2026-11-14 "Visible agents"). Who is ON it is the
   // roster this room would send — the project's own build team, or the
   // default team as the workload slider seats it. What each seat DID is read
@@ -462,6 +459,11 @@ export default function Workspace() {
       ),
     [settings, activeProject, agents],
   )
+  // One seat, one name: the lines in the chat call a seat what its board does.
+  const seatName = useMemo(() => rosterNameOf(roomRoster), [roomRoster])
+  // THE RUN, AS IT HAPPENS: this room's working run, as seat-attributed lines
+  // (lib/runLines.ts). One AI answering a message is not a run to write out.
+  const liveLines = stripRuns.some((r) => !r.paused) ? runLines(liveSpans, true, seatName) : []
   const teamCount = boardCountLine(
     teamBoard({ roster: roomRoster, spans: teamSpans, live: anyLive, answering }),
     anyLive,
@@ -1203,8 +1205,8 @@ export default function Workspace() {
               // turn — who, on which AI, the first thing it wrote — and the
               // whole turn opens from its line, exactly as written. Read from
               // the saved board, never from memory of the run.
-              if (m.kind === 'seats') return <TurnLines key={m.id} turns={m.seats} />
-              if (m.kind === 'seat') return <TurnLines key={m.id} turns={[m]} />
+              if (m.kind === 'seats') return <TurnLines key={m.id} turns={m.seats} nameOf={seatName} />
+              if (m.kind === 'seat') return <TurnLines key={m.id} turns={[m]} nameOf={seatName} />
               // HOW A RUN ENDED, once: the strip, with the way to its full record.
               return <OutcomeStrip key={m.id} o={verdictOutcome(m.verdict)} to="/verdict" />
             })}

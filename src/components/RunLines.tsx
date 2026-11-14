@@ -92,18 +92,25 @@ export default function RunLines({ lines }: { lines: readonly RunLine[] }) {
  *  run's working-out never buries its answer. */
 const TURNS_SHOWN = 6
 
-function Turn({ t }: { t: SeatTurn }) {
+function Turn({ t, nameOf }: { t: SeatTurn; nameOf?: (agent: string) => string }) {
   return (
     <details className="rl__turn">
       <summary className="rl__line rl__line--open">
-        <Cells line={turnLine(t)} />
+        <Cells line={turnLine(t, nameOf)} />
       </summary>
       <div className="rl__turnbody msg__stream">{renderChatMarkdown(t.text)}</div>
     </details>
   )
 }
 
-export function TurnLines({ turns }: { turns: readonly SeatTurn[] }) {
+export function TurnLines({
+  turns,
+  nameOf,
+}: {
+  turns: readonly SeatTurn[]
+  /** What the room calls a seat — the board's own name for it. */
+  nameOf?: (agent: string) => string
+}) {
   if (turns.length === 0) return null
   const earlier = turns.length > TURNS_SHOWN ? turns.slice(0, turns.length - TURNS_SHOWN) : []
   const shown = turns.slice(earlier.length)
@@ -115,12 +122,12 @@ export function TurnLines({ turns }: { turns: readonly SeatTurn[] }) {
             {earlier.length} earlier turn{earlier.length === 1 ? '' : 's'}
           </summary>
           {earlier.map((t) => (
-            <Turn key={t.id} t={t} />
+            <Turn key={t.id} t={t} nameOf={nameOf} />
           ))}
         </details>
       )}
       {shown.map((t) => (
-        <Turn key={t.id} t={t} />
+        <Turn key={t.id} t={t} nameOf={nameOf} />
       ))}
     </section>
   )

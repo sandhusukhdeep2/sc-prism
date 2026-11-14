@@ -136,6 +136,21 @@ export function rosterSeats(
   })
 }
 
+/**
+ * The name the room uses for a seat, for anything that prints one beside the
+ * board (the lines in the chat, a handoff's "handed to …"): the roster's own
+ * name when the agent is on it — matched by key, by slug, or by an alias —
+ * and the plain label otherwise. One seat, one name.
+ */
+export function rosterNameOf(roster: readonly RosterSeat[]): (agent: string) => string {
+  return (agent) => {
+    const hit = roster.find(
+      (r) => r.key === agent || r.key === agentSlug(agent) || (r.aliases ?? []).includes(agent),
+    )
+    return hit ? hit.name : seatLabel(agent)
+  }
+}
+
 function agentOf(s: EngineSpan): string {
   const v = s.attrs?.agent
   return typeof v === 'string' ? v : ''

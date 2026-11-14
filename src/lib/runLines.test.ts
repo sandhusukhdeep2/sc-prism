@@ -54,6 +54,15 @@ describe('runLines — a run, as lines a span could back', () => {
     expect(lines[2].text).toBe('answered')
   })
 
+  // Seen in the installed app, 2026-11-14: the board said "Reviewer /
+  // Verifier" and the line under it said "Reviewer-verifier".
+  it('a seat is called what the room calls it, in its own line and in the handoff to it', () => {
+    const nameOf = (a: string) => (a === 'reviewer-verifier' ? 'Reviewer / Verifier' : a === 'planner' ? 'Planner' : a)
+    const lines = runLines([call('planner'), call('reviewer-verifier')], false, nameOf)
+    expect(lines[0]).toMatchObject({ who: 'Planner', text: 'answered · handed to Reviewer / Verifier' })
+    expect(lines[1].who).toBe('Reviewer / Verifier')
+  })
+
   it('web work is counted and names where it went', () => {
     const lines = runLines(
       [
@@ -169,6 +178,14 @@ describe('turnLine — a seat’s recorded turn, as one line', () => {
     expect(line).toMatchObject({ who: 'Researcher', ai: 'local · gemma-3', local: true })
     // A markdown heading's marks are not part of the sentence.
     expect(line.text).toBe('Findings — Solar panels convert light to current.')
+  })
+
+  it('the seat is named as the room names it', () => {
+    const line = turnLine(
+      { id: 't', kind: 'seat', agent: 'reviewer-verifier', provider: 'local', model: 'm', text: 'ok' },
+      () => 'Reviewer / Verifier',
+    )
+    expect(line.who).toBe('Reviewer / Verifier')
   })
 
   it('a long first line is cut, never the record: the whole turn stays one click away', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardCountLine, seatLabel, teamBoard, type RosterSeat } from './teamBoard'
+import { boardCountLine, rosterNameOf, seatLabel, teamBoard, type RosterSeat } from './teamBoard'
 import type { EngineSpan } from './nativeEngine'
 
 // THE TEAM BOARD (spec 2026-11-14 "Visible agents"). The owner, of the mockup
@@ -237,5 +237,24 @@ describe('rosterSeats', () => {
 
   it('an empty roster seats nobody', () => {
     expect(rosterSeats(settings, '')).toEqual([])
+  })
+})
+
+// Seen in the installed app, 2026-11-14: the board called a seat "Reviewer /
+// Verifier" and the lines under it called the same seat "Reviewer-verifier".
+// One seat, one name — whoever prints it asks the room's roster.
+describe('rosterNameOf — the name the room uses for a seat', () => {
+  const nameOf = rosterNameOf([
+    { key: 'lead', name: 'Manager', ai: 'claude-cli · fable', local: false, aliases: ['Prism'] },
+    { key: 'reviewer-verifier', name: 'Reviewer / Verifier', ai: 'claude-cli · fable', local: false },
+  ])
+  it('a seat on the roster is called what the roster calls it — by key, by slug, or by alias', () => {
+    expect(nameOf('reviewer-verifier')).toBe('Reviewer / Verifier')
+    expect(nameOf('Reviewer / Verifier')).toBe('Reviewer / Verifier')
+    expect(nameOf('lead')).toBe('Manager')
+    expect(nameOf('Prism')).toBe('Manager')
+  })
+  it('a seat the roster does not know keeps the plain label', () => {
+    expect(nameOf('auditor')).toBe('Auditor')
   })
 })

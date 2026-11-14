@@ -151,6 +151,27 @@ things. The pill is gone with the rest of Work's head; Console now says
   only pointed at the Training tab are gone from it.
 - **Training:** what is learned is said once, and the panel heads itself.
 
+## After the 0.2.0 tag (not in that release)
+
+Found on the released build, in a project's room with the pane open:
+
+- **One seat, two names.** The board said "Reviewer / Verifier"; the lines
+  under it said "Reviewer-verifier". Whoever prints a seat's name now asks the
+  room's roster (`rosterNameOf`), in the live lines, in "handed to …" and in
+  the saved turns.
+- **A sentence across the rings.** A build hands over with its whole step as
+  the handoff's label. A label longer than a stage name (24 characters) is
+  not printed on the board; the run line and the chat already say the step.
+- **An AI cut at both ends.** In a narrow column the AI under a seat was
+  centred in a flex row and clipped left and right ("l · Qwen3.6-35B-A3E").
+  It is cut at its end, with an ellipsis.
+- **A stray brace** left in `ProjectRunStage.css` had been dropping that
+  file's reduced-motion rule; a test now reads every stylesheet's braces.
+
+Checked on the released build after the tag: Stop on a project build (the
+engine stops, the project waits with "Stopped by you at step 4 of 4", its
+Details open by themselves) and Resume from the Needs-you row.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

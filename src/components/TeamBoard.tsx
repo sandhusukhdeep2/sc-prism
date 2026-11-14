@@ -29,6 +29,8 @@ import './TeamBoard.css'
 const PACKET_DELAYS = [0, 0.53, 1.06]
 /** How big a packet looks on screen, in CSS pixels (its radius). */
 const PACKET_PX = 4.5
+/** The longest handoff label the board prints (see where it is used). */
+const HANDOFF_LABEL_MAX = 24
 
 function Lock() {
   return (
@@ -224,8 +226,12 @@ export default function TeamBoard({
               </g>
             ))}
           </svg>
+          {/* A stage is a word or two ("round 1", "synthesis"). A build hands
+              over with its whole step as the label; a sentence across the
+              rings is not a stage name, and the run line and the chat already
+              say which step this is — so it is not printed here. */}
           {model.links
-            .filter((l) => l.latest && l.label)
+            .filter((l) => l.latest && l.label && l.label.length <= HANDOFF_LABEL_MAX)
             .map((l) => (
               <span
                 key={`${l.from}>${l.to}`}
