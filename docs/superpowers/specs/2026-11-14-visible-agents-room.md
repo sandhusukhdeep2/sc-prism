@@ -172,6 +172,47 @@ Checked on the released build after the tag: Stop on a project build (the
 engine stops, the project waits with "Stopped by you at step 4 of 4", its
 Details open by themselves) and Resume from the Needs-you row.
 
+### "no answer — KeyError: 'content'" (engine)
+
+Seen on the released build, in the resumed build: a seat on the local
+reasoning model showed `no answer — KeyError: 'content'`, a hundred seconds
+after it was asked.
+
+The local server's own log for those hundred seconds: the same request three
+times, each ending `finish_reason=length` at the 4,096-token allowance. The
+model had spent the whole allowance thinking. An OpenAI-compatible server
+leaves `content` out of the message when there is no answer text (the
+thinking travels in `reasoning_content`, a tool request in `tool_calls`), so:
+
+- the Python gateway's `message["content"]` raised `KeyError`, which it files
+  under "the body was not a completion" and retries — the same question at
+  temperature 0, twice more, then a programming error printed as the cause;
+- the Go daemon read the missing field as `""` and returned it as a **real**
+  completion — an empty answer marked genuine;
+- the Messages reader had the same fault in another spelling: it read
+  `content[0]["text"]`, and with thinking on the first block is the thinking,
+  so every such reply was `KeyError: 'text'` after three paid calls.
+
+A reply with no answer text is the model's own ending, not a broken pipe. It
+is now asked for once and named from what the reply says
+(`gateway.NoAnswer`, `no_answer_cause`; `noAnswerCause` in `provider.go`,
+same sentences):
+
+| the reply | the seat says |
+|---|---|
+| cut off at the allowance, with thinking | the model spent its whole answer allowance (4,096 tokens) thinking and wrote no answer |
+| cut off at the allowance, no thinking reported | the model reached its answer allowance (4,096 tokens) before writing an answer |
+| only `tool_calls` | the model answered with a tool request only, in a form this app does not read, and wrote no text |
+| finished, nothing in it | the model returned an empty answer |
+
+It keeps the token counts the server measured (a stand-in for a call that
+never came back still reports 0). A Messages reply's answer is its text
+blocks, wherever they sit. A body with no `choices` is still retried.
+
+Not changed: the allowance itself, and what a build does after a seat gives
+no answer. Not checked against a live server — the fixtures are the shapes
+the local server's source and log show.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

@@ -611,6 +611,49 @@ class GatewayTimeout(GatewayError):
     """
 
 
+class NoAnswer(GatewayError):
+    """The provider answered, and the answer holds no text.
+
+    NOT a malformed body. A body with no ``choices`` is a server hiccup and is
+    retried (`_invoke_with_retry`); this is the model's own ending — it spent
+    its allowance thinking, or asked for a tool in a form this engine does not
+    read, or simply wrote nothing — and at temperature 0 asking again buys the
+    same ending after the same wait. So it is raised as one of OUR errors: it
+    passes the retry untouched, and its message is already the sentence the
+    user reads.
+
+    Carries the token counts the provider measured. They are real work (and on
+    a cloud route, real money): a stand-in for a call that never came back
+    reports 0 because nothing is known; here the provider said exactly what it
+    used.
+    """
+
+    def __init__(self, detail: str, tokens_in: Optional[int] = None, tokens_out: int = 0):
+        super().__init__(detail)
+        self.tokens_in = tokens_in
+        self.tokens_out = tokens_out
+
+
+def no_answer_cause(*, cut_off: bool, thought: bool, tool_request: bool, allowance: int) -> str:
+    """Why a reply held no answer text, from what the reply itself says."""
+    if cut_off and thought:
+        return (
+            f"the model spent its whole answer allowance ({allowance:,} tokens) "
+            "thinking and wrote no answer"
+        )
+    if cut_off:
+        return (
+            f"the model reached its answer allowance ({allowance:,} tokens) "
+            "before writing an answer"
+        )
+    if tool_request:
+        return (
+            "the model answered with a tool request only, in a form this app "
+            "does not read, and wrote no text"
+        )
+    return "the model returned an empty answer"
+
+
 @dataclass
 class RouteDecision:
     """Where a call is routed and why (audit trail)."""
@@ -1646,6 +1689,17 @@ class Gateway:
 
         try:
             return self._invoke_with_retry(messages, route)
+        except NoAnswer as exc:
+            # The provider answered with no text. Named like every other
+            # stand-in, but with the tokens it measured instead of zero.
+            text, tin, _, is_real, truncated = self._named_offline(messages, route, str(exc))
+            return (
+                text,
+                exc.tokens_in if exc.tokens_in is not None else tin,
+                exc.tokens_out,
+                is_real,
+                truncated,
+            )
         except urllib.error.HTTPError as err:
             # HONESTY: the LOCAL model could not be LOADED. The server answered
             # (507 / "would exceed the metal_cap memory ceiling") — it is up, it
@@ -1773,20 +1827,39 @@ class Gateway:
             req.add_header("Authorization", f"Bearer {route.api_key}")
         payload = self._post_json(req)
         choice = payload["choices"][0]
-        text = choice["message"]["content"]
+        message = choice["message"]
         usage = payload.get("usage", {}) or {}
-        tin = int(usage.get("prompt_tokens", _est_tokens(_messages_text(messages))))
-        tout = int(usage.get("completion_tokens", _est_tokens(text)))
         # OpenAI-compat says finish_reason == "length" when the cap cut the reply
         # off. Capture it — a cut-off answer must never be presented as complete.
         truncated = str(choice.get("finish_reason") or "") == "length"
+        # `content` is OPTIONAL in this wire shape: a server leaves it out (or
+        # null) when the model wrote no answer text — its thinking travels in
+        # `reasoning_content`, a tool request in `tool_calls`. Reading it with
+        # `message["content"]` turned that into `KeyError: 'content'`, which the
+        # retry below files under "not a completion": the same question asked
+        # three times, then a programming error printed as the cause.
+        text = message.get("content")
+        if not isinstance(text, str) or not text.strip():
+            reported_in = usage.get("prompt_tokens")
+            raise NoAnswer(
+                no_answer_cause(
+                    cut_off=truncated,
+                    thought=bool(message.get("reasoning_content") or message.get("reasoning")),
+                    tool_request=bool(message.get("tool_calls")),
+                    allowance=int(self.max_tokens),
+                ),
+                tokens_in=int(reported_in) if reported_in is not None else None,
+                tokens_out=int(usage.get("completion_tokens") or 0),
+            )
+        tin = int(usage.get("prompt_tokens", _est_tokens(_messages_text(messages))))
+        tout = int(usage.get("completion_tokens", _est_tokens(text)))
         return text, tin, tout, True, truncated
 
     def _invoke_anthropic(self, messages, route):
         """Anthropic Messages API POST — the Claude-specific path.
 
         Maps any ``system`` message to the top-level ``system`` field and sends
-        the rest as the ``messages`` array; parses ``content[0].text`` back.
+        the rest as the ``messages`` array; the answer is the reply's text blocks.
         """
         url = route.base_url.rstrip("/") + "/v1/messages"
         system, conversation = _split_system(messages)
@@ -1825,12 +1898,41 @@ class Gateway:
         req.add_header("x-api-key", route.api_key or "")
         req.add_header("anthropic-version", ANTHROPIC_VERSION)
         payload = self._post_json(req)
-        text = payload["content"][0]["text"]
+        blocks = payload["content"]
         usage = payload.get("usage", {}) or {}
-        tin = int(usage.get("input_tokens", _est_tokens(_messages_text(messages))))
-        tout = int(usage.get("output_tokens", _est_tokens(text)))
         # The Anthropic spelling of the same signal (see _invoke_openai).
         truncated = str(payload.get("stop_reason") or "") == "max_tokens"
+        # A reply is a LIST of blocks and the answer is its TEXT blocks. With
+        # thinking on, the first block is the thinking (no `text` key), so the
+        # old `content[0]["text"]` made every such reply a `KeyError: 'text'`,
+        # retried as a malformed body: three paid calls and no answer.
+        # (A block with no `type` at all is read as text: a compatible proxy
+        # may leave it out, and nothing but a text block carries `text`.)
+        text = "".join(
+            b["text"]
+            for b in blocks
+            if isinstance(b, dict)
+            and b.get("type", "text") == "text"
+            and isinstance(b.get("text"), str)
+        )
+        if not text.strip():
+            reported_in = usage.get("input_tokens")
+            raise NoAnswer(
+                no_answer_cause(
+                    cut_off=truncated,
+                    thought=any(
+                        isinstance(b, dict)
+                        and b.get("type") in ("thinking", "redacted_thinking")
+                        for b in blocks
+                    ),
+                    tool_request=False,  # this path sends no tools to be asked for
+                    allowance=int(payload_obj["max_tokens"]),
+                ),
+                tokens_in=int(reported_in) if reported_in is not None else None,
+                tokens_out=int(usage.get("output_tokens") or 0),
+            )
+        tin = int(usage.get("input_tokens", _est_tokens(_messages_text(messages))))
+        tout = int(usage.get("output_tokens", _est_tokens(text)))
         return text, tin, tout, True, truncated
 
     def _invoke_cli(self, messages, route):

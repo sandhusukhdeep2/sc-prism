@@ -270,7 +270,12 @@ func (g *Gateway) invoke(messages []message, route RouteDecision) (string, int, 
 	var parsed struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				// A pointer: `content` is OPTIONAL in this wire shape, and a
+				// plain string cannot tell "left out" from "".
+				Content          *string         `json:"content"`
+				ReasoningContent string          `json:"reasoning_content"`
+				Reasoning        json.RawMessage `json:"reasoning"`
+				ToolCalls        []any           `json:"tool_calls"`
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
@@ -282,19 +287,63 @@ func (g *Gateway) invoke(messages []message, route RouteDecision) (string, int, 
 	if err := json.Unmarshal(raw, &parsed); err != nil || len(parsed.Choices) == 0 {
 		return g.stub(messages, route)
 	}
-	text := parsed.Choices[0].Message.Content
+	msg := parsed.Choices[0].Message
+	text := ""
+	if msg.Content != nil {
+		text = *msg.Content
+	}
 	tin := parsed.Usage.PromptTokens
 	if tin == 0 {
 		tin = estTokens(messagesText(messages))
+	}
+	// OpenAI-compat says finish_reason == "length" when the cap cut the reply
+	// off. Capture it — a cut-off answer must never be presented as complete.
+	truncated := parsed.Choices[0].FinishReason == "length"
+	// HONESTY (2026-11-14): a reply with no answer text. The server leaves
+	// `content` out (or null) when the model wrote none — its thinking is in
+	// `reasoning_content`, a tool request in `tool_calls`. This used to come
+	// back as "" marked REAL: an empty answer presented as genuine. Same
+	// sentences and same contract as gateway.py's NoAnswer, including the
+	// tokens the server measured (they are real work, not an estimate).
+	if strings.TrimSpace(text) == "" {
+		thought := msg.ReasoningContent != "" ||
+			(len(msg.Reasoning) > 0 && string(msg.Reasoning) != "null" && string(msg.Reasoning) != `""`)
+		cause := noAnswerCause(truncated, thought, len(msg.ToolCalls) > 0, g.maxTokens)
+		return fmt.Sprintf("[offline:%s:%s] %s", route.Provider, route.Model, cause),
+			tin, parsed.Usage.CompletionTokens, false, false
 	}
 	tout := parsed.Usage.CompletionTokens
 	if tout == 0 {
 		tout = estTokens(text)
 	}
-	// OpenAI-compat says finish_reason == "length" when the cap cut the reply
-	// off. Capture it — a cut-off answer must never be presented as complete.
-	truncated := parsed.Choices[0].FinishReason == "length"
 	return text, tin, tout, true, truncated
+}
+
+// noAnswerCause says why a reply held no answer text, from what the reply
+// itself says. Byte-identical to gateway.py's no_answer_cause.
+func noAnswerCause(cutOff, thought, toolRequest bool, allowance int) string {
+	switch {
+	case cutOff && thought:
+		return fmt.Sprintf("the model spent its whole answer allowance (%s tokens) thinking and wrote no answer", withCommas(allowance))
+	case cutOff:
+		return fmt.Sprintf("the model reached its answer allowance (%s tokens) before writing an answer", withCommas(allowance))
+	case toolRequest:
+		return "the model answered with a tool request only, in a form this app does not read, and wrote no text"
+	}
+	return "the model returned an empty answer"
+}
+
+// withCommas writes 4096 as "4,096" (Python's `{n:,}`).
+func withCommas(n int) string {
+	digits := strconv.Itoa(n)
+	sign := ""
+	if n < 0 {
+		sign, digits = "-", digits[1:]
+	}
+	for i := len(digits) - 3; i > 0; i -= 3 {
+		digits = digits[:i] + "," + digits[i:]
+	}
+	return sign + digits
 }
 
 // loadFailedMark is the client's contract for "the local model could not be

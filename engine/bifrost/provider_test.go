@@ -128,3 +128,81 @@ func TestCacheHitKeepsTheTruncationFlag(t *testing.T) {
 		t.Fatal("honesty must survive the cache")
 	}
 }
+
+// A reply that holds no answer text (2026-11-14). An OpenAI-compatible server
+// leaves `content` out of the message when the model wrote no answer — its
+// thinking travels in `reasoning_content`, a tool request in `tool_calls`. The
+// struct read that as "" and handed it back as a REAL completion: an empty
+// answer marked genuine. The Python twin had the opposite fault (a KeyError,
+// retried three times). Both now say what happened, in the same words — see
+// engine/tests/test_gateway_no_answer.py.
+
+func noTextReply(message map[string]any, finish string) map[string]any {
+	return map[string]any{
+		"choices": []any{map[string]any{"message": message, "finish_reason": finish}},
+		"usage":   map[string]any{"prompt_tokens": 1989, "completion_tokens": 4096},
+	}
+}
+
+func askOnce(t *testing.T, reply map[string]any) ModelCallResult {
+	t.Helper()
+	g, route, _ := serve(t, reply)
+	return g.ModelCall([]message{{"role": "user", "content": "add a third line"}}, route)
+}
+
+func TestAnAllowanceSpentThinkingIsANamedNoAnswer(t *testing.T) {
+	res := askOnce(t, noTextReply(map[string]any{"role": "assistant", "reasoning_content": "hm"}, "length"))
+	if res.IsReal {
+		t.Fatal("a reply with no answer text is not a real completion")
+	}
+	want := "the model spent its whole answer allowance (4,096 tokens) thinking and wrote no answer"
+	if !containsSub(res.Text, "[offline:local:") || !containsSub(res.Text, want) {
+		t.Fatalf("want the named cause, got %q", res.Text)
+	}
+	// The server measured these: they are kept, not zeroed and not estimated.
+	if res.TokensIn != 1989 || res.TokensOut != 4096 {
+		t.Fatalf("want the measured 1989/4096, got %d/%d", res.TokensIn, res.TokensOut)
+	}
+}
+
+func TestANullOrBlankContentIsTheSame(t *testing.T) {
+	for _, content := range []any{nil, "", "  \n"} {
+		res := askOnce(t, noTextReply(map[string]any{"content": content, "reasoning_content": "hm"}, "length"))
+		if res.IsReal || !containsSub(res.Text, "thinking and wrote no answer") {
+			t.Fatalf("content=%#v: want a named no-answer, got real=%v %q", content, res.IsReal, res.Text)
+		}
+	}
+}
+
+func TestCutOffWithNoThinkingDoesNotClaimThinking(t *testing.T) {
+	res := askOnce(t, noTextReply(map[string]any{"role": "assistant"}, "length"))
+	want := "the model reached its answer allowance (4,096 tokens) before writing an answer"
+	if res.IsReal || !containsSub(res.Text, want) {
+		t.Fatalf("got real=%v %q", res.IsReal, res.Text)
+	}
+}
+
+func TestAToolRequestWithNoTextSaysThat(t *testing.T) {
+	res := askOnce(t, noTextReply(map[string]any{
+		"role":       "assistant",
+		"tool_calls": []any{map[string]any{"id": "1", "type": "function"}},
+	}, "tool_calls"))
+	want := "the model answered with a tool request only, in a form this app does not read, and wrote no text"
+	if res.IsReal || !containsSub(res.Text, want) {
+		t.Fatalf("got real=%v %q", res.IsReal, res.Text)
+	}
+}
+
+func TestAFinishedReplyWithNothingInItIsAnEmptyAnswer(t *testing.T) {
+	res := askOnce(t, noTextReply(map[string]any{"role": "assistant"}, "stop"))
+	if res.IsReal || !containsSub(res.Text, "the model returned an empty answer") {
+		t.Fatalf("got real=%v %q", res.IsReal, res.Text)
+	}
+}
+
+func TestAnAnswerBesideThinkingIsStillTheAnswer(t *testing.T) {
+	res := askOnce(t, noTextReply(map[string]any{"content": "Done.", "reasoning_content": "easy"}, "stop"))
+	if !res.IsReal || res.Text != "Done." {
+		t.Fatalf("got real=%v %q", res.IsReal, res.Text)
+	}
+}
