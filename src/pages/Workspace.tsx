@@ -1,26 +1,24 @@
-import { useContext, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { noticeParts } from '../lib/noticeParts'
 import { useNarrow } from '../lib/useNarrow'
-import { useSchedules } from '../lib/schedules'
-import { useManagers } from '../lib/managers'
 import { agentDossier, agentsInRun } from '../lib/agentDossier'
-import RunStrip from '../components/RunStrip'
+import TeamBoard from '../components/TeamBoard'
+import { boardCountLine, rosterSeats, teamBoard } from '../lib/teamBoard'
 import RoomPane from '../components/RoomPane'
 import ProjectFilesPane from '../components/ProjectFilesPane'
 import { paneAfterRun, roomPane, type PanePick, type PaneTab } from '../lib/roomPane'
-import { foldSeatTurns, seatFoldSummary, type SeatTurn } from '../lib/chatFold'
+import { foldSeatTurns } from '../lib/chatFold'
 import { RailSlotContext } from '../lib/railSlot'
 import { teamSend } from '../lib/teamSend'
-import { workloadAIs } from '../lib/workloadSeats'
+import { seatByWorkload, workloadAIs } from '../lib/workloadSeats'
 import AgentDossierPanel from '../components/AgentDossierPanel'
-import { Link } from 'react-router-dom'
-import VerdictCard, { toVerdictView } from '../components/VerdictCard'
+import RunLines, { OutcomeStrip, TurnLines } from '../components/RunLines'
+import { runLines, teamOutcome, verdictOutcome } from '../lib/runLines'
 import ConnectivityBanner from '../components/ConnectivityBanner'
 import Desk, { useDeskState } from '../components/Desk'
 import ErrorMessageCard from '../components/ErrorMessageCard'
 import RunStream from '../components/RunStream'
-import ChatRunStream from '../components/ChatRunStream'
 import UserBubble from '../components/UserBubble'
 import CopyButton from '../components/CopyButton'
 import { renderChatMarkdown } from '../lib/chatMarkdown'
@@ -39,9 +37,11 @@ import {
 import { isCliProvider, primaryDisplayName, primarySupportsVision, useSettings } from '../lib/settings'
 import { meterFor } from '../lib/contextMeter'
 import { useConnectivity } from '../lib/connectivity'
-import { filterRoster, rosterGate, sitOutLine } from '../lib/roster'
+import { allowAllProviders, filterRoster, rosterGate, sitOutLine } from '../lib/roster'
 import Icon from '../components/Icon'
-import { greeting, statusLine, deskSummary } from '../lib/desk'
+import { deskSummary, statusLine } from '../lib/desk'
+import { useSchedules } from '../lib/schedules'
+import { useManagers } from '../lib/managers'
 import { isNative, pickFile, pickFolder, readImageBase64, readTextFile, revealVaultNote, revealPath } from '../lib/nativeEngine'
 import { composeWithAttachments, displayLine, type ChatAttachment } from '../lib/attachments'
 import { useSpanTail } from '../lib/engineConsole'
@@ -51,24 +51,18 @@ import type { EngineSpan } from '../lib/nativeEngine'
 import {
   MANAGER_ROOM,
   activeRuns,
-  crewSize,
   currentRunSpans,
-  lastFinishedRunSpans,
   runsElsewhere,
   runsInRoom,
 } from '../lib/liveRuns'
-import RunLedger from '../components/RunLedger'
 import { availableTeam, decideRouting, managerToken, routingLine } from '../lib/delegation'
 import { useInterview } from '../lib/interview'
 import { agentTaskBrief, agentTaskDisplay, useAgents } from '../lib/agents'
-import { agentOrbs } from '../lib/orbs'
-import { roomCountLine } from '../lib/roomCount'
 import { dedupeSpans } from '../lib/dedupeSpans'
-import { runsPill } from '../lib/runsPill'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
-import { useProjects, useProjectsHydrated, nextSendMode, openFolderAsProject } from '../lib/projects'
+import { useProjects, useProjectsHydrated, nextSendMode, openFolderAsProject, projectBuildRoster } from '../lib/projects'
 import { folderLane, sentLane } from '../lib/roomLane'
 import { NewProjectForm, ProjectContextPanel, StatusChip } from './Projects'
 import './Projects.css'
@@ -156,40 +150,12 @@ export function providerInitial(model: string): string {
   return provider ? provider.charAt(0).toUpperCase() : ''
 }
 
-/**
- * ONE SEAT'S REAL BOARD CONTRIBUTION — its own bubble, its own coloured
- * monogram, three-part attribution in the header. Read from the persisted
- * board record, never from memory of the run.
- */
-function SeatBubble({ m }: { m: SeatTurn }) {
-  return (
-    <div className="msg msg--seat">
-      <span
-        className="msg__seatdot mono"
-        style={{ background: modelColor(m.provider || m.model) }}
-        aria-hidden="true"
-      >
-        {(m.agent[0] ?? '?').toUpperCase()}
-      </span>
-      <div className="msg__seatbody">
-        <div className="msg__seathead mono">
-          {m.agent} · {m.provider}
-          {m.model ? ` · ${m.model}` : ''}
-          {typeof m.round === 'number' && m.round > 0 && (
-            <span className="msg__seatround"> · turn {m.round} → to the board, read by every seat</span>
-          )}
-        </div>
-        <div className="msg__stream">{renderChatMarkdown(m.text)}</div>
-      </div>
-    </div>
-  )
-}
-
 /** The words on the buttons that open the pane beside the chat. */
 const PANE_LABEL: Record<PaneTab, string> = {
   steps: 'Steps',
   files: 'Files',
   details: 'Details',
+  desk: 'Desk',
 }
 
 export default function Workspace() {
@@ -342,7 +308,8 @@ export default function Workspace() {
   // project has ever been opened, or the bound id no longer resolves (the
   // project was deleted): the chip simply doesn't render, same as today.
   const { projects } = useProjects()
-  // The desk's closed line is counts from the stores, not headings (§A6).
+  // What is on the coworker desk, in counts from the stores — the hover of
+  // the button that opens it (§A6).
   const managersForDesk = useManagers()
   const schedulesForDesk = useSchedules()
   const projectsHydrated = useProjectsHydrated()
@@ -444,13 +411,6 @@ export default function Workspace() {
   // Attribution asks about EVERY run executing, not only this room's: with a
   // second engine at work anywhere, no span can be honestly pinned on ours.
   const liveSpans = anyLive ? currentRunSpans(tail.spans, executingAnywhere) : []
-  // WHAT THE BOARD DRAWS. While a run executes, only that run's spans (which is
-  // [] whenever two runs are in flight, so one crew can never be attributed to
-  // another). When nothing is running, the LAST FINISHED run's spans — but only
-  // if it was genuinely a crew, because drawing a one-monogram board for an
-  // ordinary chat reply would dress a single answer up as teamwork.
-  const finishedSpans = lastFinishedRunSpans(tail.spans)
-  const showsLastCrew = !anyLive && crewSize(finishedSpans) > 1
   // A PROJECT'S BOARD IS ITS WHOLE BUILD, not the one step running now.
   //
   // Each plan step is a separate engine run, so `liveSpans` only ever held the
@@ -468,13 +428,41 @@ export default function Workspace() {
   const projectSpans = activeProject
     ? dedupeSpans([...projectRunSpans(tail.spans, activeProject.verdictIds), ...(anyLive ? liveSpans : [])])
     : []
-  const boardSpans = activeProject
+  // THE ROOM'S TEAM (spec 2026-11-14 "Visible agents"). Who is ON it is the
+  // roster this room would send — the project's own build team, or the
+  // default team as the workload slider seats it. What each seat DID is read
+  // from spans: the project's whole build, this room's live run, or — at rest
+  // in the Manager's room — the last run this room itself drew, kept only for
+  // this visit (another room's crew is never borrowed).
+  const lastRoomSpans = useRef(new Map<string, EngineSpan[]>())
+  useEffect(() => {
+    if (anyLive && liveSpans.length > 0) lastRoomSpans.current.set(roomKey, liveSpans)
+  })
+  const teamSpans = activeProject
     ? projectSpans
     : anyLive
       ? liveSpans
-      : showsLastCrew
-        ? finishedSpans
-        : []
+      : (lastRoomSpans.current.get(roomKey) ?? [])
+  // The Steps pane lists the same run the board draws.
+  const boardSpans = teamSpans
+  // One AI answering a message has no seat in the spans; the board lights the
+  // lead for it, and nothing else on the page repeats it.
+  const answering = roomRuns.some((r) => r.kind === 'chat' && !r.paused)
+  const roomRoster = useMemo(
+    () =>
+      rosterSeats(
+        settings,
+        activeProject
+          ? projectBuildRoster(activeProject, agents, allowAllProviders, (r) => seatByWorkload(settings, r))
+          : teamRosterFromSettings(settings),
+        { agents, leadAlias: settings.companionName },
+      ),
+    [settings, activeProject, agents],
+  )
+  const teamCount = boardCountLine(
+    teamBoard({ roster: roomRoster, spans: teamSpans, live: anyLive, answering }),
+    anyLive,
+  )
   // THE PANE BESIDE THE CHAT. The chat is always the chat; the run drawn to
   // be watched, the engine's steps, and a project's files and details open
   // next to it. A team at work takes the pane with the stage; a pick made by
@@ -484,9 +472,9 @@ export default function Workspace() {
   // Steps are offered when there is a crew whose steps can be listed, and
   // for a run parked on the user: the board in that tab says what it waits for.
   const parked = roomRuns.some((r) => r.paused)
-  const paneFacts = { hasCrew: hasCrew || parked, project: !!activeProject, narrow }
   const projectNeedsYou =
     !!activeProject && ['planned', 'awaiting', 'attention'].includes(activeProject.status)
+  const paneFacts = { hasCrew: hasCrew || parked, project: !!activeProject, narrow, needsYou: projectNeedsYou }
   // A run starting or ending moves the pick (lib/roomPane.ts `paneAfterRun`).
   // Done while rendering — from the liveness, and the tab, the LAST render
   // showed — so the pane never closes for a frame and reopens: the drawing
@@ -497,6 +485,11 @@ export default function Workspace() {
     setPanePick(paneAfterRun({ pick: panePick, wasLive: seenLive, live: anyLive, needsYou: projectNeedsYou }))
   }
   const pane = roomPane({ pick: panePick, ...paneFacts })
+  // A pane the rule opened stays open: once it is on screen it is held like a
+  // pick made by hand, so it never closes by itself under the reader (a
+  // project's details were open because it was waiting; pressing Start must
+  // not make them vanish).
+  if (panePick === null && pane.tab) setPanePick(pane.tab)
   // A room of its own: another room starts from the rule, not from the tab
   // the last room happened to have open.
   useEffect(() => {
@@ -504,7 +497,7 @@ export default function Workspace() {
   }, [state.activeProjectId])
   // The seat opened from the strip, held by NAME (a crew can grow mid-run).
   const [stageAgent, setStageAgent] = useState<string | null>(null)
-  const stageDossier = stageAgent ? agentDossier(boardSpans, stageAgent, anyLive) : null
+  const stageDossier = stageAgent ? agentDossier(teamSpans, stageAgent, anyLive) : null
   // (The active project's activity feed used to be piped into the console box
   // when idle. That box is gone — it is a pipeline step's `▸` detail now — and
   // the same real feed already has its own home in the project rail below,
@@ -836,25 +829,10 @@ export default function Workspace() {
   const meter = meterFor(activeMessages(state))
   const threadKey = activeThreadKey(state.activeProjectId)
 
-  // ONE honest status line, not six KPI chips (2026-08-18). The strip used to
-  // carry local% / cache% / eval / tokens / cost / Tier-1 — six numbers on the
-  // page whose job is the conversation, each of them a headline Stats already
-  // owns and explains. It now states the two facts that place the run history
-  // (how many runs are recorded, and how much of the work stayed on this Mac)
-  // and links to the page that owns the rest. Both come from the same measured
-  // record the ledger reads, so the strip cannot disagree with the rail.
-  const runsRecorded = state.verdicts.length
-  // "of runs": the rail's meter counts tokens; this counts runs (runsPill.ts).
-  const statusChip = runsPill(runsRecorded)
-
   // Header status line — Desk.tsx has the shared useDeskState() hook so
   // header and rail compute identically and can never drift.
   const { items: deskItems, running: runningProject } = useDeskState()
   const status = statusLine(deskItems, runningProject)
-  // The ambient desk (happening/health/catch-up) is collapsed by default so the
-  // chat is the hero; the urgent "Needs you" decisions render separately, always
-  // visible, so nothing that needs you is ever hidden behind the collapse.
-  const [deskOpen, setDeskOpen] = useState(false)
 
   // The rail's slot for this page's rooms — null when there is no rail.
   const railSlot = useContext(RailSlotContext)
@@ -949,33 +927,47 @@ export default function Workspace() {
           <h1 className="ws__hello">
             {activeProject ? activeProject.name || '(untitled project)' : 'Manager'}
           </h1>
-          <div className="ws__subtitle">
-            {/* With a room open, the honest head count (design 2026-11-08 §A):
-                the project's agents from the store, who is working from the
-                board's spans, only while a run is genuinely live. */}
-            {/* ONE STATEMENT PER FACT: while this room's run is live the strip
-                above the chat is speaking, and the head says nothing. */}
-            {anyLive
-              ? ''
-              : status ||
-                (activeProject
-                  ? roomCountLine(agents, activeProject.id, agentOrbs(boardSpans), false)
-                  : '') ||
-                // "Nothing running" is a claim about the whole engine, so it
-                // is made only when that is true — not above a line saying
-                // the engine is busy in another room.
-                (executingAnywhere.length > 0
-                  ? greeting(Date.now(), settings.yourName)
-                  : `${greeting(Date.now(), settings.yourName)} — nothing running right now`)}
-          </div>
+          {/* What the desk has to say about work that is NOT on this board (a
+              build running in another room, a decision waiting) — and nothing
+              at all when there is nothing: the board says who is working. */}
+          {!anyLive && status && <div className="ws__subtitle">{status}</div>}
         </div>
+        {/* WHAT CAN OPEN BESIDE THE CHAT — offered here only while the pane is
+            closed. Open, the pane's own tabs say what is showing. */}
+        {!pane.tab && pane.tabs.length > 0 && (
+          <span className="ws__panes" role="group" aria-label="Open beside the chat">
+            {pane.tabs.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className="chat__pane"
+                // The desk says what is on it before it is opened.
+                title={t === 'desk' ? deskSummary(managersForDesk, schedulesForDesk, projects) : undefined}
+                onClick={() => setPanePick(t)}
+              >
+                {PANE_LABEL[t]}
+              </button>
+            ))}
+          </span>
+        )}
+        {/* A fresh session for this room. Shown here while the thread is short;
+            once the thread is long enough to matter, the memory line above the
+            composer carries it (and this one steps aside — said once). */}
+        {activeMessages(state).length > 0 && !meter.offerCompact && !confirmNewSession && (
+          <button
+            type="button"
+            className="chat__pane"
+            onClick={() => setConfirmNewSession(true)}
+            disabled={state.running}
+          >
+            New session
+          </button>
+        )}
         <div className="ws__spacer" />
-        <div className="ws__kpis">
-          <span className="ws__kpi">{statusChip}</span>
-          <Link to="/stats" className="ws__statslink">
-            Stats ›
-          </Link>
-        </div>
+        {/* The room's head count, read off its Team board: how many agents,
+            how many have worked, and — only while a run executes — how many
+            are working now. */}
+        {teamCount && <span className="ws__count">{teamCount}</span>}
       </section>
 
       <ConnectivityBanner conn={connectivity} />
@@ -983,33 +975,6 @@ export default function Workspace() {
       {/* Urgent parked decisions — always visible + compact, with inline actions. */}
       <div className="ws__needs">
         <Desk show="needs" />
-      </div>
-
-      {/* The ambient coworker desk (happening / health / catch-up) — collapsed by
-          default so the chat is the hero; a slim toggle reveals it, height-bounded. */}
-      <div className="ws__desk">
-        <button
-          type="button"
-          className="ws__desktoggle"
-          onClick={() => setDeskOpen((v) => !v)}
-          aria-expanded={deskOpen}
-        >
-          <span className="ws__desklabel">Coworker desk</span>
-          {/* No needs-count here. The toggle expands the AMBIENT slice
-              (happening / health / catch-up) — repeating "1 thing needs your
-              decision" on it promised the click would reveal the decision,
-              which lives in the always-visible rail above. A label may only
-              advertise what its own click shows. */}
-          <span className="ws__desksummary">
-            {deskOpen ? '' : deskSummary(managersForDesk, schedulesForDesk, projects)}
-          </span>
-          <span className="ws__deskchev">{deskOpen ? '▾' : '▸'}</span>
-        </button>
-        {deskOpen && (
-          <div className="ws__deskbody">
-            <Desk show="rest" />
-          </div>
-        )}
       </div>
 
       {/* main split */}
@@ -1028,40 +993,18 @@ export default function Workspace() {
             scrolls. (Until this fix the column itself was the scroller, with
             six page-shaped blocks stacked inside it — see Workspace.css.) */}
         <div className="ws__chatcol">
-        <div className="chat">
-          <div className="chat__tabs">
-            <span className="chat__tab is-active">Chat</span>
-            <Link to="/editor" className="chat__tab">Editor</Link>
-            <span className="chat__spacer" />
-            {/* WHAT CAN OPEN BESIDE THE CHAT — offered here only while the
-                pane is closed. Open, the pane's own tabs say what is showing,
-                and saying it twice is the clutter this room was rebuilt to
-                remove. */}
-            {!pane.tab && pane.tabs.length > 0 && (
-              <span className="chat__panes" role="group" aria-label="Open beside the chat">
-                {pane.tabs.map((t) => (
-                  <button key={t} type="button" className="chat__pane" onClick={() => setPanePick(t)}>
-                    {PANE_LABEL[t]}
-                  </button>
-                ))}
-              </span>
-            )}
-            {state.verdicts[0] && (
-              <Link to="/verdict" className="chat__task mono">
-                last result ›
-              </Link>
-            )}
-          </div>
-
-          {/* THIS ROOM'S RUN, ONCE (spec 2026-11-14): what is running, who is
-              on it with the handoff in flight, who is speaking. It is here
-              only while this room's run is working or parked on the user —
-              and, for a room with no run of its own, one line saying where
-              the engine is busy. */}
-          <RunStrip
+          {/* THE ROOM'S TEAM, at the top of the room (spec 2026-11-14 "Visible
+              agents"): every seat, the AI it runs on, and — from the spans of
+              this room's run — what each is doing, with the handoff in flight.
+              It also says what is running and for how long, offers Stop, and
+              for a room with no run of its own says where the engine is busy.
+              Each of those once, here and nowhere else. */}
+          <TeamBoard
+            roster={roomRoster}
             runs={stripRuns}
-            spans={boardSpans}
+            spans={teamSpans}
             live={anyLive}
+            answering={answering}
             elsewhere={elsewhere}
             engines={executingAnywhere.length}
             roomName={(room) =>
@@ -1072,6 +1015,7 @@ export default function Workspace() {
             onStop={(r) => stopLiveRun(r.id)}
             fullViewHref="/live"
           />
+        <div className="chat">
           <div className="chat__body" ref={bodyRef}>
             {activeMessages(state).length === 0 && !state.running && (
               activeProject && nextSendMode(activeProject) === 'project-interview' ? (
@@ -1089,7 +1033,7 @@ export default function Workspace() {
                 </div>
               )
             )}
-            {foldSeatTurns(collapseRepeats(activeMessages(state))).map((m) => {
+            {foldSeatTurns(collapseRepeats(activeMessages(state))).map((m, i, all) => {
               if (m.kind === 'user') {
                 return (
                   <UserBubble
@@ -1214,6 +1158,17 @@ export default function Workspace() {
               // REAL outcome. Never an AI bubble (no model said it) and no
               // Retry (its retry would send to the wrong runner).
               if (m.kind === 'notice') {
+                // A TEAM RUN'S RESULT is the one strip that closes the run in
+                // the chat (spec 2026-11-14): the outcome, how many turns
+                // stayed local, the tokens of the budget, and the saved board
+                // by its own name. Read back from the line the app wrote, so
+                // every run already in the thread gets the same strip.
+                const prev = all[i - 1]
+                const turns = prev?.kind === 'seats' ? prev.seats : prev?.kind === 'seat' ? [prev] : []
+                const ended = teamOutcome(m.text, turns)
+                if (ended) {
+                  return <OutcomeStrip key={m.id} o={ended} onReveal={(path) => void revealPath(path)} />
+                }
                 // The app speaking: a sentence in body type. A file it names is
                 // a reveal action by the file's own name, never a wall of path.
                 const np = noticeParts(m.text)
@@ -1239,47 +1194,23 @@ export default function Workspace() {
                   </div>
                 )
               }
-              if (m.kind === 'seats') {
-                // A RUN'S OWN TURNS, FOLDED (lib/chatFold.ts): one line that
-                // opens in place to every seat's turn, exactly as written. The
-                // answer under it stands on its own.
-                const sum = seatFoldSummary(m.seats)
-                return (
-                  <details key={m.id} className="msg msg--fold">
-                    <summary className="msg__foldline">
-                      <span className="msg__folddots" aria-hidden="true">
-                        {m.seats
-                          .filter((s, i, all) => all.findIndex((x) => x.agent === s.agent) === i)
-                          .map((s) => (
-                            <span
-                              key={s.agent}
-                              className="msg__seatdot msg__seatdot--sm mono"
-                              style={{ background: modelColor(s.provider || s.model) }}
-                            >
-                              {(s.agent[0] ?? '?').toUpperCase()}
-                            </span>
-                          ))}
-                      </span>
-                      <span className="msg__foldtext">{sum.line}</span>
-                      <span className="msg__foldnames">{sum.names.join(' · ')}</span>
-                    </summary>
-                    <div className="msg__foldbody">
-                      {m.seats.map((s) => (
-                        <SeatBubble key={s.id} m={s} />
-                      ))}
-                    </div>
-                  </details>
-                )
-              }
-              if (m.kind === 'seat') return <SeatBubble key={m.id} m={m} />
-              return <VerdictCard key={m.id} v={toVerdictView(m.verdict)} />
+              // WHAT EACH SEAT CONTRIBUTED (spec 2026-11-14): one line per
+              // turn — who, on which AI, the first thing it wrote — and the
+              // whole turn opens from its line, exactly as written. Read from
+              // the saved board, never from memory of the run.
+              if (m.kind === 'seats') return <TurnLines key={m.id} turns={m.seats} />
+              if (m.kind === 'seat') return <TurnLines key={m.id} turns={[m]} />
+              // HOW A RUN ENDED, once: the strip, with the way to its full record.
+              return <OutcomeStrip key={m.id} o={verdictOutcome(m.verdict)} to="/verdict" />
             })}
 
-            {/* THE ROOM'S LIVE STREAM (project-room spec): while a run is
-                live the chat itself scrolls the crew's real actions — same
-                spans, same renderer as the stage. Disappears when the run
-                ends; the verdict card is the durable record. */}
-            {anyLive && <ChatRunStream spans={liveSpans} />}
+            {/* THE RUN, AS IT HAPPENS (spec 2026-11-14): while this room's run
+                works, the chat writes it as seat-attributed lines — who, on
+                which AI, what it did — each from a span. They go when the run
+                ends; what each seat contributed and the outcome strip are the
+                durable record. One AI answering a message is not a run to
+                write out: its bubble says it is thinking. */}
+            {stripRuns.some((r) => !r.paused) && <RunLines lines={runLines(liveSpans, true)} />}
 
           </div>
 
@@ -1323,7 +1254,7 @@ export default function Workspace() {
             </div>
           )}
 
-          {activeMessages(state).length > 0 && (
+          {activeMessages(state).length > 0 && (meter.offerCompact || confirmNewSession) && (
             <div className="chat__meter">
               <div
                 className="chat__meterbar"
@@ -1503,20 +1434,172 @@ export default function Workspace() {
             </div>
           )}
           <div className="chat__composer">
-            {/* Typing stays ENABLED while a task runs — only sending waits. */}
-            <textarea
-              ref={inputRef}
-              className="chat__input"
-              rows={1}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder={
-                state.running ? 'Type your next message meanwhile…' : `${composerLabel}…`
-              }
-              aria-label={composerLabel}
-            />
-            <div className="chat__controls">
+            {/* THE OVERRIDE, behind ONE control (2026-08-18). Seven pills —
+                five targets and three routes — used to sit on this row at all
+                times, so the composer's loudest feature was a choice the user
+                almost never changes (both controls reset after every send by
+                design). The DEFAULT is now stated in words beside the send
+                button, and the pills live in this panel, opened deliberately.
+                Nothing about the controls themselves changed: same options,
+                same aria-labels, same titles, same per-message reset. */}
+            {overrideOpen && (
+              <div className="chat__override">
+              {/* WHO does this task. Same segmented idiom as the route control it
+                  sits beside (literally the same classes), because it is the same
+                  kind of per-message choice. Every option is real: the companion
+                  is the default path, `team` is the shared governed launch, and
+                  `agent` is disabled — with the reason — when the library has
+                  nobody enabled to address. */}
+              <div
+                className="chat__route chat__target"
+                role="radiogroup"
+                aria-label="Who does this task"
+                title="Who gets this task. Applies to the next message, then resets to your companion — a team run costs real minutes and tokens."
+              >
+                <span className="chat__routelabel mono">to</span>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={effectiveTarget === 'companion'}
+                  className={'chat__routebtn mono' + (effectiveTarget === 'companion' ? ' chat__routebtn--on' : '')}
+                  onClick={() => {
+                    setTarget('companion')
+                    setTeamPicked(false)
+                  }}
+                  title={`${primaryName} answers in this chat — the normal path`}
+                >
+                  {primaryName}
+                </button>
+                {lane.offered && (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={effectiveTarget === 'project'}
+                    className={'chat__routebtn mono' + (effectiveTarget === 'project' ? ' chat__routebtn--on' : '')}
+                    onClick={() => {
+                      setTarget('project')
+                      setTeamPicked(false)
+                    }}
+                    title={
+                      lane.block
+                        ? `The folder cannot take a job right now — ${lane.block}`
+                        : 'Your team makes the change in this project’s folder — it becomes the project’s next step, with the project’s checks'
+                    }
+                  >
+                    folder
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={effectiveTarget === 'team'}
+                  className={'chat__routebtn mono' + (effectiveTarget === 'team' ? ' chat__routebtn--on' : '')}
+                  onClick={() => {
+                    setTarget('team')
+                    setTeamPicked(true)
+                  }}
+                  title="A real multi-agent team run — each role on its own model, one engine run, refused honestly if another run holds the engine"
+                >
+                  team
+                </button>
+                {!moreTargetsOpen && !['agent', 'propose', 'staff'].includes(target) ? (
+                  <button
+                    type="button"
+                    className="chat__routebtn mono"
+                    onClick={() => setMoreTargetsOpen(true)}
+                    title="more ways to hand this off: one library agent, propose a new agent, staff a project"
+                  >
+                    more ▾
+                  </button>
+                ) : (
+                  <>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={target === 'agent'}
+                  disabled={libraryAgents.length === 0}
+                  className={'chat__routebtn mono' + (target === 'agent' ? ' chat__routebtn--on' : '')}
+                  onClick={() => {
+                    setTarget('agent')
+                    setTeamPicked(false)
+                  }}
+                  title={
+                    libraryAgents.length === 0
+                      ? 'no enabled agents in your library — add one on the Agents page'
+                      : "one agent from your library, briefed on your primary AI (there is no per-agent runner yet)"
+                  }
+                >
+                  agent
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={target === 'propose'}
+                  className={'chat__routebtn mono' + (target === 'propose' ? ' chat__routebtn--on' : '')}
+                  onClick={() => {
+                    setTarget('propose')
+                    setTeamPicked(false)
+                  }}
+                  title="Ask for a NEW agent. You get a proposal on your desk citing this request — nothing is created until you tap Create."
+                >
+                  new agent
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={target === 'staff'}
+                  disabled={!canStaff}
+                  className={'chat__routebtn mono' + (target === 'staff' ? ' chat__routebtn--on' : '')}
+                  onClick={() => {
+                    setTarget('staff')
+                    setTeamPicked(false)
+                  }}
+                  title={
+                    !staffProject
+                      ? 'open a project first — a roster is staffed against ONE project'
+                      : staffNeeds.length === 0
+                        ? `“${staffProject.name}” has no plan yet, so there are no real needs to staff against`
+                        : `Ask ${companionName} to staff “${staffProject.name}”: the roles it actually needs, which AI each runs on, and what each may touch. One approval creates them all.`
+                  }
+                >
+                  staff project
+                </button>
+                  </>
+                )}
+              </div>
+              {/* Per-message route control (P-routehint): auto lets the gateway
+                  decide; local/cloud request this ONE message's route. Sensitive
+                  content always stays local regardless — the reply's chip shows
+                  where it actually went. */}
+              <div
+                className="chat__route"
+                role="radiogroup"
+                aria-label="Route for this message"
+                title="Where this message runs. Sensitive content always stays local — whatever you pick. Applies to the next message, then resets to auto."
+              >
+                <span className="chat__routelabel mono">route</span>
+                {(['auto', 'local', 'cloud'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="radio"
+                    aria-checked={routeHint === opt}
+                    className={'chat__routebtn mono' + (routeHint === opt ? ' chat__routebtn--on' : '')}
+                    onClick={() => setRouteHint(opt)}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              </div>
+            )}
+            {/* ONE ROW, as the room's mockup draws it: what to attach, the words,
+                who takes them, Send. The pills that change the target or the
+                route are NOT in this row — they open above it, on request — so
+                the text field never has to share its width with them (the
+                2026-08-11 collapse). In a tight window the row wraps and the
+                field keeps a floor. */}
+            <div className="chat__composerrow">
               {isNative() && (
                 <button
                   type="button"
@@ -1545,192 +1628,42 @@ export default function Workspace() {
                   <Icon name="image" size={17} />
                 </button>
               )}
-              {/* THE OVERRIDE, behind ONE control (2026-08-18). Seven pills —
-                  five targets and three routes — used to sit on this row at all
-                  times, so the composer's loudest feature was a choice the user
-                  almost never changes (both controls reset after every send by
-                  design). The DEFAULT is now stated in words beside the send
-                  button, and the pills live in this panel, opened deliberately.
-                  Nothing about the controls themselves changed: same options,
-                  same aria-labels, same titles, same per-message reset. */}
-              {overrideOpen && (
-                <div className="chat__override">
-                {/* WHO does this task. Same segmented idiom as the route control it
-                    sits beside (literally the same classes), because it is the same
-                    kind of per-message choice. Every option is real: the companion
-                    is the default path, `team` is the shared governed launch, and
-                    `agent` is disabled — with the reason — when the library has
-                    nobody enabled to address. */}
-                <div
-                  className="chat__route chat__target"
-                  role="radiogroup"
-                  aria-label="Who does this task"
-                  title="Who gets this task. Applies to the next message, then resets to your companion — a team run costs real minutes and tokens."
-                >
-                  <span className="chat__routelabel mono">to</span>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={effectiveTarget === 'companion'}
-                    className={'chat__routebtn mono' + (effectiveTarget === 'companion' ? ' chat__routebtn--on' : '')}
-                    onClick={() => {
-                      setTarget('companion')
-                      setTeamPicked(false)
-                    }}
-                    title={`${primaryName} answers in this chat — the normal path`}
-                  >
-                    {primaryName}
-                  </button>
-                  {lane.offered && (
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={effectiveTarget === 'project'}
-                      className={'chat__routebtn mono' + (effectiveTarget === 'project' ? ' chat__routebtn--on' : '')}
-                      onClick={() => {
-                        setTarget('project')
-                        setTeamPicked(false)
-                      }}
-                      title={
-                        lane.block
-                          ? `The folder cannot take a job right now — ${lane.block}`
-                          : 'Your team makes the change in this project’s folder — it becomes the project’s next step, with the project’s checks'
-                      }
-                    >
-                      folder
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={effectiveTarget === 'team'}
-                    className={'chat__routebtn mono' + (effectiveTarget === 'team' ? ' chat__routebtn--on' : '')}
-                    onClick={() => {
-                      setTarget('team')
-                      setTeamPicked(true)
-                    }}
-                    title="A real multi-agent team run — each role on its own model, one engine run, refused honestly if another run holds the engine"
-                  >
-                    team
-                  </button>
-                  {!moreTargetsOpen && !['agent', 'propose', 'staff'].includes(target) ? (
-                    <button
-                      type="button"
-                      className="chat__routebtn mono"
-                      onClick={() => setMoreTargetsOpen(true)}
-                      title="more ways to hand this off: one library agent, propose a new agent, staff a project"
-                    >
-                      more ▾
-                    </button>
-                  ) : (
-                    <>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={target === 'agent'}
-                    disabled={libraryAgents.length === 0}
-                    className={'chat__routebtn mono' + (target === 'agent' ? ' chat__routebtn--on' : '')}
-                    onClick={() => {
-                      setTarget('agent')
-                      setTeamPicked(false)
-                    }}
-                    title={
-                      libraryAgents.length === 0
-                        ? 'no enabled agents in your library — add one on the Agents page'
-                        : "one agent from your library, briefed on your primary AI (there is no per-agent runner yet)"
-                    }
-                  >
-                    agent
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={target === 'propose'}
-                    className={'chat__routebtn mono' + (target === 'propose' ? ' chat__routebtn--on' : '')}
-                    onClick={() => {
-                      setTarget('propose')
-                      setTeamPicked(false)
-                    }}
-                    title="Ask for a NEW agent. You get a proposal on your desk citing this request — nothing is created until you tap Create."
-                  >
-                    new agent
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={target === 'staff'}
-                    disabled={!canStaff}
-                    className={'chat__routebtn mono' + (target === 'staff' ? ' chat__routebtn--on' : '')}
-                    onClick={() => {
-                      setTarget('staff')
-                      setTeamPicked(false)
-                    }}
-                    title={
-                      !staffProject
-                        ? 'open a project first — a roster is staffed against ONE project'
-                        : staffNeeds.length === 0
-                          ? `“${staffProject.name}” has no plan yet, so there are no real needs to staff against`
-                          : `Ask ${companionName} to staff “${staffProject.name}”: the roles it actually needs, which AI each runs on, and what each may touch. One approval creates them all.`
-                    }
-                  >
-                    staff project
-                  </button>
-                    </>
-                  )}
-                </div>
-                {/* Per-message route control (P-routehint): auto lets the gateway
-                    decide; local/cloud request this ONE message's route. Sensitive
-                    content always stays local regardless — the reply's chip shows
-                    where it actually went. */}
-                <div
-                  className="chat__route"
-                  role="radiogroup"
-                  aria-label="Route for this message"
-                  title="Where this message runs. Sensitive content always stays local — whatever you pick. Applies to the next message, then resets to auto."
-                >
-                  <span className="chat__routelabel mono">route</span>
-                  {(['auto', 'local', 'cloud'] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      role="radio"
-                      aria-checked={routeHint === opt}
-                      className={'chat__routebtn mono' + (routeHint === opt ? ' chat__routebtn--on' : '')}
-                      onClick={() => setRouteHint(opt)}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-                </div>
-              )}
-              <div className="chat__controlgroup">
-                {/* v2 composer: the sentence naming WHO this send goes to. It
-                    reports the target really selected — nothing is predicted,
-                    and the routing line above adds the reason the moment there
-                    is a job to route. */}
+              {/* Typing stays ENABLED while a task runs — only sending waits. */}
+              <textarea
+                ref={inputRef}
+                className="chat__input"
+                rows={1}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={
+                  state.running ? 'Type your next message meanwhile…' : `${composerLabel}…`
+                }
+                aria-label={composerLabel}
+              />
+              {/* WHO this send goes to, in words — the target really selected —
+                  and the way to change it. Nothing is predicted; the routing
+                  line above adds the reason the moment there is a job to route. */}
+              <button
+                type="button"
+                className={'chat__override-btn' + (overrideOpen ? ' is-open' : '')}
+                aria-expanded={overrideOpen}
+                aria-label="Change who takes this, and where it runs"
+                title="Pick a different coworker, or force this one message local or cloud. Both reset after the send."
+                onClick={() => setOverrideOpen((v) => !v)}
+              >
                 <span className="chat__whohint">{targetSentence}</span>
-                <button
-                  type="button"
-                  className={'chat__override-btn' + (overrideOpen ? ' is-open' : '')}
-                  aria-expanded={overrideOpen}
-                  aria-label="Change who takes this, and where it runs"
-                  title="Pick a different coworker, or force this one message local or cloud. Both reset after the send."
-                  onClick={() => setOverrideOpen((v) => !v)}
-                >
-                  Change {overrideOpen ? '▾' : '▸'}
-                </button>
-                <span className="chat__hint">Enter to send</span>
-                <button
-                  type="button"
-                  className="chat__send"
-                  onClick={submit}
-                  disabled={state.running || !canSend}
-                  aria-label="Send"
-                >
-                  ↑
-                </button>
-              </div>
+                <span aria-hidden="true">{overrideOpen ? '▾' : '▸'}</span>
+              </button>
+              <button
+                type="button"
+                className="chat__send"
+                onClick={submit}
+                disabled={state.running || !canSend}
+                aria-label="Send"
+              >
+                Send
+              </button>
             </div>
           </div>
         </div>
@@ -1772,6 +1705,14 @@ export default function Workspace() {
                 <EngineConsole label="this run" spans={boardSpans} live={anyLive} vaultPath={settings.vaultPath} />
               </>
             )}
+            {/* THE COWORKER DESK (happening / health / catch-up), on request in
+                the Manager's room. What NEEDS the user is never in here: that
+                row is always on the page, above the board. */}
+            {pane.tab === 'desk' && (
+              <div className="ws__deskbody">
+                <Desk show="rest" />
+              </div>
+            )}
             {pane.tab === 'files' && activeProject && (
               <ProjectFilesPane
                 path={activeProject.path}
@@ -1798,32 +1739,6 @@ export default function Workspace() {
         {stageDossier && <AgentDossierPanel dossier={stageDossier} onClose={() => setStageAgent(null)} />}
       </section>
 
-      {/* THE EVIDENCE ROW — full width, under the work, the shape Sukhdeep's
-          design note asks for: Recent runs beside This week, both reading the
-          SAME persisted verdicts (rule 7) so they can never contradict each
-          other — which is exactly what they did while one read the
-          session-only finishedRuns.
-
-          It used to live in the 320px right rail, where the two panels had to
-          stack and the run list scrolled inside itself behind a scrollbar
-          nobody knew was there. Given the page's width it lays itself out as a
-          row instead (a container query in RunLedger.css — the component reads
-          the box it is actually in, not the window). It takes its natural
-          height and never grows: the conversation above absorbs the slack, so
-          this cannot make Work taller than the window again, which is why it
-          was banished to the rail the first time.
-
-          Only on the Universal thread. With a project bound to the session the
-          rail is already that project's own context, and its runs belong to
-          it rather than to the whole app. */}
-      {!activeProject && (
-        <section className="ws__evidence" aria-label="Your measured run history">
-          <RunLedger
-            verdicts={state.verdicts}
-            layout="row"
-          />
-        </section>
-      )}
     </div>
   )
 }

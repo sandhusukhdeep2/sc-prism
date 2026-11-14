@@ -7,7 +7,7 @@
 //
 //   H1  a build parked on "one more refine?" kept every one of them lit while
 //       its engine subprocess had already exited (potentially all night);
-//   M3  with two runs in flight the strip silently mixed both runs' steps;
+//   M3  with two runs in flight the page silently mixed both runs' steps;
 //   M4  the orbs were built from the UNFILTERED span tail, so a background
 //       heartbeat pulsed orbs reconstructed from the last team run in the file.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -103,34 +103,36 @@ describe('Work page live signals', () => {
     await act(async () => {
       id = captured.app!.beginLiveRun({ kind: 'project', intent: 'build the dashboard' })
     })
-    // Executing: the strip is lit, as it should be.
+    // Executing: the board is lit, as it should be.
     //
-    // UPDATED 2026-11-14 ("The chat is the room"): the run card above the chat
-    // and the narration block are gone — the strip at the top of the chat card
-    // is the page's one live signal, so these lines now read it.
-    expect(document.querySelector('.strip.is-live')).not.toBeNull()
+    // UPDATED 2026-11-14: the run card above the chat and the narration block
+    // are gone, and the room's Team board ("Visible agents") is the page's one
+    // live signal, so these lines now read it.
+    expect(document.querySelector('.board.is-live')).not.toBeNull()
 
     await act(async () => {
       captured.app!.pauseLiveRun(id, true)
     })
 
-    // Parked: the strip remains (the run really does resume on the answer)
+    // Parked: the run's line remains (it really does resume on the answer)
     // and says so, and NOTHING on the page claims work is happening.
-    const strip = document.querySelector('.chat .strip') as HTMLElement
-    expect(within(strip).getByText('build the dashboard')).toBeInTheDocument()
-    expect(within(strip).getByText('waiting on you')).toBeInTheDocument()
-    expect(document.querySelector('.strip.is-live')).toBeNull()
-    expect(document.querySelector('.strip__caption')).toBeNull()
+    const board = document.querySelector('.ws__chatcol .board') as HTMLElement
+    expect(within(board).getByText('build the dashboard')).toBeInTheDocument()
+    expect(within(board).getByText('waiting on you')).toBeInTheDocument()
+    expect(document.querySelector('.board.is-live')).toBeNull()
+    expect(board.querySelector('.is-running')).toBeNull()
+    expect(board.querySelector('.board__note')).toBeNull()
+    expect(board.querySelector('.board__packet')).toBeNull()
 
     // Answered: live again.
     await act(async () => {
       captured.app!.pauseLiveRun(id, false)
     })
-    expect(document.querySelector('.strip.is-live')).not.toBeNull()
+    expect(document.querySelector('.board.is-live')).not.toBeNull()
   })
 
   // M3 — two runs in flight.
-  it('with 2 runs in flight the strip claims neither run’s steps', async () => {
+  it('with 2 runs in flight the board claims neither run’s steps', async () => {
     h.readSpansTail.mockResolvedValue([
       {
         name: 'tier1',
@@ -152,8 +154,12 @@ describe('Work page live signals', () => {
     await act(async () => {
       captured.app!.beginLiveRun({ kind: 'team', intent: 'ask two' })
     })
-    const said = document.querySelector('.strip__caption')
+    const said = document.querySelector('.board__note')
     expect(said?.textContent).toMatch(/2 runs at once — their steps can’t be told apart/)
+    // No seat says it took a step that cannot be pinned on this run. (The
+    // Manager's ring breathes for the message being answered — that one the
+    // app knows without a span.)
+    expect(document.querySelector('.board__state')).toBeNull()
     // ...and no step is narrated as belonging to either run. The guarantee that
     // used to be doubled in the page-level console header is now structural:
     // `currentRunSpans` returns [] whenever 2+ runs are in flight, so there are

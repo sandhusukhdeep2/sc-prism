@@ -1,7 +1,8 @@
 // The Work page's desk, mounted WHOLE (2026-08-28). Every prior desk test
 // mounted <Desk show="needs"> in isolation, so nothing ever proved the page's
-// own composition: the header that counts, the rail that shows, and the
-// "Coworker desk" toggle that expands the ambient slice. The failure this
+// own composition: the header that counts, the rail that shows, and the way
+// the ambient slice is opened (a "Coworker desk" toggle then; the Desk tab
+// beside the chat since 2026-11-14). The failure this
 // guards: the header said "1 thing needs your decision" (an open business
 // question set, real and honest) while the row carrying it was unreachable —
 // and the collapsed toggle repeated the count while its click revealed a
@@ -51,15 +52,23 @@ describe('the Work page desk — what is counted must be visible', () => {
     expect(screen.getByText('Needs you')).toBeInTheDocument()
   })
 
-  it('the collapsed toggle never advertises the needs count — its click reveals the ambient slice, not the decision', () => {
+  // 2026-11-14 ("Visible agents"): the ambient desk is no longer a band on the
+  // page. The Manager's room offers it beside the chat; the decision stays on
+  // the page whether or not it is open.
+  it('the ambient desk opens beside the chat on request — and never carries the decision', () => {
     ask(['What are your top three clients?'], Date.now())
     renderWorkspace()
 
-    const toggle = screen.getByRole('button', { name: /coworker desk/i })
-    // The toggle may only advertise what its own click shows.
-    expect(toggle.textContent).not.toMatch(/needs your decision/i)
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const open = screen.getByRole('button', { name: 'Desk' })
+    // The button may only advertise what its own click shows — and on hover
+    // it says what is on the desk, in counts from the stores.
+    expect(open.textContent).not.toMatch(/needs your decision/i)
+    expect(open.getAttribute('title') ?? '').toMatch(/on duty|loop|nothing on the desk yet/)
+    expect(open.getAttribute('title') ?? '').not.toMatch(/needs your decision/i)
+    expect(screen.queryByRole('tab', { name: 'Desk' })).not.toBeInTheDocument()
+    fireEvent.click(open)
+    expect(screen.getByRole('tab', { name: 'Desk' })).toHaveAttribute('aria-selected', 'true')
+    // The question is still on the page, once: in the row that needs him.
+    expect(screen.getAllByText(/what are your top three clients\?/i)).toHaveLength(1)
   })
 })

@@ -12,6 +12,7 @@ import { burnShareLabel } from '../lib/burnShareLabel'
 import { bucketMeans, burnRows, countTone } from '../lib/consoleView'
 import './Console.css'
 import PageHead from '../components/PageHead'
+import RunLedger from '../components/RunLedger'
 
 // Finding 3a's provider bucketing now lives in lib/engineStats (Memory needs
 // the same measurement); re-exported here because this page's honesty test and
@@ -406,6 +407,14 @@ export default function Console() {
           </div>
         </div>
       </div>
+
+      {/* THE RUN RECORD (2026-11-14). Recent runs beside This week, both
+          reading the SAME persisted verdicts so they can never contradict each
+          other. It sat under the chat on Work; the room is its Team board and
+          its chat now, and the record belongs with the rest of the truth. */}
+      <section className="console__ledger" aria-label="Your measured run history">
+        <RunLedger verdicts={verdicts} layout="row" />
+      </section>
     </div>
   )
 }

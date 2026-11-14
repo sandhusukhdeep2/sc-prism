@@ -45,12 +45,3 @@ export function foldSeatTurns<M extends ChatMessage>(messages: readonly M[]): Fo
   flush()
   return out
 }
-
-/** The one line that stands for a fold: how many turns, from which seats. */
-export function seatFoldSummary(seats: readonly SeatTurn[]): { line: string; names: string[] } {
-  const names: string[] = []
-  for (const s of seats) if (!names.includes(s.agent)) names.push(s.agent)
-  const turns = `${seats.length} turn${seats.length === 1 ? '' : 's'}`
-  const from = `${names.length} seat${names.length === 1 ? '' : 's'}`
-  return { line: `${turns} from ${from}`, names }
-}

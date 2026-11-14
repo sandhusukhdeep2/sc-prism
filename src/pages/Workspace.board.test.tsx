@@ -1,9 +1,11 @@
-// THE CHAT IS THE ROOM (spec 2026-11-14). The owner, of the Stage: "very
-// complicated… repetitive information is a lot" — and of the animation in it:
-// "that I like". So there is no Stage any more. While this room's run is
-// working, one slim strip above the chat says what is running, draws the
-// seats with the handoff in flight, and says who is speaking — once each. The
-// engine's steps open beside the chat on request; nothing opens by itself.
+// THE ROOM IS ITS TEAM BOARD AND ITS CHAT (spec 2026-11-14 "Visible agents").
+// The owner, of the Stage: "very complicated… repetitive information is a
+// lot" — and of the animation in it: "that I like". And of the mockup that
+// puts the Team board at the top of the room: "perfect example what I want".
+// So there is no Stage; the room's team stands on a board above the chat at
+// all times, a run is drawn ON it (who is at work, the handoff in flight),
+// and it says what is running — each fact once. The engine's steps open
+// beside the chat on request; nothing opens by itself.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -66,7 +68,7 @@ const settle = async (n = 6) => {
   }
 }
 
-describe('Work — one strip above the chat, and no Stage', () => {
+describe('Work — the Team board above the chat, and no Stage', () => {
   beforeEach(() => {
     localStorage.clear()
     for (const p of getProjects().projects) removeProject(p.id)
@@ -77,15 +79,21 @@ describe('Work — one strip above the chat, and no Stage', () => {
   })
   afterEach(() => localStorage.clear())
 
-  it('with nothing running there is no strip and no Stage — the chat is the room', async () => {
+  it('with nothing running the room is its team at rest and its chat — and no Stage', async () => {
     renderWorkspace()
     await settle()
-    expect(document.querySelector('.strip')).toBeNull()
+    const board = document.querySelector('.ws__chatcol .board') as HTMLElement
+    expect(board).not.toBeNull()
+    expect(board).not.toHaveClass('is-live')
+    expect(board.querySelector('.board__run')).toBeNull()
+    expect(board.querySelector('.is-running')).toBeNull()
+    // The room's head counts the team and claims no work: nobody has worked.
+    expect(document.querySelector('.ws__count')?.textContent).toMatch(/^\d+ agents?$/)
     expect(screen.queryByRole('button', { name: 'Stage' })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Stage' })).not.toBeInTheDocument()
   })
 
-  it('a live team run is drawn in the strip, and each fact about it is said once', async () => {
+  it('a live team run is drawn on the board, and each fact about it is said once', async () => {
     let finish: (r: TeamResult) => void = () => {}
     h.runNativeTeam.mockImplementation((...args: unknown[]) => {
       const runId = String(args[6])
@@ -110,22 +118,29 @@ describe('Work — one strip above the chat, and no Stage', () => {
       await new Promise((r) => setTimeout(r, 3200))
     })
     await settle()
-    // The strip is on screen without anyone asking for it — inside the chat
-    // card, above the conversation, which never leaves the screen.
-    const strip = document.querySelector('.chat .strip') as HTMLElement
-    expect(strip).not.toBeNull()
-    expect(strip).toHaveClass('is-live')
+    // The board is live without anyone asking for it — above the chat card,
+    // and the conversation never leaves the screen.
+    const board = document.querySelector('.ws__chatcol .board') as HTMLElement
+    expect(board).not.toBeNull()
+    expect(board).toHaveClass('is-live')
     expect(screen.getByText(/→ team: plan the launch/)).toBeInTheDocument()
-    // Who is on it: each seat once, on the strip and nowhere else.
-    expect(screen.getAllByRole('button', { name: 'What researcher is doing' })).toHaveLength(1)
+    // Who is on it: each seat once, on the board and nowhere else.
+    const researcher = screen.getAllByRole('button', { name: 'What Researcher is doing' })
+    expect(researcher).toHaveLength(1)
     expect(document.querySelectorAll('.crew__seat')).toHaveLength(0)
     expect(document.querySelector('.stage')).toBeNull()
     // What is running: one line for the run — no second card above the chat.
-    expect(document.querySelectorAll('.strip__run')).toHaveLength(1)
+    expect(document.querySelectorAll('.board__run')).toHaveLength(1)
     expect(document.querySelector('.lrun__card')).toBeNull()
-    // Who is speaking: one sentence — the old four-line narration is gone.
-    expect(screen.getAllByRole('status').filter((n) => n.classList.contains('strip__caption'))).toHaveLength(1)
+    // Who is working: the seat itself says so — its ring breathes and its own
+    // line reads "thinking". There is no separate sentence, and the old
+    // four-line narration is gone.
+    expect(researcher[0]).toHaveClass('is-running')
+    expect(researcher[0]).toHaveTextContent('thinking')
+    expect(screen.getByRole('button', { name: 'What Manager is doing' })).toHaveTextContent('answered')
     expect(document.querySelector('.chat__narration')).toBeNull()
+    // The room's head counts off the same board.
+    expect(document.querySelector('.ws__count')).toHaveTextContent('2 agents · 2 have worked · 1 working now')
     // Nothing opened beside the chat by itself; the engine's steps are there
     // on request, and there is no Stage to choose.
     expect(document.querySelector('.pane')).toBeNull()
@@ -133,7 +148,7 @@ describe('Work — one strip above the chat, and no Stage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Steps' }))
     expect(screen.getByRole('tab', { name: 'Steps' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.queryByRole('tab', { name: 'Stage' })).toBeNull()
-    // It can be stopped from here: the strip's Stop cancels the engine's run.
+    // It can be stopped from here: the board's Stop cancels the engine's run.
     expect(h.cancelEngineRun).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Stop this run' })).toBeInTheDocument()
     // The full-window drawing is one click away.
@@ -167,16 +182,22 @@ describe('Work — one strip above the chat, and no Stage', () => {
       await Promise.resolve()
     })
     await settle()
-    // The run is over: the strip goes. The answer in the chat is the record;
-    // nothing keeps saying "nothing is running now".
-    expect(document.querySelector('.strip')).toBeNull()
+    // The run is over: the board is the team at rest again — no run line, no
+    // one at work — and each seat keeps what it did. The answer in the chat is
+    // the record; nothing keeps saying "nothing is running now".
+    const after = document.querySelector('.ws__chatcol .board') as HTMLElement
+    expect(after).not.toHaveClass('is-live')
+    expect(after.querySelector('.board__run')).toBeNull()
+    expect(after.querySelector('.is-running')).toBeNull()
+    expect(screen.getByRole('button', { name: 'What Researcher is doing' })).toHaveTextContent('done')
+    expect(document.querySelector('.ws__count')).toHaveTextContent('2 agents · 2 have worked')
     expect(screen.queryByText(/nothing is running now/)).not.toBeInTheDocument()
   }, 15000)
 
   // Seen in the real app, 2026-11-14: a plain "hello" put up the strip ("chat ·
   // hello · working…") above a chat bubble that already said "… is thinking",
   // over a composer placeholder saying it a third time.
-  it('one AI answering a message is not a run to draw — the chat says it is thinking, once', async () => {
+  it('one AI answering a message is not a run to draw — the Manager’s seat breathes, and no words repeat the chat', async () => {
     renderWorkspace()
     await settle()
     let id = ''
@@ -185,14 +206,21 @@ describe('Work — one strip above the chat, and no Stage', () => {
       await Promise.resolve()
     })
     await settle()
-    expect(document.querySelector('.strip')).toBeNull()
+    const board = document.querySelector('.ws__chatcol .board') as HTMLElement
+    expect(board.querySelector('.board__run')).toBeNull()
+    expect(board.querySelector('.board__note')).toBeNull()
+    expect(board.querySelector('.board__state')).toBeNull()
+    expect(board.querySelectorAll('.is-running')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'What Manager is doing' })).toHaveClass('is-running')
     await act(async () => {
       captured.app!.endLiveRun(id, 'passed')
       await Promise.resolve()
     })
+    await settle()
+    expect(document.querySelector('.board .is-running')).toBeNull()
   })
 
-  it('Stop on the strip really cancels the engine’s run, and the room says it was stopped', async () => {
+  it('Stop on the board really cancels the engine’s run, and the room says it was stopped', async () => {
     let killed: (r: TeamResult | null) => void = () => {}
     h.runNativeTeam.mockImplementation(() => new Promise<TeamResult | null>((res) => (killed = res)))
     h.cancelEngineRun.mockImplementation(async () => killed(null))
@@ -207,7 +235,8 @@ describe('Work — one strip above the chat, and no Stage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop this run' }))
     await settle(12)
     expect(h.cancelEngineRun).toHaveBeenCalledWith(runId)
-    expect(document.querySelector('.strip')).toBeNull()
+    expect(document.querySelector('.board__run')).toBeNull()
+    expect(document.querySelector('.board')).not.toHaveClass('is-live')
     expect(screen.getByText(/Stopped — you stopped this team run/)).toBeInTheDocument()
     expect(screen.queryByText(/Team run failed/)).not.toBeInTheDocument()
   })
@@ -226,23 +255,24 @@ describe('Work — one strip above the chat, and no Stage', () => {
     })
     await settle()
     // In the Manager's room it is this room's run.
-    expect(document.querySelector('.strip.is-live')).not.toBeNull()
+    expect(document.querySelector('.board.is-live')).not.toBeNull()
     // In the project's room it is not: one quiet line, and a way there.
     await act(async () => {
       captured.app!.setActiveProject(project.id)
       await Promise.resolve()
     })
     await settle()
-    expect(document.querySelector('.strip.is-live')).toBeNull()
+    expect(document.querySelector('.board.is-live')).toBeNull()
     expect(screen.getByText(/Busy in Manager — Ops · morning sweep/)).toBeInTheDocument()
     // Seen in the real app, 2026-11-14: the head said "nothing running right
     // now" directly above "Busy in Manager — …". The head may not say that
     // while the engine is at work anywhere.
     expect(screen.queryByText(/nothing running right now/)).not.toBeInTheDocument()
-    expect(document.querySelectorAll('.strip__seat')).toHaveLength(0)
+    // This room's own team is on its board, and none of it is at work.
+    expect(document.querySelectorAll('.board__seat.is-running')).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name: 'Go to Manager' }))
     await settle()
-    expect(document.querySelector('.strip.is-live')).not.toBeNull()
+    expect(document.querySelector('.board.is-live')).not.toBeNull()
     await act(async () => {
       captured.app!.endLiveRun(id, 'passed')
       await Promise.resolve()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foldSeatTurns, seatFoldSummary } from './chatFold'
+import { foldSeatTurns } from './chatFold'
 import type { ChatMessage } from '../store/AppStore'
 
 // THE CHAT FOLDS A RUN'S OWN TURNS (2026-11-12). In the coworker app the owner
@@ -59,24 +59,5 @@ describe('foldSeatTurns', () => {
   it('a conversation with no seat turns is returned untouched', () => {
     const msgs = [user('u', 'hello'), answer('a', 'hi')]
     expect(foldSeatTurns(msgs)).toEqual(msgs)
-  })
-})
-
-describe('seatFoldSummary — the one line that stands for the turns', () => {
-  it('names the seats, once each, in the order they first spoke, and counts the turns', () => {
-    const fold = foldSeatTurns([
-      seat('s1', 'lead', 'claude-cli'),
-      seat('s2', 'researcher', 'local'),
-      seat('s3', 'lead', 'claude-cli', 'again', 2),
-    ])[0]
-    expect(fold.kind === 'seats' && seatFoldSummary(fold.seats)).toEqual({
-      line: '3 turns from 2 seats',
-      names: ['lead', 'researcher'],
-    })
-  })
-
-  it('reads naturally for one turn each', () => {
-    const fold = foldSeatTurns([seat('s1', 'lead', 'local'), seat('s2', 'critic', 'local')])[0]
-    expect(fold.kind === 'seats' && seatFoldSummary(fold.seats).line).toBe('2 turns from 2 seats')
   })
 })

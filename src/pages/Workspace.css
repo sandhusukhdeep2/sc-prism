@@ -13,18 +13,19 @@
    screen. It read, exactly as reported, as a window that scrolls forever.
 
    THE MODEL NOW. Work is an APP SCREEN, not a document. One app-height frame,
-   four fixed-height bands (status strip · connectivity · needs · desk) and
-   three side-by-side regions that fill what is left:
+   three fixed-height bands (the room's head · connectivity · needs) and three
+   side-by-side regions that fill what is left. Since 2026-11-14 the chat
+   column is the "Visible agents" mockup: the Team board, then the chat.
 
      ┌ .ws (height:100%, overflow:hidden) ─────────────────────────────┐
-     │ .ws__strip / banner / .ws__needs / .ws__desk   fixed, bounded   │
+     │ .ws__strip / banner / .ws__needs               fixed, bounded   │
      │ ┌ .ws__main (flex:1, min-height:0) ───────────────────────────┐ │
      │ │ .ws__nav    │ .ws__chatcol            │ .pane (RoomPane)    │ │
-     │ │ chats +     │   .chat  (fills, hidden)│ what the work       │ │
-     │ │ projects    │     the run strip, only │ produces, on        │ │
-     │ │ [scrolls]   │      while a run works  │ request: Steps ·    │ │
-     │ │             │     .chat__body SCROLLS │ Files · Details —   │ │
-     │ │             │     composer pinned     │ one tab at a time   │ │
+     │ │ chats +     │   .board  the room's    │ what opens beside   │ │
+     │ │ projects    │      team, always       │ the chat, on        │ │
+     │ │ [scrolls]   │   .chat  (fills, hidden)│ request: Steps ·    │ │
+     │ │             │     .chat__body SCROLLS │ Files · Details ·   │ │
+     │ │             │     composer pinned     │ Desk — one at a time│ │
      │ └─────────────┴─────────────────────────┴─────────────────────┘ │
      └─────────────────────────────────────────────────────────────────┘
 
@@ -35,8 +36,9 @@
    =========================================================================== */
 .ws { display: flex; flex-direction: column; height: 100%; min-height: 460px; gap: 10px; padding-top: 12px; overflow: hidden; }
 
-/* slim status bar — one short row: greeting + status left, KPI chips right */
-.ws__strip { display: flex; align-items: flex-start; gap: 10px; padding: 0; flex: 0 0 auto; }
+/* The room's head — its name, what can open beside the chat, and (right) the
+   head count read off the Team board. One short row, as the mockup draws it. */
+.ws__strip { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding: 0; flex: 0 0 auto; }
 .ws__titlecol { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .ws__hello {
   margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -0.02em;
@@ -47,20 +49,9 @@
   font-size: 12.5px; color: var(--v2-muted); line-height: 1.4;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ws__statusline { font-size: 12px; color: var(--v2-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ws__spacer { flex: 1; }
-/* ONE honest status line + a link to the page that owns the numbers. (Six
-   chips — local% / cache% / eval / tokens / cost / Tier-1 — used to live here.
-   Stats owns all six, explains them, and is one click away.) */
-.ws__kpis { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; min-width: 0; }
-.ws__kpi {
-  font-size: 12px; font-variant-numeric: tabular-nums; padding: 5px 11px; border-radius: var(--v2-r-pill);
-  background: var(--v2-card); color: var(--v2-ink-2); white-space: nowrap;
-  box-shadow: var(--v2-shadow-soft);
-  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
-}
-.ws__statslink { font-size: 11px; color: var(--v2-ink-2); text-decoration: none; white-space: nowrap; }
-.ws__statslink:hover { color: var(--v2-ink); text-decoration: underline; }
+.ws__panes { display: inline-flex; align-items: center; gap: 4px; }
+.ws__count { font-size: 14px; color: var(--v2-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* always-visible urgent decisions (compact, bounded). `flex: 0 0 auto` is the
    honesty of this band: it was `0 1 auto; min-height: 0`, and under squeeze it
@@ -71,34 +62,9 @@
 .ws__needs { flex: 0 0 auto; max-height: 22vh; overflow-y: auto; }
 .ws__needs:empty { display: none; }
 
-/* collapsible coworker desk */
-.ws__desk { flex: 0 0 auto; }
-.ws__desktoggle {
-  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
-  background: transparent; border: none; cursor: pointer; font: inherit; color: inherit; padding: 4px 2px;
-  flex: 0 0 auto;
-}
-.ws__desklabel { font-weight: 600; font-size: 13px; flex: 0 0 auto; }
-.ws__desksummary { font-size: 12px; color: var(--muted-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws__deskchev { font-size: 11px; color: var(--muted-2); flex: 0 0 auto; }
-/* The body is the scroll viewport, and it is the box that yields. `flex: 1 1
-   auto` + `min-height: 0` is what lets the band's squeeze reach it: without
-   the zero floor a flex child refuses to shrink past its content, the parent
-   clips instead, and a heartbeat row gets sliced through the middle with no
-   scrollbar to reach the rest of it (reported 2026-09-03). */
-.ws__deskbody {
-  flex: 1 1 auto; min-height: 0;
-  max-height: 32vh; overflow-y: auto; margin-top: 6px;
-}
-/* The desk band may shrink before the conversation does — it is ambient. But
-   it must never shrink below its own toggle: with `min-height: 0` the button
-   collapsed to zero height while its text kept painting, printing "Coworker
-   desk" on top of the chat rail below it. The band now floors at the toggle's
-   height and clips, so a squeeze shortens the BODY, never the label. */
-.ws__desk {
-  flex: 0 1 auto; min-height: 30px; overflow: hidden;
-  display: flex; flex-direction: column;
-}
+/* The coworker desk, opened beside the chat in the Manager's room: the pane
+   is the scroller, so the desk takes its natural height. */
+.ws__deskbody { min-width: 0; }
 
 /* main split — fills the remaining viewport height. The floor is the chat-hero
    decision (2026-07-19) written into the layout: without it, the un-shrinkable
@@ -124,8 +90,8 @@
    floor, and the chat body — which scrolls — yields. The floor is gated on
    viewport height so a short window can never squeeze the composer out. */
 /* (The "what is running" row that sat here above the chat is gone since
-   2026-11-14: this room's run is one strip inside the chat card —
-   components/RunStrip.) */
+   2026-11-14: this room's run is drawn on its Team board —
+   components/TeamBoard.) */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes ws-stage-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
   .ws__deskbody { animation: ws-stage-in .24s ease both; }
@@ -175,13 +141,6 @@
   /* v2 form language: a generous white card on the pale ground, soft shadow. */
   border-radius: var(--v2-r-card); background: var(--v2-card); box-shadow: var(--v2-shadow);
 }
-.chat__tabs { display: flex; align-items: center; gap: 14px; padding: 16px 22px; border-bottom: 1px solid var(--hair-2); }
-.chat__tab { font-size: 13.5px; color: var(--muted-2); }
-/* The details toggle is a BUTTON wearing the tab's clothes — same face, plus
-   the reset a native button needs to sit in the row without shouting. */
-.chat__tab.is-active { color: var(--v2-ink); font-weight: 600; border-bottom: 2px solid var(--v2-accent); padding-bottom: 2px; }
-.chat__spacer { flex: 1; }
-.chat__task { font-size: 11.5px; color: var(--muted-2); }
 
 /* Active-project switcher (Slice 1a/1b) — the project bound as this
    Workspace's active session. A native <select> ("Working on: <project>" /
@@ -365,57 +324,49 @@
 
 .chat__composer {
   margin: 0 22px 18px; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
-  padding: 12px 12px 12px 16px; border-radius: var(--v2-r-card); background: var(--input-fill);
+  padding: 8px 8px 8px 12px; border-radius: 26px; background: var(--input-fill);
   box-shadow: var(--v2-shadow); border: 1px solid var(--v2-line);
 }
-/* Row 2. It WRAPS, so a narrow window (or a long companion name in the target
-   selector) pushes controls onto another line instead of squeezing anything. */
-.chat__controls {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0;
-}
-/* Everything that belongs to the RIGHT of the row — hint, who, route, send —
-   held together so they wrap as one cluster and stay pinned right. */
-.chat__controlgroup {
-  margin-left: auto; display: flex; align-items: center; justify-content: flex-end;
-  gap: 8px; flex-wrap: wrap; min-width: 0;
-}
+/* ONE ROW: attach · the words · who takes them · Send (the room's mockup).
+   It WRAPS, and the text field keeps a floor, so a narrow window pushes the
+   who/Send pair onto its own line instead of squeezing the field. */
+.chat__composerrow { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .chat__attachbtn {
-  flex: 0 0 auto; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--v2-fill);
+  flex: 0 0 auto; width: 32px; height: 32px; margin-bottom: 3px; border: 0; border-radius: 50%; background: var(--v2-fill);
   font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer;
   transition: opacity 0.15s ease, background 0.15s ease;
 }
 .chat__attachbtn:hover:not(:disabled) { background: var(--hair); }
 .chat__attachbtn:disabled { opacity: 0.45; cursor: default; }
 .chat__input {
-  width: 100%; min-width: 0; border: 0; background: transparent;
-  font-family: var(--font-body); font-size: 14px; line-height: 1.45; color: var(--ink);
-  resize: none; overflow-y: auto; max-height: 160px; padding: 4px 0;
+  flex: 1 1 220px; min-width: 200px; border: 0; background: transparent;
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45; color: var(--ink);
+  resize: none; overflow-y: auto; max-height: 160px; padding: 8px 4px;
 }
 .chat__input::placeholder { color: var(--muted-2); }
 .chat__input:disabled { color: var(--muted-2); }
-.chat__hint { font-size: 11px; color: var(--v2-muted); }
-/* THE ONE OVERRIDE CONTROL. Small, quiet, and the only thing standing between
-   the composer and the seven pills it used to show at all times. */
+/* WHO TAKES THIS, and the one control that changes it. Quiet: words, not a
+   pill — the only thing standing between the composer and the seven pills it
+   used to show at all times. */
 .chat__override-btn {
-  flex: 0 0 auto; border: 1px solid var(--v2-line); background: transparent;
-  color: var(--v2-ink-2); font: inherit; font-size: 11px; cursor: pointer;
-  padding: 4px 11px; border-radius: var(--v2-r-pill); white-space: nowrap;
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 38px;
+  border: 0; background: transparent; color: var(--v2-muted); font: inherit; cursor: pointer;
+  padding: 0 10px; border-radius: var(--v2-r-pill); white-space: nowrap;
 }
 .chat__override-btn:hover, .chat__override-btn.is-open { background: var(--v2-fill); color: var(--v2-ink); }
 .chat__override-btn:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 1px; }
-/* The panel it opens: a full-width row inside the wrapping control row, so the
-   pills sit above the send line rather than beside the text field. */
+/* The panel it opens: its own row above the send line, never beside the field. */
 .chat__override {
-  flex: 1 0 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--v2-line);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 4px 4px 8px; margin-bottom: 2px; border-bottom: 1px solid var(--v2-line);
 }
-/* v2: who this send goes to, said before the send */
-.chat__whohint { font-size: 11px; color: var(--v2-ink-2); font-weight: 600; }
+/* who this send goes to, said before the send */
+.chat__whohint { font-size: 12px; color: inherit; font-weight: 500; }
 /* the primary button — the second place the black accent is spent */
 .chat__send {
-  width: 38px; height: 38px; border: 0; border-radius: 50%;
+  flex: 0 0 auto; height: 38px; padding: 0 20px; border: 0; border-radius: var(--v2-r-pill);
   background: var(--v2-accent); color: var(--v2-on-accent);
-  font-size: 17px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
   transition: opacity 0.15s ease, filter 0.15s ease;
 }
 .chat__send:hover:not(:disabled) { filter: brightness(1.15); }
@@ -602,22 +553,6 @@
   .ws__nav { width: 134px; flex: 0 0 134px; }
 }
 
-/* THE EVIDENCE ROW — Recent runs beside This week, under the work.
-   The ledger YIELDS before the conversation does: it shrinks and scrolls
-   internally under squeeze (`0 1 auto` + its own overflow), while `.ws__main`
-   holds the chat-hero floor above. `0 0 auto` was the earlier fix for the
-   ledger making Work taller than the window — but un-shrinkable, it won the
-   squeeze against the chat and pressed the conversation to a sliver. Bounded
-   both ways now: it cannot grow the page, and it cannot evict the chat. */
-.ws__evidence {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  min-width: 0;
-  margin-top: 12px;
-  padding-bottom: 4px;
-}
-
 /* Chat markdown — the coworker bar's text rendering. */
 .msg__stream .md__pre { background: var(--field-fill); border: 1px solid var(--hair-7); border-radius: 8px; padding: 8px 10px; overflow-x: auto; margin: 6px 0; font-size: 12px; }
 .msg__stream code { font-family: ui-monospace, Menlo, monospace; font-size: 0.92em; background: var(--field-fill); border-radius: 4px; padding: 0 4px; }
@@ -626,16 +561,8 @@
 .msg__stream .md__list { margin: 4px 0; padding-left: 18px; }
 .msg__stream a { color: var(--accent); text-decoration: underline; }
 
-/* Seat bubbles — one per board contribution, colored monogram per AI. */
-.msg--seat { display: flex; gap: 8px; align-items: flex-start; align-self: stretch; max-width: 92%; }
-.msg__seatdot { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
-.msg__seatbody { background: var(--card-solid); border: 1px solid var(--hair-7); border-radius: 12px; padding: 7px 10px; min-width: 0; }
-.msg__seathead { font-size: 10.5px; color: var(--ink-3); margin-bottom: 3px; }
-
 /* Collapsed repeat chip on identical consecutive notices. */
 .msg__repeat { margin-left: 8px; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--field-fill); border: 1px solid var(--hair-7); color: var(--ink-3); }
-
-.msg__seatround { color: var(--ink-3); }
 
 /* Long user messages fold (raw step text was an unreadable wall); everything wraps. */
 .msg--user { overflow-wrap: anywhere; }
@@ -660,9 +587,9 @@
 /* SENTENCES AS TEXT (2026-11-11): the hints, captions and empty states that
    left monospace read at one comfortable size, and their figures still line
    up. Monospace stays for paths, ids, commands and records. */
-.ws__desksummary, .ws__navempty, .ws__statslink,
+.ws__navempty,
 .chat__empty, .chat__metertext, .chat__targethint, .chat__routing, .chat__whohint,
-.chat__hint, .chat__confirmq, .chat__imagenote, .chat__attacherror, .chat__override-btn {
+.chat__confirmq, .chat__imagenote, .chat__attacherror, .chat__override-btn {
   font-size: 12px; font-variant-numeric: tabular-nums;
 }
 
@@ -694,7 +621,6 @@
    rooms · chat · pane. The chat is always the chat, in a column that keeps a
    readable measure; what the work produces opens beside it (RoomPane). */
 .ws__chatcol { flex: 1 1 54%; }
-.chat__panes { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; }
 .chat__pane {
   border: 1px solid var(--v2-line); background: none; font: inherit; font-size: 13px; color: var(--v2-muted);
   padding: 5px 12px; border-radius: var(--v2-r-pill); cursor: pointer; white-space: nowrap;
@@ -709,39 +635,6 @@
 .ws__main--paneover .ws__chatcol { display: none; }
 .ws__main--paneover .pane { flex: 1 1 auto; max-width: none; }
 @media (prefers-reduced-motion: reduce) { .chat__pane { transition: none; } }
-
-/* ---- A RUN'S OWN TURNS, FOLDED (2026-11-12, lib/chatFold.ts) ----
-   One quiet line that opens in place to every seat's turn; the answer under
-   it stands on its own. */
-.msg--fold { align-self: stretch; max-width: 100%; }
-.msg__foldline {
-  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 8px 12px; border-radius: var(--v2-r-inner); color: var(--v2-ink-2); font-size: 13.5px;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.msg__foldline::-webkit-details-marker { display: none; }
-.msg__foldline::after {
-  content: '›'; margin-left: auto; color: var(--v2-muted); font-size: 16px; line-height: 1;
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.msg--fold[open] > .msg__foldline::after { transform: rotate(90deg); }
-.msg__foldline:hover { background: var(--v2-fill); }
-.msg__foldline:focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
-.msg__folddots { display: inline-flex; }
-.msg__seatdot--sm { width: 20px; height: 20px; flex: 0 0 20px; font-size: 10px; margin-left: -5px; border: 2px solid var(--v2-card); }
-.msg__folddots .msg__seatdot--sm:first-child { margin-left: 0; }
-.msg__foldtext { font-weight: 600; color: var(--v2-ink); }
-.msg__foldnames { color: var(--v2-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.msg__foldbody {
-  display: flex; flex-direction: column; gap: 14px; margin: 8px 0 4px 10px; padding-left: 14px;
-  border-left: 2px solid var(--v2-line);
-  animation: foldIn var(--dur-fast) var(--ease-out) both;
-}
-@keyframes foldIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) {
-  .msg__foldbody { animation: none; }
-  .msg__foldline, .msg__foldline::after { transition: none; }
-}
 
 /* THE ROOMS, IN THE RAIL (2026-11-12). The same list, the rail's width: it
    fills the slot instead of holding a 186-point column of its own. */

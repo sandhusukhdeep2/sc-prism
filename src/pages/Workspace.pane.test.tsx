@@ -88,18 +88,42 @@ describe('Work — the pane beside the chat, in a project’s room', () => {
   beforeEach(clean)
   afterEach(clean)
 
-  it('a quiet project room opens on its details, with the chat still on screen', async () => {
+  // 2026-11-14 ("Visible agents"): a quiet project room is its Team board and
+  // its chat. What can open beside the chat is offered in the room's head.
+  it('a quiet project room is its board and its chat; files and details are offered', async () => {
     await openRoom()
+    expect(document.querySelector('.pane')).toBeNull()
+    expect(document.querySelector('.ws__chatcol .board')).not.toBeNull()
+    expect(screen.getByRole('textbox', { name: /describe/i })).toBeInTheDocument()
+    const offered = screen.getByRole('group', { name: 'Open beside the chat' })
+    expect(offered).toHaveTextContent('Files')
+    expect(offered).toHaveTextContent('Details')
+  })
+
+  it('Details opens beside the chat on request, and then its own tabs say what is open', async () => {
+    await openRoom()
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true')
     expect(document.querySelector('.pane .ws__details')).not.toBeNull()
     expect(screen.getByRole('textbox', { name: /describe/i })).toBeInTheDocument()
-    // The pane's tabs say what is open — the chat's header does not repeat them.
+    // The pane's tabs say what is open — the room's head does not repeat them.
     expect(screen.queryByRole('group', { name: 'Open beside the chat' })).toBeNull()
+  })
+
+  it('a project waiting on the user opens on its details — they hold the button', async () => {
+    const p = addProject('waiting room', 'greet the crew', '', '~/vault/projects/waiting-room')
+    updateProject(p.id, { plan: ['Write hello.md'], stepIndex: 0, status: 'planned' })
+    renderWorkspace()
+    await act(async () => {
+      captured.app!.setActiveProject(p.id)
+      await Promise.resolve()
+    })
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('the project’s files open beside the chat, and a file is read there', async () => {
     await openRoom()
-    fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Files' }))
     expect(await screen.findByRole('button', { name: 'hello.md' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'notes/plan.md' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'hello.md' }))
@@ -111,14 +135,16 @@ describe('Work — the pane beside the chat, in a project’s room', () => {
   it('a room with no crew to draw does not offer a stage', async () => {
     await openRoom()
     expect(screen.queryByRole('tab', { name: 'Stage' })).toBeNull()
-    expect(screen.queryByRole('tab', { name: 'Steps' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Stage' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Steps' })).toBeNull()
   })
 
   it('the pane can be closed, and stays closed until asked for', async () => {
     await openRoom()
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
     fireEvent.click(screen.getByRole('button', { name: 'Close the pane' }))
     expect(document.querySelector('.pane')).toBeNull()
-    // Closed, the chat's header offers what this room can open beside it.
+    // Closed, the room's head offers what this room can open beside the chat.
     expect(screen.getByRole('group', { name: 'Open beside the chat' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
@@ -127,7 +153,7 @@ describe('Work — the pane beside the chat, in a project’s room', () => {
 
   it('another room starts from its own rule, not from the tab the last room had open', async () => {
     const first = await openRoom('hello crew')
-    fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Files' }))
     expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true')
     const other = addProject('other room', 'something else', '', '~/vault/projects/other-room')
     updateProject(other.id, { plan: ['a'], stepIndex: 1, status: 'done' })
@@ -135,16 +161,20 @@ describe('Work — the pane beside the chat, in a project’s room', () => {
       captured.app!.setActiveProject(other.id)
       await Promise.resolve()
     })
-    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true')
+    // The other room is quiet: its pane is shut, whatever the last room had open.
+    expect(document.querySelector('.pane')).toBeNull()
     expect(first).not.toBe(other.id)
   })
 
-  it('the Manager room, with no project and no crew, has no pane at all', async () => {
+  it('the Manager’s room keeps its pane shut, and offers the desk beside the chat', async () => {
     renderWorkspace()
     await act(async () => {
       await Promise.resolve()
     })
     expect(document.querySelector('.pane')).toBeNull()
-    expect(screen.queryByRole('group', { name: 'Open beside the chat' })).toBeNull()
+    const offered = screen.getByRole('group', { name: 'Open beside the chat' })
+    expect(offered).toHaveTextContent('Desk')
+    fireEvent.click(screen.getByRole('button', { name: 'Desk' }))
+    expect(screen.getByRole('tab', { name: 'Desk' })).toHaveAttribute('aria-selected', 'true')
   })
 })

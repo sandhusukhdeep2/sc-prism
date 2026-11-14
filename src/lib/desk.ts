@@ -365,13 +365,6 @@ export function rosterHeadLine(roster: RosterProposal): string {
   return `${n} role${n === 1 ? '' : 's'} across ${ais.size} AI — one approval creates all of them`
 }
 
-/** Local hour-of-day from the passed epoch — deterministic given `now`. */
-export function greeting(now: number, name: string): string {
-  const hour = new Date(now).getHours()
-  const base = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  return name ? `${base}, ${name}` : base
-}
-
 /**
  * P8 (honesty): a running project isn't always "mid-build on step X". Two edge
  * states used to masquerade as active progress: an empty plan rendered a
@@ -579,7 +572,8 @@ function agoLabel(at: number, now: number): string {
 }
 
 /**
- * THE DESK'S ONE LINE while it is closed (clear-room spec 2026-11-09 §A6):
+ * THE DESK'S ONE LINE (clear-room spec 2026-11-09 §A6; since 2026-11-14 the
+ * hover of the Desk button in the Manager's room, where the desk now opens):
  * managers on duty · loops · when a manager last ran. Every part is a count or
  * a time from the stores; a part with nothing behind it is left out, and an
  * empty desk says so instead of listing headings.

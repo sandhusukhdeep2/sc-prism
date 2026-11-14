@@ -52,3 +52,21 @@ describe('Governance Console — hook card is honest with no real data', () => {
     expect(document.querySelector('.console__badge--ok')).toBeNull()
   })
 })
+
+// THE RUN RECORD LIVES HERE (2026-11-14, "Visible agents"). Recent runs and
+// This week used to sit under the chat on Work, where they were one more
+// block on a page whose job is the conversation. The Console is "the truth:
+// spans, stats, what was blocked and what it cost" — so the record is here.
+describe('the Console holds the run record', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('shows Recent runs as a table of the runs really recorded, beside This week', () => {
+    renderConsole()
+    const record = screen.getByRole('region', { name: 'Your measured run history' })
+    expect(record).toHaveTextContent('Recent runs')
+    expect(record).toHaveTextContent('This week')
+    // The store this test mounts holds one recorded run: one row, no more.
+    expect(record.querySelectorAll('.ledger__table tbody tr')).toHaveLength(1)
+  })
+})

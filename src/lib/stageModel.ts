@@ -79,20 +79,6 @@ export function stageLayout(n: number): { x: number; y: number }[] {
   })
 }
 
-/** The strip's drawing box is 1000 × 100: one line of seats above the chat. */
-export const STRIP_H = 100
-
-/**
- * Where `n` seats stand in the strip: evenly spaced on ONE line, in percent.
- * A track with a station per seat — the same seats and handoffs as the stage,
- * at a quarter of the height.
- */
-export function stripLayout(n: number): { x: number; y: number }[] {
-  if (n <= 0) return []
-  if (n === 1) return [{ x: 50, y: 50 }]
-  return Array.from({ length: n }, (_, i) => ({ x: r1(8 + (84 * i) / (n - 1)), y: 50 }))
-}
-
 /** How big a packet looks on screen, in CSS pixels (its radius). */
 const PACKET_PX = 5
 
@@ -104,30 +90,17 @@ const PACKET_PX = 5
  * the box's measured size, the radii are set per axis. Before it has been
  * measured (0 × 0) a plain dot is returned.
  */
-export function packetRadii(
-  widthPx: number,
-  heightPx: number,
-  boxH: number = STAGE_H,
-): { rx: number; ry: number } {
+export function packetRadii(widthPx: number, heightPx: number): { rx: number; ry: number } {
   if (!(widthPx > 0) || !(heightPx > 0)) return { rx: 6, ry: 6 }
-  return { rx: (PACKET_PX * STAGE_W) / widthPx, ry: (PACKET_PX * boxH) / heightPx }
+  return { rx: (PACKET_PX * STAGE_W) / widthPx, ry: (PACKET_PX * STAGE_H) / heightPx }
 }
 
-/**
- * `shape` only decides WHERE things stand: 'arc' is the full stage (the Live
- * page), 'row' the strip above the chat. The seats, the links, what is live
- * and who is speaking are the same facts either way.
- */
-export function stageModel(
-  spans: readonly EngineSpan[],
-  live: boolean,
-  shape: 'arc' | 'row' = 'arc',
-): StageModel {
+/** The stage's drawing (the Live page). The room's own Team board is
+ *  `lib/teamBoard.ts` — the same facts, on the room's roster. */
+export function stageModel(spans: readonly EngineSpan[], live: boolean): StageModel {
   const orbs = agentOrbs(spans as EngineSpan[])
   if (orbs.length === 0) return { seats: [], links: [], caption: null }
-  const row = shape === 'row'
-  const boxH = row ? STRIP_H : STAGE_H
-  const spots = row ? stripLayout(orbs.length) : stageLayout(orbs.length)
+  const spots = stageLayout(orbs.length)
   const seats: StageSeat[] = orbs.map((o, i) => {
     const state = seatState(spans as EngineSpan[], o.agent, live)
     return {
@@ -164,9 +137,9 @@ export function stageModel(
     const b = seats[at.get(h.to)!]
     const back = at.get(h.to)! < at.get(h.from)!
     const ax = a.x * (STAGE_W / 100)
-    const ay = a.y * (boxH / 100)
+    const ay = a.y * (STAGE_H / 100)
     const bx = b.x * (STAGE_W / 100)
-    const by = b.y * (boxH / 100)
+    const by = b.y * (STAGE_H / 100)
     const span = Math.abs(at.get(h.to)! - at.get(h.from)!)
     const lift = 70 + 22 * span
     const cx = (ax + bx) / 2
@@ -177,14 +150,10 @@ export function stageModel(
       label: h.label,
       back,
       live: live && !!last && last.from === h.from && last.to === h.to && b.running,
-      // In the strip a link is a straight run along the one line the seats
-      // stand on; its direction is the handoff's.
-      d: row
-        ? `M${r1(ax)} ${r1(ay)} L${r1(bx)} ${r1(by)}`
-        : `M${r1(ax)} ${r1(ay)} Q${r1(cx)} ${r1(cy)} ${r1(bx)} ${r1(by)}`,
+      d: `M${r1(ax)} ${r1(ay)} Q${r1(cx)} ${r1(cy)} ${r1(bx)} ${r1(by)}`,
       // The curve's own midpoint (t = 0.5 of a quadratic), in percent.
-      lx: row ? r1((ax + bx) / 2 / (STAGE_W / 100)) : r1(((ax + 2 * cx + bx) / 4 / STAGE_W) * 100),
-      ly: row ? 50 : r1(((ay + 2 * cy + by) / 4 / STAGE_H) * 100),
+      lx: r1(((ax + 2 * cx + bx) / 4 / STAGE_W) * 100),
+      ly: r1(((ay + 2 * cy + by) / 4 / STAGE_H) * 100),
     }
   })
 

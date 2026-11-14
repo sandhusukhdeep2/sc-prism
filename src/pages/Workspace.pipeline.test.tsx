@@ -62,14 +62,16 @@ function renderWorkspace() {
 /** Queries scoped to the board — the live cards and the engine console name the
  *  same agents/models elsewhere on the page, and those are not what is under
  *  test here. */
-// WHERE THE CREW IS DRAWN (2026-11-14, "The chat is the room"). Each seat is
-// drawn ONCE, in the strip at the top of the chat card. The board — the rounds
-// the engine reported, the count, the lock, anything parked on the user — is
-// the Steps tab beside the chat, opened on request. Every honesty rule these
-// tests hold is unchanged; only the surface moved.
-const strip = () => within(document.querySelector('.chat .strip') as HTMLElement)
-const seats = () => document.querySelectorAll('.chat .strip__seat')
-const working = () => document.querySelectorAll('.chat .strip__seat.is-running')
+// WHERE THE CREW IS DRAWN (2026-11-14, "Visible agents"). Each seat is drawn
+// ONCE, on the room's Team board above the chat — which also holds the seats
+// of the room's team that have NOT been called (idle, claiming nothing). The
+// step board — the rounds the engine reported, the count, the lock, anything
+// parked on the user — is the Steps tab beside the chat, opened on request.
+// Every honesty rule these tests hold is unchanged; only the surface moved.
+const strip = () => within(document.querySelector('.ws__chatcol .board') as HTMLElement)
+/** The seats that have really taken a turn (a span says so). */
+const seats = () => document.querySelectorAll('.ws__chatcol .board__seat:not(.is-idle)')
+const working = () => document.querySelectorAll('.ws__chatcol .board__seat.is-running')
 /** Open the Steps tab (if it is not already) and scope to its board. */
 const board = () => {
   const open = screen.queryByRole('button', { name: 'Steps' })
@@ -135,9 +137,11 @@ describe('Work page — the v2 board', () => {
     expect(document.querySelector('.crew')).toBeNull()
     expect(document.querySelector('.crew__cols')).toBeNull()
     expect(document.querySelector('.crew__lock')).toBeNull()
-    // …but the measured ledger is there, saying it has nothing yet.
-    expect(screen.getByText(/no runs yet — your first run's story lands here/)).toBeInTheDocument()
-    expect(screen.queryByText('no runs recorded this week yet')).not.toBeInTheDocument()
+    // The room's team is on its board, and not one seat claims a turn.
+    expect(document.querySelector('.ws__chatcol .board')).not.toBeNull()
+    expect(seats()).toHaveLength(0)
+    expect(working()).toHaveLength(0)
+    expect(screen.queryByText(/\d+ working/)).not.toBeInTheDocument()
   })
 
   it('LIVE, four agents: a pipeline of real stages, each naming its own model', async () => {
@@ -151,8 +155,8 @@ describe('Work page — the v2 board', () => {
       await Promise.resolve()
     })
 
-    // One seat per agent that really has a model_call span — drawn ONCE, in
-    // the strip (the board beside the chat draws none).
+    // One seat per agent that really has a model_call span — drawn ONCE, on
+    // the Team board (the step board beside the chat draws none).
     expect(seats()).toHaveLength(4)
     // Each coworker names the AI that really answered.
     expect(strip().getAllByTitle(/local · Qwen3\.6-35B/).length).toBeGreaterThan(0)
@@ -193,8 +197,8 @@ describe('Work page — the v2 board', () => {
 
     // Not one seat breathes, nothing travels a link, and no progress line
     // claims movement…
-    expect(document.querySelector('.strip__seat.is-running')).toBeNull()
-    expect(document.querySelector('.strip__packet')).toBeNull()
+    expect(document.querySelector('.board__seat.is-running')).toBeNull()
+    expect(document.querySelector('.board__packet')).toBeNull()
     expect(strip().getByText('waiting on you')).toBeInTheDocument()
     expect(document.querySelector('.crew__mono--pulse')).toBeNull()
     expect(document.querySelector('.crew__bar')).toBeNull()
@@ -223,8 +227,9 @@ describe('Work page — the v2 board', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    // One run: its seats are drawn in the strip.
-    expect(strip().getByRole('button', { name: 'What researcher is doing' })).toBeInTheDocument()
+    // One run: its seats are lit on the board.
+    expect(strip().getByRole('button', { name: 'What Researcher is doing' })).not.toHaveClass('is-idle')
+    expect(seats().length).toBeGreaterThan(0)
 
     await act(async () => {
       captured.app!.beginLiveRun({ kind: 'team', intent: 'ask two' })
@@ -233,11 +238,13 @@ describe('Work page — the v2 board', () => {
     // Every span in the file could belong to either run, so NONE is claimed:
     // no seats, no columns, no crew cluster, no lock badge, no counts — each
     // run still has its own line and clock.
-    expect(document.querySelectorAll('.strip__run')).toHaveLength(2)
+    expect(document.querySelectorAll('.board__run')).toHaveLength(2)
     expect(seats()).toHaveLength(0)
+    expect(working()).toHaveLength(0)
+    expect(strip().getByRole('button', { name: 'What Researcher is doing' })).toHaveClass('is-idle')
     expect(document.querySelector('.crew')).toBeNull()
     expect(document.querySelector('.crew__cols')).toBeNull()
-    expect(screen.queryByText('researcher')).not.toBeInTheDocument()
+    expect(document.querySelector('.board__state')).toBeNull()
     expect(screen.queryByText('local · Qwen3.6-35B')).not.toBeInTheDocument()
     expect(document.querySelector('.crew__lock')).toBeNull()
     expect(screen.queryByText(/\d+ working/)).not.toBeInTheDocument()

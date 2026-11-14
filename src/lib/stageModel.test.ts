@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { STRIP_H, packetRadii, stageLayout, stageModel, stripLayout } from './stageModel'
+import { packetRadii, stageLayout, stageModel } from './stageModel'
 import type { EngineSpan } from './nativeEngine'
 
 // The owner, 2026-11-11: "Build in the form of animation… agent communicating
@@ -129,59 +129,9 @@ describe('packetRadii — a packet stays round in a stretched drawing', () => {
   })
 })
 
-// The run strip (spec 2026-11-14 "The chat is the room"): the same seats and
-// handoffs on ONE line above the chat — a track with a station per seat.
-describe('stripLayout — seats on one line', () => {
-  it('one seat stands in the middle of the line', () => {
-    expect(stripLayout(1)).toEqual([{ x: 50, y: 50 }])
-  })
-  it('several seats are evenly spaced, left to right, all on the line', () => {
-    const pts = stripLayout(4)
-    expect(pts.map((p) => p.y)).toEqual([50, 50, 50, 50])
-    const gaps = pts.slice(1).map((p, i) => Math.round((p.x - pts[i].x) * 10) / 10)
-    expect(new Set(gaps).size).toBe(1)
-    expect(pts[0].x).toBeGreaterThanOrEqual(5)
-    expect(pts[3].x).toBeLessThanOrEqual(95)
-  })
-  it('no seats, no positions', () => {
-    expect(stripLayout(0)).toEqual([])
-  })
-})
-
-describe('stageModel in a row — the strip above the chat', () => {
-  const spans = [call('lead', 1), call('researcher', 2), call('critic', 3), call('lead', 4)]
-  it('has the same seats, links and caption as the stage — only the places differ', () => {
-    const arc = stageModel(spans, true)
-    const row = stageModel(spans, true, 'row')
-    expect(row.seats.map((s) => s.name)).toEqual(arc.seats.map((s) => s.name))
-    expect(row.links.map((l) => [l.from, l.to, l.live, l.back])).toEqual(
-      arc.links.map((l) => [l.from, l.to, l.live, l.back]),
-    )
-    expect(row.caption).toEqual(arc.caption)
-  })
-  it('every seat is on the line and every link is a straight run along it', () => {
-    const row = stageModel(spans, true, 'row')
-    expect(new Set(row.seats.map((s) => s.y))).toEqual(new Set([50]))
-    for (const l of row.links) expect(l.d).toMatch(/^M[\d.]+ 50 L[\d.]+ 50$/)
-  })
-  it('a hand back runs the other way along the same line', () => {
-    const row = stageModel(spans, false, 'row')
-    const back = row.links.find((l) => l.back)!
-    const [from, to] = back.d.match(/[\d.]+(?= 50)/g)!.map(Number)
-    expect(from).toBeGreaterThan(to)
-  })
-})
-
-describe('packetRadii in the strip', () => {
-  it('uses the strip’s own box height', () => {
-    // 1000 × 100 drawing in a 500 × 50 box: both axes scale by two.
-    expect(packetRadii(500, 50, STRIP_H)).toEqual({ rx: 10, ry: 10 })
-  })
-})
-
 // Seen in a real two-seat run, 2026-11-14: the researcher was "searching the
 // web" — its model call had closed and a tool call was open — and nothing on
-// the strip moved: the seat did not breathe and the link into it lay still.
+// the drawing moved: the seat did not breathe and the link into it lay still.
 // A seat using a tool on a live run IS working, and the drawing says so.
 describe('a seat using a tool is working', () => {
   const tool = (agent: string, start: number, open: boolean): EngineSpan =>
@@ -196,7 +146,7 @@ describe('a seat using a tool is working', () => {
   const spans = [call('lead', 1), call('researcher', 2), tool('researcher', 3, true)]
 
   it('on a live run its seat is running and the handoff into it is in flight', () => {
-    const m = stageModel(spans, true, 'row')
+    const m = stageModel(spans, true)
     const researcher = m.seats.find((s) => s.name === 'researcher')!
     expect(researcher.state.text).toBe('searching the web')
     expect(researcher.running).toBe(true)
@@ -204,13 +154,13 @@ describe('a seat using a tool is working', () => {
   })
 
   it('once the tool call has closed, nothing claims it is still working', () => {
-    const m = stageModel([call('lead', 1), call('researcher', 2), tool('researcher', 3, false)], true, 'row')
+    const m = stageModel([call('lead', 1), call('researcher', 2), tool('researcher', 3, false)], true)
     expect(m.seats.find((s) => s.name === 'researcher')!.running).toBe(false)
     expect(m.links.find((l) => l.to === 'researcher')!.live).toBe(false)
   })
 
   it('a parked run moves nothing, whatever its last span says', () => {
-    const m = stageModel(spans, false, 'row')
+    const m = stageModel(spans, false)
     expect(m.seats.some((s) => s.running)).toBe(false)
     expect(m.links.some((l) => l.live)).toBe(false)
   })
@@ -224,7 +174,7 @@ describe('who is speaking agrees with the link that moves', () => {
   it('with two seats at work, it is the one the latest handoff went to', () => {
     const open = (agent: string, start: number) =>
       call(agent, start, { status: 'open', end: undefined } as never)
-    const m = stageModel([call('planner', 1), open('implementer', 2), open('reviewer', 3)], true, 'row')
+    const m = stageModel([call('planner', 1), open('implementer', 2), open('reviewer', 3)], true)
     const moving = m.links.find((l) => l.live)!
     expect(moving.to).toBe('reviewer')
     expect(m.caption?.who).toBe('reviewer')

@@ -5,7 +5,6 @@ import {
   buildPhase,
   buildProgressMeta,
   freeStandingSchedules,
-  greeting,
   groupProjectSchedules,
   nextDueSchedule,
   passRate,
@@ -434,41 +433,6 @@ describe('buildDeskItems', () => {
         { kind: 'connectivity', title: 'Connectivity issue', detail: 'Local model — unreachable' },
       ])
     })
-  })
-})
-
-// ---------------------------------------------------------------------------
-// greeting
-// ---------------------------------------------------------------------------
-
-describe('greeting', () => {
-  // Fixed local-time epochs. Constructed via new Date(y,m,d,h,m) which is
-  // interpreted in the test runner's local timezone, matching the
-  // implementation's own `new Date(now).getHours()`.
-  const at = (h: number, m: number) => new Date(2026, 6, 13, h, m).getTime()
-
-  it('morning just before noon (11:59) with no name', () => {
-    expect(greeting(at(11, 59), '')).toBe('Good morning')
-  })
-
-  it('afternoon exactly at noon (12:00)', () => {
-    expect(greeting(at(12, 0), '')).toBe('Good afternoon')
-  })
-
-  it('afternoon just before 17:00 (16:59)', () => {
-    expect(greeting(at(16, 59), '')).toBe('Good afternoon')
-  })
-
-  it('evening exactly at 17:00', () => {
-    expect(greeting(at(17, 0), '')).toBe('Good evening')
-  })
-
-  it('appends ", Name" when name is non-empty', () => {
-    expect(greeting(at(9, 0), 'Sukh')).toBe('Good morning, Sukh')
-  })
-
-  it('no suffix when name is empty', () => {
-    expect(greeting(at(20, 0), '')).toBe('Good evening')
   })
 })
 

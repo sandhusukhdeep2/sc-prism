@@ -1,5 +1,9 @@
 # The chat is the room (2026-11-14)
 
+> Superseded in part the same day by `2026-11-14-visible-agents-room.md`: the
+> slim strip became the room's Team board, and a run is written into the chat as
+> seat lines and one outcome strip. The "said once" rules below stand.
+
 ## What the owner said
 
 Looking at a team run in a project's room: "data representation on the stage

@@ -81,9 +81,11 @@ describe('Workspace context meter + compaction levers', () => {
     seedUniversal(messages)
     renderWorkspace()
 
-    expect(screen.getByText(/memory 0% full/i)).toBeInTheDocument()
+    // A short thread has no memory line at all (2026-11-14): "memory 0% full"
+    // told nobody anything. It appears with Compress now, at the soft threshold.
+    expect(screen.queryByText(/memory \d+% full/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /compress now/i })).not.toBeInTheDocument()
-    // New session may still be present — only Compress now is threshold-gated.
-    expect(screen.getByRole('button', { name: /new session/i })).toBeInTheDocument()
+    // New session is still offered — once, in the room's head.
+    expect(screen.getAllByRole('button', { name: /new session/i })).toHaveLength(1)
   })
 })

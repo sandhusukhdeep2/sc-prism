@@ -15,6 +15,7 @@ const LABEL: Record<PaneTab, string> = {
   steps: 'Steps',
   files: 'Files',
   details: 'Details',
+  desk: 'Desk',
 }
 
 export default function RoomPane({

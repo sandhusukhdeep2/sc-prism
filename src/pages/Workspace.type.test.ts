@@ -8,10 +8,9 @@ import { describe, expect, it } from 'vitest'
 const src = readFileSync('src/pages/Workspace.tsx', 'utf8')
 
 const SENTENCES = [
-  'ws__desksummary',
   'ws__navempty',
-  'ws__lastcrew',
-  'ws__statslink',
+  'ws__subtitle',
+  'ws__count',
   'chat__empty',
   'msg__typing',
   'chat__imagenote',
@@ -22,10 +21,7 @@ const SENTENCES = [
   'chat__routing',
   'chat__whohint',
   'chat__override-btn',
-  'chat__hint',
-  // The header's one status sentence ("107 runs recorded all time · 38% of
-  // runs on your Mac") sat in a container that set the whole strip in mono.
-  'ws__kpis',
+  'chat__pane',
 ]
 
 describe('the Work page sets its sentences as text', () => {
@@ -36,7 +32,6 @@ describe('the Work page sets its sentences as text', () => {
     })
   }
   it('records and ids keep their monospace', () => {
-    expect(src).toMatch(/msg__seathead mono/)
     expect(src).toMatch(/msg__noticefile mono/)
   })
 })

@@ -347,9 +347,10 @@ describe('the engine console uses the room’s surfaces', () => {
 
 // SMALL WINDOWS (clear-room spec 2026-11-09 §C). At 1000×760 during a live
 // run the stage above the chat kept its full height and the chat — the hero —
-// was a sliver with its composer clipped. Since 2026-11-14 the run is ONE
-// STRIP inside the chat card: a fixed, small height that cannot grow, so there
-// is nothing left to cap — and the chat column still keeps its floor.
+// was a sliver with its composer clipped. Since 2026-11-14 the room's team
+// stands on ONE BOARD above the chat: its height is its content's and cannot
+// grow with the run (a seat's state is held to two lines), in a short window
+// it drops its token line — and the chat column still keeps its floor.
 describe('a live run never squeezes the chat in a small window', () => {
   it('floors the chat column under a narrow or short media query', () => {
     const ws = read('src/pages/Workspace.css')
@@ -359,12 +360,20 @@ describe('a live run never squeezes the chat in a small window', () => {
     // The row that had to be capped is gone, not merely restyled.
     expect(ws).not.toMatch(/\.ws__stage\b/)
   })
-  it('the strip is a fixed band: it neither shrinks to a sliver nor grows', () => {
-    const css = read('src/components/RunStrip.css')
-    const rule = css.match(/^\.strip \{[^}]*\}/m)?.[0] ?? ''
+  it('the Team board is a fixed band: it neither shrinks to a sliver nor grows with the run', () => {
+    const css = read('src/components/TeamBoard.css')
+    const rule = css.match(/^\.board \{[^}]*\}/m)?.[0] ?? ''
     expect(rule).toMatch(/flex: none/)
-    // The one part with any height of its own is the line of seats.
-    expect(css).toMatch(/\.strip__track \{[^}]*height: \d\dpx/)
+    // The band of links has a height of its own, and what a seat says is
+    // held to two lines however long the engine's sentence is.
+    expect(css).toMatch(/\.board__links \{[^}]*height: \d\dpx/)
+    expect(css).toMatch(/\.board__state \{[^}]*line-clamp: 2/)
+  })
+  it('in a short window the board gives up its token line before the chat gives up room', () => {
+    const css = read('src/components/TeamBoard.css')
+    const short = css.slice(css.indexOf('@media (max-height: 820px)'))
+    expect(short.length).toBeGreaterThan(10)
+    expect(short).toMatch(/\.board__tokens \{[^}]*display: none/)
   })
 })
 

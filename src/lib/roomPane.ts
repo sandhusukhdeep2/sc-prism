@@ -11,7 +11,7 @@
 // opens by itself is a quiet project's details in a wide window. Which tab is
 // a rule, here, so the page cannot improvise it. Pure.
 
-export type PaneTab = 'steps' | 'files' | 'details'
+export type PaneTab = 'steps' | 'files' | 'details' | 'desk'
 
 /** null — nothing chosen, the rule decides; 'closed' — closed by hand. */
 export type PanePick = PaneTab | 'closed' | null
@@ -31,16 +31,23 @@ export function roomPane(input: {
   project: boolean
   /** A small window: the pane opens OVER the chat, so a quiet room keeps it shut. */
   narrow: boolean
+  /** The project is waiting on the user (a plan to start, a question to
+   *  answer, a step to resume) — its details hold the button for that. */
+  needsYou?: boolean
 }): RoomPane {
+  // The coworker desk (managers, loops, what happened while you were away)
+  // belongs to the Manager's room; a project's room has its own files and
+  // details instead.
   const tabs: PaneTab[] = [
     ...(input.hasCrew ? (['steps'] as const) : []),
-    ...(input.project ? (['files', 'details'] as const) : []),
+    ...(input.project ? (['files', 'details'] as const) : (['desk'] as const)),
   ]
   if (input.pick === 'closed') return { tab: null, tabs }
   if (input.pick && tabs.includes(input.pick)) return { tab: input.pick, tabs }
-  // The rule: a quiet project room shows what the project is — unless the
-  // window is small, where the pane would open over the chat.
-  if (input.project && !input.narrow) return { tab: 'details', tabs }
+  // The room is its Team board and its chat (the "Visible agents" mockup).
+  // The pane opens by itself for one thing only: a project that is waiting on
+  // the user — unless the window is small, where it would open over the chat.
+  if (input.project && input.needsYou && !input.narrow) return { tab: 'details', tabs }
   return { tab: null, tabs }
 }
 

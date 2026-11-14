@@ -69,21 +69,16 @@ describe('Workspace left sidebar (Manager + projects)', () => {
     renderWorkspace()
     expect(document.querySelector('.crew')).toBeNull()
     expect(document.querySelector('.lrun__card')).toBeNull()
-    // This fixture seeds ONE verdict with no engine timestamp. That IS a
-    // recorded run, so it correctly gets a row — while the week, which can only
-    // count runs it can place in time, says exactly why it cannot place it.
-    // Row present + week honest is the designed pair, not a contradiction (see
-    // `recentRuns` in lib/pipeline.ts).
-    //
-    // The row is a TABLE row now: the ledger moved out of the 320px rail into
-    // the full-width evidence band under the work, where the five facts it has
-    // always carried (task, outcome, checks, ran on, took) fit as real columns.
-    expect(document.querySelectorAll('.ledger__table tbody tr').length).toBe(1)
-    // "this week" either has nothing at all, or has only undated verdicts it
-    // refuses to place in a week — both are the honest empty statement, and
-    // neither draws an arc.
-    expect(screen.getByText(/no runs recorded this week yet|no timed runs this week/i)).toBeInTheDocument()
-    expect(document.querySelector('.ledger__donut')).toBeNull()
+    // The room's team stands on its board, at rest: nobody is at work and no
+    // seat claims a turn it has not taken (2026-11-14, "Visible agents").
+    expect(document.querySelector('.board')).not.toBeNull()
+    expect(document.querySelector('.board__run')).toBeNull()
+    expect(document.querySelector('.board__seat.is-running')).toBeNull()
+    expect(document.querySelector('.board__state')).toBeNull()
+    // The run record is not on Work any more — the Console holds it — so the
+    // page is the board and the chat, and nothing under them.
+    expect(document.querySelector('.ledger__table')).toBeNull()
+    expect(screen.queryByText('Recent runs')).not.toBeInTheDocument()
     // The old fake card's role/task strings must still be gone.
     expect(screen.queryByText('waiting for a task')).not.toBeInTheDocument()
     expect(screen.queryByText(/^idle · /)).not.toBeInTheDocument()
@@ -194,6 +189,7 @@ describe('Workspace rail: delete a project + heal a dangling active id (P3-3)', 
     // Arm the confirm — one click on "Delete project" (the small text button at
     // the end of the Details drawer; the header ✕ is gone, clear-room 2026-11-09)
     // must NOT delete anything (no native dialog).
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     fireEvent.click(await screen.findByRole('button', { name: /^delete project$/i }))
     expect(within(nav).getByRole('button', { name: /sidebar epsilon/i })).toBeInTheDocument()
 
@@ -219,6 +215,7 @@ describe('Workspace rail: delete a project + heal a dangling active id (P3-3)', 
     renderWorkspace()
 
     const nav = screen.getByRole('navigation', { name: /chats and projects/i })
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     fireEvent.click(await screen.findByRole('button', { name: /^delete project$/i }))
     fireEvent.click(screen.getByRole('button', { name: /keep it/i }))
 

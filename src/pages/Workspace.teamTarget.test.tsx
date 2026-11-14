@@ -170,7 +170,9 @@ describe('Work composer → team: the SHARED governed launch', () => {
     captured.app!.releaseEngine()
     // The notice reads as a sentence; the saved board is a reveal action named
     // by the file, with the full path behind it (clear-room 2026-11-09 §B).
-    expect(screen.getByText('team run passed · 120/100,000 tok')).toBeInTheDocument()
+    const ended = screen.getByRole('group', { name: 'How this run ended' })
+    expect(ended).toHaveTextContent('✓ routed → verified → written')
+    expect(ended).toHaveTextContent('120 of 100,000 tokens')
     expect(screen.getByRole('button', { name: 'Reveal board-r1.jsonl' })).toHaveAttribute('title', '/vault/agents/board-r1.jsonl')
     expect(screen.getByText('here is the plan the team agreed on')).toBeInTheDocument()
     expect(h.cancelEngineRun).not.toHaveBeenCalled()

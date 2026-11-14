@@ -108,6 +108,8 @@ describe('the room says each thing once', () => {
     // A project persisted as 'running' is read back as interrupted; put it
     // back to running the way the build driver does.
     updateProject(project.id, { status: 'running' })
+    // A room at work is its board and its chat; Details opens on request.
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     const details = await screen.findByRole('tabpanel')
     expect(await within(details).findByText('step 2 of 2 — add the page')).toBeInTheDocument()
     expect(within(details).queryByText(/running — step/)).not.toBeInTheDocument()

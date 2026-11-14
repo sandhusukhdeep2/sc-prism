@@ -80,46 +80,43 @@ describe('Workspace composer — multi-line textarea (Enter sends, Shift+Enter n
 // collapsed to a ~40px column: the placeholder rendered as "Descr / ibe what /
 // you want t…" and the app's primary action became unusable.
 //
+// 2026-11-14 ("Visible agents"): the composer is ONE ROW again, as the room's
+// mockup draws it — attach · the words · who takes them · Send. What made the
+// single row collapse is still kept out of it: the target and route PILLS open
+// in a panel above the row, never beside the field; the row wraps; and the
+// field has a floor it will not shrink below.
+//
 // jsdom does no layout, so a width assertion here would be theatre. The honest
-// unit-testable invariant is STRUCTURAL — the textarea and the control cluster
-// are no longer siblings in one non-wrapping row — plus the CSS declarations
-// that make that structure a column with a wrapping control row. Said plainly
-// because it is a proxy: the real proof was the screenshot.
+// unit-testable invariant is STRUCTURAL — the pills are never the textarea's
+// siblings — plus the CSS declarations that give the field its floor. Said
+// plainly because it is a proxy: the real proof is the screenshot.
 // ---------------------------------------------------------------------------
-describe('Workspace composer layout — the textarea does not share a row with the controls', () => {
+describe('Workspace composer layout — the pills never share the textarea’s row', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => localStorage.clear())
 
-  it('the target + route controls are NOT in the textarea’s own flex row', () => {
+  it('the row holds the words and Send; the target + route pills open outside it', () => {
     renderWorkspace()
     const field = screen.getByLabelText('Describe the task for the team')
     const send = screen.getByRole('button', { name: 'Send' })
 
-    // The regression, stated structurally: the textarea and the controls used
-    // to be SIBLINGS in one flex row, dividing its width between them. The
-    // nearest element holding both is now the composer itself, which the CSS
-    // declares a COLUMN, so they stack.
-    const shared = field.parentElement as HTMLElement
-    expect(shared.className).toContain('chat__composer')
-    expect(send.parentElement).not.toBe(shared)
+    // One row, as the mockup draws it: the field and Send side by side.
+    const row = field.parentElement as HTMLElement
+    expect(row.className).toContain('chat__composerrow')
+    expect(send.parentElement).toBe(row)
 
-    // The controls really are gathered into a row of their own, and that row
-    // does NOT contain the textarea.
-    const controls = document.querySelector('.chat__controls') as HTMLElement
-    expect(controls).not.toBeNull()
-    expect(controls.contains(send)).toBe(true)
-    expect(controls.contains(field)).toBe(false)
-
-    // …and the same holds once the pills are disclosed: opening "Change" adds
-    // them INSIDE that control row, never back beside the textarea.
+    // The regression, stated structurally: the pills used to be SIBLINGS of
+    // the textarea, dividing its width with it. Disclosed, they sit in their
+    // own panel in the composer — not in the row.
     openComposerControls()
     const who = screen.getByRole('radiogroup', { name: 'Who does this task' })
     const route = screen.getByRole('radiogroup', { name: 'Route for this message' })
-    expect(who.parentElement).not.toBe(shared)
-    expect(route.parentElement).not.toBe(shared)
-    expect(controls.contains(who)).toBe(true)
-    expect(controls.contains(route)).toBe(true)
-    expect(controls.contains(field)).toBe(false)
+    expect(row.contains(who)).toBe(false)
+    expect(row.contains(route)).toBe(false)
+    const composer = row.parentElement as HTMLElement
+    expect(composer.className).toContain('chat__composer')
+    expect(composer.contains(who)).toBe(true)
+    expect(composer.contains(route)).toBe(true)
   })
 
   it('keeps every control and its aria-label (layout-only change)', () => {
@@ -139,22 +136,28 @@ describe('Workspace composer layout — the textarea does not share a row with t
       openComposerControls()
       expect(screen.getByRole('radio', { name: label })).toBeTruthy()
     }
-    expect(screen.getByText('Enter to send')).toBeTruthy()
+    // Send says what it does in a word; the "Enter to send" hint beside it is
+    // gone (2026-11-14) — one fewer thing on the row.
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveTextContent('Send')
+    expect(screen.queryByText('Enter to send')).toBeNull()
   })
 
-  it('the composer stacks (column) and the control row wraps — narrow windows and long labels', () => {
+  it('the row wraps and the field keeps a floor — narrow windows and long labels', () => {
     const css = readFileSync('src/pages/Workspace.css', 'utf8')
     const block = (sel: string) => {
       const m = css.match(new RegExp(`\\${sel}\\s*\\{([^}]*)\\}`, 's'))
       expect(m, `${sel} block missing`).not.toBeNull()
       return m![1]
     }
+    // the panel of pills stacks above the row
     expect(block('.chat__composer')).toMatch(/flex-direction:\s*column/)
     // the surface token this repo's dark-theme rule depends on is untouched
     expect(block('.chat__composer')).toMatch(/background:\s*var\(--input-fill\)/)
-    expect(block('.chat__controls')).toMatch(/flex-wrap:\s*wrap/)
-    expect(block('.chat__controlgroup')).toMatch(/flex-wrap:\s*wrap/)
-    // the textarea takes the full row rather than a leftover flex share
-    expect(block('.chat__input')).toMatch(/width:\s*100%/)
+    // a tight window pushes who/Send onto their own line…
+    expect(block('.chat__composerrow')).toMatch(/flex-wrap:\s*wrap/)
+    // …because the field will not shrink below a readable width, and takes
+    // whatever the row has left.
+    expect(block('.chat__input')).toMatch(/min-width:\s*200px/)
+    expect(block('.chat__input')).toMatch(/flex:\s*1 1/)
   })
 })

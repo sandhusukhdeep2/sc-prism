@@ -83,8 +83,12 @@ async function mounted() {
 // chat card now says what is running (kind · intent · elapsed), draws each
 // seat once, and says who is speaking. Every claim these tests protected is
 // re-asserted against the strip.
-const strip = (): HTMLElement | null => document.querySelector('.chat .strip')
-const runLine = (): HTMLElement | null => document.querySelector('.strip__run')
+// AND AGAIN (2026-11-14, "Visible agents"). The strip grew into the room's
+// TEAM BOARD — the mockup the owner called "perfect example what I want": the
+// room's team stands above the chat at all times, and a run is drawn on it.
+// The same claims, against the board.
+const board = (): HTMLElement | null => document.querySelector('.ws__chatcol .board')
+const runLine = (): HTMLElement | null => document.querySelector('.board__run')
 
 describe('Live agent surface — real runs only', () => {
   beforeEach(() => {
@@ -122,8 +126,8 @@ describe('Live agent surface — real runs only', () => {
     expect(live).toContain('add a rate-limit guard to the uploader')
     expect(live).toMatch(/\d+:\d\d/) // elapsed, a real clock over a real start
     // The seat names the agent, and carries the model that really answered.
-    const seat = within(strip()!).getByRole('button', { name: 'What implementer is doing' })
-    expect(seat.getAttribute('title') ?? '').toContain('openai · gpt-4o')
+    const seat = within(board()!).getByRole('button', { name: 'What Implementer is doing' })
+    expect(seat.querySelector('.board__ai')?.getAttribute('title') ?? '').toContain('openai · gpt-4o')
     // The fabrications are gone: no progress bar, no percentage, no token burn.
     expect(live).not.toContain('%')
     expect(document.querySelector('.agentcard__bar')).toBeNull()
@@ -138,9 +142,10 @@ describe('Live agent surface — real runs only', () => {
     const live = runLine()!.textContent ?? ''
     expect(live).toContain('manager')
     expect(live).toContain('Vault health')
-    // No seat is drawn and no model is named — and the strip says so in words.
-    expect(document.querySelector('.strip__seat')).toBeNull()
-    expect(strip()!).toHaveTextContent('working — no engine step reported yet')
+    // No seat is lit and no turn is claimed — and the board says so in words.
+    expect(document.querySelector('.board__seat.is-running')).toBeNull()
+    expect(document.querySelector('.board__state')).toBeNull()
+    expect(board()!).toHaveTextContent('working — no engine step reported yet')
   })
 
   it('a run PARKED on the user is not shown as executing — nothing is behind it', async () => {
@@ -149,26 +154,32 @@ describe('Live agent surface — real runs only', () => {
     await act(async () => {
       id = captured.app!.beginLiveRun({ kind: 'project', intent: 'build the dashboard' })
     })
-    expect(strip()!.className).toContain('is-live')
+    expect(board()!.className).toContain('is-live')
 
     await act(async () => {
       captured.app!.pauseLiveRun(id, true)
     })
     // Still on screen — it is waiting on him — but nothing glows, pulses,
     // travels or speaks: no engine is behind it.
-    expect(strip()!.className).not.toContain('is-live')
+    expect(board()!.className).not.toContain('is-live')
     expect(screen.getByText('waiting on you')).toBeInTheDocument()
-    expect(document.querySelector('.strip__seat.is-running')).toBeNull()
-    expect(document.querySelector('.strip__packet')).toBeNull()
-    expect(document.querySelector('.strip__caption')).toBeNull()
+    expect(document.querySelector('.board__seat.is-running')).toBeNull()
+    expect(document.querySelector('.board__packet')).toBeNull()
+    expect(document.querySelector('.board__note')).toBeNull()
   })
 
   it('nothing running → the honest empty state, and no elapsed clock', async () => {
     await mounted()
-    expect(strip()).toBeNull()
+    // The room's team is on its board — at rest: no run line, no seat at
+    // work, no clock, and no claim that anything happened.
+    expect(board()).not.toBeNull()
+    expect(runLine()).toBeNull()
+    expect(document.querySelector('.board__seat.is-running')).toBeNull()
+    expect(document.querySelector('.board__state')).toBeNull()
+    expect(document.querySelector('.board__elapsed')).toBeNull()
     expect(document.querySelector('.agentcard__elapsed')).toBeNull()
-    // The Work page says, in the ledger, that it has measured nothing yet.
-    expect(screen.getByText(/no runs yet — your first run's story lands here/)).toBeInTheDocument()
+    // And the chat says it holds nothing yet.
+    expect(screen.getByText(/no messages yet/)).toBeInTheDocument()
   })
 })
 

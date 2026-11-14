@@ -80,8 +80,17 @@ function renderWorkspace() {
 }
 
 // The project's details live in the room's pane (2026-11-12): the Details tab
-// beside the chat, open by itself in a quiet project room.
+// beside the chat. Since 2026-11-14 ("Visible agents") a quiet project room
+// is its Team board and its chat, and Details opens on request — by itself
+// only for a project that is waiting on the user (lib/roomPane.ts).
 const drawer = () => document.querySelector('.pane .ws__details') as HTMLElement
+
+/** Mount the room and open its Details beside the chat, as a user would. */
+async function renderWithDetails() {
+  const view = renderWorkspace()
+  fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
+  return view
+}
 
 describe('the Details drawer reads', () => {
   beforeEach(() => localStorage.clear())
@@ -89,7 +98,7 @@ describe('the Details drawer reads', () => {
 
   it('sets the description and the sections’ sentences in body type, not monospace', async () => {
     seed()
-    renderWorkspace()
+    await renderWithDetails()
     const goal = await screen.findByText(/A one-file demo: hello\.md greeting the crew/)
     expect(goal.className).not.toMatch(/\bmono\b/)
     fireEvent.click(await screen.findByRole('button', { name: /^Team/ }))
@@ -102,7 +111,7 @@ describe('the Details drawer reads', () => {
 
   it('renders the last result as markdown, clamped, with a way to see all of it', async () => {
     seed()
-    renderWorkspace()
+    await renderWithDetails()
     const d = drawer()
     expect(d).toBeTruthy()
     // A heading, not a '# Hello crew' literal.
@@ -118,7 +127,7 @@ describe('the Details drawer reads', () => {
 
   it('offers Reveal folder as a quiet action and exactly one Delete, small, at the end', async () => {
     seed()
-    renderWorkspace()
+    await renderWithDetails()
     const d = drawer()
     const reveal = await within(d).findByRole('button', { name: /reveal folder/i })
     expect(reveal.className).not.toMatch(/proj__startbtn/)
@@ -181,7 +190,7 @@ describe('the sidebar folds to one-line sections', () => {
 
   it('Team and Loops start folded with a summary, and open on a click', async () => {
     seed()
-    renderWorkspace()
+    await renderWithDetails()
     const team = await screen.findByRole('button', { name: /^Team/ })
     const loops = screen.getByRole('button', { name: /^Loops/ })
     expect(team).toHaveAttribute('aria-expanded', 'false')
@@ -196,7 +205,7 @@ describe('the sidebar folds to one-line sections', () => {
 
   it('the Plan is folded once the project is done, and Last result stays open', async () => {
     seed() // status: done
-    renderWorkspace()
+    await renderWithDetails()
     const plan = await screen.findByRole('button', { name: /^Plan/ })
     expect(plan).toHaveAttribute('aria-expanded', 'false')
     expect(plan.textContent).toMatch(/1 step · done/)
@@ -205,7 +214,7 @@ describe('the sidebar folds to one-line sections', () => {
 
   it('the folder path is the one reveal action, and no second Team block follows', async () => {
     const p = seed()
-    renderWorkspace()
+    await renderWithDetails()
     const reveals = await screen.findAllByRole('button', { name: /reveal folder/i })
     expect(reveals).toHaveLength(1)
     expect(reveals[0].textContent).toContain('/tmp/drawer-target')

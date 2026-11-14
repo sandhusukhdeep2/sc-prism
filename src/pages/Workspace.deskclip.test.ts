@@ -51,31 +51,31 @@ function declaration(block: string, prop: string): string | null {
   return all.length ? all[all.length - 1][1].trim() : null
 }
 
+// 2026-11-14 ("Visible agents"): the desk left the page's band for the pane
+// beside the chat (the Manager's room offers it as a tab). The guarantee is
+// the same and simpler to keep — the PANE is the one scroller, and the desk
+// inside it takes its natural height, so there is no band left to slice a row.
+const paneCss = readFileSync('src/components/RoomPane.css', 'utf8')
+
 describe('the coworker desk yields by scrolling, never by slicing a row', () => {
-  it('the band is a flex column, so a squeeze can reach the body', () => {
-    const band = rule('.ws__desk')
-    expect(declaration(band, 'display')).toBe('flex')
-    expect(declaration(band, 'flex-direction')).toBe('column')
+  it('there is no desk band on the page any more — nothing to squeeze, nothing to clip', () => {
+    expect(css).not.toMatch(/\.ws__desk(?![\w-])\s*\{/)
+    expect(css).not.toMatch(/\.ws__desktoggle(?![\w-])\s*\{/)
   })
 
-  it('the band still clips and still floors at its own toggle', () => {
-    // Both were deliberate fixes; the flex change must not undo either.
-    const band = rule('.ws__desk')
-    expect(declaration(band, 'overflow')).toBe('hidden')
-    expect(declaration(band, 'min-height')).toBe('30px')
-    expect(declaration(band, 'flex')).toBe('0 1 auto')
-  })
-
-  it('the toggle never shrinks — the label must stay whole', () => {
-    expect(declaration(rule('.ws__desktoggle'), 'flex')).toBe('0 0 auto')
-  })
-
-  it('the body absorbs the squeeze and scrolls instead of being cut off', () => {
+  it('the desk takes its natural height inside the pane: no cap, no clip of its own', () => {
     const body = rule('.ws__deskbody')
+    expect(declaration(body, 'max-height')).toBeNull()
+    expect(declaration(body, 'overflow')).toBeNull()
+    expect(declaration(body, 'overflow-y')).toBeNull()
+  })
+
+  it('the pane body is the scroller, and it can shrink to the room it is given', () => {
+    const m = paneCss.match(/\.pane__body\s*\{([^}]*)\}/)
+    expect(m, 'no rule found for .pane__body').not.toBeNull()
     // `min-height: 0` is the whole fix: without it a flex child refuses to
-    // shrink below its content, and the parent goes back to clipping it.
-    expect(declaration(body, 'min-height')).toBe('0')
-    expect(declaration(body, 'flex')).toBe('1 1 auto')
-    expect(declaration(body, 'overflow-y')).toBe('auto')
+    // shrink below its content, and its parent goes back to clipping it.
+    expect(declaration(m![1], 'min-height')).toBe('0')
+    expect(declaration(m![1], 'overflow-y')).toBe('auto')
   })
 })
