@@ -85,6 +85,35 @@ describe('Agents — the page says when the workload slider is re-seating the de
     expect(screen.getByRole('link', { name: 'Change in Settings' })).toHaveAttribute('href', '/settings?section=routing')
   })
 
+  // Seen in the installed app, 2026-11-14: every built-in card said "Claude"
+  // under a note saying "a seat runs where the slider puts it, whatever its
+  // card says below" — the page told you not to believe its own cards. Each
+  // card now shows where its seat really runs, and the caveat is gone.
+  it('a built-in card shows where its seat really runs under the slider', () => {
+    seed('local-all')
+    renderAgents()
+    const badge = (name: string) => {
+      const tile = screen.getByText(name).closest('.agent-tile') as HTMLElement
+      return tile.querySelector('.mbadge') as HTMLElement
+    }
+    // Set to Claude, run on this Mac — the card says the second, and how it came to.
+    expect(badge('Planner').textContent).toBe('local')
+    expect(badge('Planner')).toHaveAttribute(
+      'title',
+      'set to Claude — the workload slider runs this seat on your local model',
+    )
+    expect(screen.getByRole('note', { name: 'Workload slider' }).textContent).not.toMatch(/whatever its card says/)
+  })
+
+  it('with the slider off, a card shows the AI set on it and no explanation is needed', () => {
+    seed('agents')
+    renderAgents()
+    const tile = screen.getByText('Planner').closest('.agent-tile') as HTMLElement
+    const badge = tile.querySelector('.mbadge') as HTMLElement
+    expect(badge.textContent).toBe('Claude')
+    expect(badge).not.toHaveAttribute('title')
+  })
+
   it('says nothing when every agent runs on its own AI', () => {
     seed('agents')
     renderAgents()

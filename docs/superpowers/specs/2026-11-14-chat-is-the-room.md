@@ -150,6 +150,15 @@ stopped.
 - A build's card id is not the engine's run id (one engine run per step), so
   the store keeps which engine run is executing for each card.
 
+## The Agents page: a card shows where its seat runs
+
+Every built-in card said "Claude" under a note reading "a seat runs where the
+slider puts it, whatever its card says below" — the page told its reader not
+to believe its own cards. A built-in agent's badge now shows the AI its seat
+really runs on under the workload stop in force (`agentRunsOn`, the same
+helper Settings counts seats with), and says on hover what it is set to when
+that differs. The note shrinks to the stop and where to change it.
+
 ## Not built here
 
 - The same once-only pass on the other pages (Agents, Automations, Settings,

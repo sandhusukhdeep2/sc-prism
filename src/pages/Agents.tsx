@@ -25,10 +25,10 @@ import { splitRoster, filterRoster, rosterGate, sitOutLine, type SitOut } from '
 import RosterPicker from '../components/RosterPicker'
 import AgentMonogram from '../components/AgentMonogram'
 import { useConnectivity } from '../lib/connectivity'
-import { primaryDisplayName, useSettings } from '../lib/settings'
+import { primaryDisplayName, useSettings, type Settings } from '../lib/settings'
 import { brandOf } from '../lib/providerBudget'
 import { workloadCopy } from '../lib/workload'
-import { settingsStop, workloadAIs } from '../lib/workloadSeats'
+import { agentRunsOn, settingsStop, workloadAIs } from '../lib/workloadSeats'
 import { readSpansTail, resolveVaultDir, revealPath, isNative, type EngineSpan, type TeamResult } from '../lib/nativeEngine'
 import { ownActivity } from '../lib/ownActivity'
 import { useInterview } from '../lib/interview'
@@ -728,8 +728,7 @@ function WorkloadNote() {
   const copy = workloadCopy(stop, primary)
   return (
     <p className="agents__workload" role="note" aria-label="Workload slider">
-      <b>Workload: {copy.word}</b> — {copy.desc}. On the default team a seat runs where the
-      slider puts it, whatever its card says below.{' '}
+      <b>Workload: {copy.word}</b> — {copy.desc}. Each card below shows where its seat runs.{' '}
       <Link to="/settings?section=routing">Change in Settings</Link>
     </p>
   )
@@ -1097,8 +1096,33 @@ function SectionHead({ title, note }: { title: string; note: string }) {
   )
 }
 
-function ModelBadge({ kind }: { kind: BadgeKind }) {
-  return <span className={`mbadge mbadge--${kind}`}>{MODEL_TEXT[kind]}</span>
+/**
+ * Where the agent RUNS. For a seat on the default team that is where the
+ * workload slider puts it, which can differ from the AI set on the agent —
+ * then the badge shows the real one and its title says how it came to
+ * (2026-11-14: every built-in card said "Claude" under a note telling the
+ * reader not to believe the cards).
+ */
+function ModelBadge({ kind, setTo }: { kind: BadgeKind; setTo?: BadgeKind }) {
+  const moved = setTo !== undefined && setTo !== kind
+  return (
+    <span
+      className={`mbadge mbadge--${kind}`}
+      title={
+        moved
+          ? `set to ${MODEL_TEXT[setTo]} — the workload slider runs this seat on ${kind === 'local' ? 'your local model' : MODEL_TEXT[kind]}`
+          : undefined
+      }
+    >
+      {MODEL_TEXT[kind]}
+    </span>
+  )
+}
+
+/** The badge kind for the AI a seat really runs on (see `agentRunsOn`). */
+function runsOnKind(settings: Settings, a: StoredAgent): BadgeKind {
+  const brand = brandOf(agentRunsOn(settings, a))
+  return brand === 'local' || brand === 'claude' || brand === 'gemini' ? brand : a.model
 }
 
 function AgentTile({
@@ -1138,6 +1162,7 @@ function AgentTile({
   /** Open this agent's own page (the whole head is the link). */
   onOpen: () => void
 }) {
+  const { settings } = useSettings()
   // "Working" only when THIS agent's own assigned project is the one
   // currently running — never fabricated, never borrowed from another
   // project (mirrors ProjectAgentsPanel in Projects.tsx).
@@ -1191,7 +1216,7 @@ function AgentTile({
           </div>
         </div>
         <span className="agent-tile__spacer" />
-        {a.system && <ModelBadge kind={a.model} />}
+        {a.system && <ModelBadge kind={runsOnKind(settings, a)} setTo={a.model} />}
         {!a.system && (
           <button
             type="button"

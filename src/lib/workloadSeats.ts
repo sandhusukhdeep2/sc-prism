@@ -6,6 +6,7 @@
 // gets are the same list.
 
 import { providerUsable, type Settings } from './settings'
+import { agentSlug } from './agents'
 import {
   applyWorkload,
   effectiveWorkload,
@@ -43,3 +44,20 @@ export function seatByWorkload(settings: Settings, roster: string): string {
     secondOpinion: settings.workloadSecondOpinion === true,
   })
 }
+
+/**
+ * The AI a seat REALLY runs on: the one set on the agent — unless it sits on
+ * the default team, where the workload stop in force re-seats it at run time.
+ * An agent staffed to a project keeps the AI set on it. The single source for
+ * every surface that says where an agent runs (its card, the per-AI seat
+ * count), so none of them can say the card's setting when the run will differ.
+ */
+export function agentRunsOn(
+  settings: Settings,
+  agent: { name: string; model: string; assignedTo?: string },
+): string {
+  if ((agent.assignedTo ?? '') !== 'system') return String(agent.model)
+  const seated = seatByWorkload(settings, `${agentSlug(agent.name)}:${agent.model}`)
+  return seated.slice(seated.indexOf(':') + 1)
+}
+

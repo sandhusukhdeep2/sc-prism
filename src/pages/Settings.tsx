@@ -64,8 +64,8 @@ import {
   type LocalModelReport,
   type LocalServerStatus,
 } from '../lib/localModels'
-import { agentSlug, useAgents } from '../lib/agents'
-import { seatByWorkload } from '../lib/workloadSeats'
+import { useAgents } from '../lib/agents'
+import { agentRunsOn } from '../lib/workloadSeats'
 import WorkloadCard from '../components/WorkloadCard'
 import ModelCheckCard from '../components/ModelCheckCard'
 import {
@@ -1409,12 +1409,8 @@ function YourAIsRow() {
   // on the default team, so the stop in force re-seats it; an agent staffed to
   // a project keeps the AI set on it. The count is of seats as they would
   // really run, not of what each agent's file says.
-  const runsOn = (a: (typeof crew)[number]): string => {
-    if ((a.assignedTo ?? '') !== 'system') return String(a.model)
-    const seated = seatByWorkload(settings, `${agentSlug(a.name)}:${a.model}`)
-    return seated.slice(seated.indexOf(':') + 1)
-  }
-  const seatsOn = (brand: Brand) => crew.filter((a) => brandOf(runsOn(a)) === brand).length
+  const seatsOn = (brand: Brand) =>
+    crew.filter((a) => brandOf(agentRunsOn(settings, a)) === brand).length
 
   return (
     <div className="settings__ais">
