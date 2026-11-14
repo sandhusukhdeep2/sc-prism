@@ -339,6 +339,7 @@ own wall.
 | a manager job (one AI, or a team) | the board, in the Manager's room | the job's run line "stopped by you — no report was written"; nothing is appended to its report file |
 | a standing task | the board, in the Manager's room | the schedule's run "stopped by you"; no "provider offline?" notice |
 | a standing check | the board, in the project's room | the schedule's run "stopped by you"; no "verify failed" notice |
+| a project's interview turn | the board, in the project's room | the room says "Stopped by you — no question was asked."; nothing is recorded as said by the AI |
 
 Two runs needed plumbing to be cancellable at all. The wake's card has a
 fixed id, so the card is mapped to the wake's engine run before it is
@@ -348,6 +349,21 @@ other engine command (blank id: uncancellable, as before).
 
 Stop is offered only where it is real: the simulator and a send with no AI
 connected launch no engine, so a chat there has no Stop.
+
+## A message's id is its own, across restarts (2026-11-15)
+
+Seen in the installed app: an old answer in the Manager's room had two later
+answers appended to it — answers that had been given in another room, on
+later days.
+
+Message ids were `m1`, `m2`, … counted from zero by every app session, while
+the threads they sit in are saved and restored. After a restart a new reply
+was handed an id an old message already had, and every id-scoped update is
+applied to every thread holding that id: a line appended to the answer, its
+model, and — worse — the removal of a thinking bubble, which could take an
+old message with it. Each session now stamps its ids (`m<stamp>-<n>`), so
+they cannot meet an id from any other session, whenever the saved threads
+arrive. What the collisions already did to saved threads is not undone.
 
 ## Not built here
 

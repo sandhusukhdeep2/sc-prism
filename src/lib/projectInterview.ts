@@ -121,6 +121,9 @@ export interface InterviewTurnDeps {
    *  `offlineReason`). Injected rather than imported — AppStore imports THIS
    *  module, so importing back would be circular. */
   offlineReason?: (text: string | undefined) => string
+  /** Did the user ask to stop this turn? Read only when nothing came back, to
+   *  tell a cancelled engine from a provider that could not be reached. */
+  stopped?: () => boolean
 }
 
 /**
@@ -140,6 +143,9 @@ export type InterviewEnding =
   | { kind: 'stub'; reason: string }
   | { kind: 'no-engine' }
   | { kind: 'no-provider' }
+  /** The USER stopped it (the room's Stop). Nothing came back because the
+   *  engine was cancelled — not an outage, and nothing is recorded as said. */
+  | { kind: 'stopped' }
 
 /**
  * Run ONE interview turn. Records the user's message (if any), asks the AI
@@ -274,6 +280,10 @@ export async function runInterviewTurn(
     record({ role: 'ai', text: stubText(reason) })
     return { kind: 'stub', reason }
   }
+  // The user stopped it: the engine was cancelled, so nothing came back. Not
+  // an unreachable provider — and no turn is recorded for the AI, which said
+  // nothing. The room says who stopped it.
+  if (deps.stopped?.()) return { kind: 'stopped' }
   record({ role: 'ai', text: UNREACHABLE_TEXT })
   return { kind: 'unreachable' }
 }

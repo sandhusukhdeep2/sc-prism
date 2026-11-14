@@ -202,6 +202,41 @@ describe('H6 — an interview turn reports what really came back', () => {
     expect(h.cancelEngineRun).toHaveBeenCalledTimes(1)
   })
 
+  // STOP (2026-11-15). An interview turn is one AI answering, in a project's
+  // room, and it had no Stop: a wrong message sent there could only be waited
+  // out.
+  it('Stop on an interview turn: the engine is cancelled and the room says who stopped it', async () => {
+    let killed: (v: Verdict | null) => void = () => {}
+    h.runNativeTask.mockImplementation(() => new Promise<Verdict | null>((res) => (killed = res)))
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    const project = await interviewing()
+
+    let sent: Promise<void>
+    await act(async () => {
+      sent = captured.app!.send('hello')
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const run = live()[0]
+    expect(run.kind).toBe('project')
+    expect(run.stoppable).toBe(true)
+
+    await act(async () => {
+      captured.app!.stopLiveRun(run.id)
+      await sent!
+    })
+    // The cancel names the ENGINE's run — the id the turn was launched with.
+    const engineRunId = h.runNativeTask.mock.calls[0][3] as string
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(engineRunId)
+    expect(live()).toHaveLength(0)
+    expect(finished()[0]).toMatchObject({ outcome: 'stopped', detail: 'stopped by you' })
+    const said = (captured.app!.state.threads[project.id] ?? []).map((m) => ('text' in m ? m.text : ''))
+    expect(said).toContain('Stopped by you — no question was asked.')
+    expect(said.join('\n')).not.toMatch(/Couldn.t reach|could not be reached/)
+    h.cancelEngineRun.mockImplementation(async () => {})
+  })
+
   it('a genuinely UNREACHABLE provider still says unreachable — nothing came back', async () => {
     h.runNativeTask.mockResolvedValue(null)
     await interviewing()

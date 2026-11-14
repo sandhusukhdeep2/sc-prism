@@ -2396,12 +2396,33 @@ interface AppContextValue {
   wakeNow: () => Promise<string | null>
 }
 
+/** What makes one app session's message ids different from every other's: the
+ *  moment it started, and a few random characters for two that start together. */
+function messageIdStamp(): string {
+  const rand =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10)
+  return `${Date.now().toString(36)}${rand}`
+}
+
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, seededState, initState)
+  // A MESSAGE'S ID IS ITS OWN FOR GOOD, NOT FOR ONE SITTING. The ids were
+  // `m1`, `m2`, … counted from zero by every app session, while the threads
+  // they sit in are saved and restored — so after a restart a new reply was
+  // handed an id an old message already had, and every id-scoped update below
+  // (append a line to the answer, set its model, REMOVE the thinking bubble)
+  // is applied to every thread holding that id. New answers were written into
+  // old bubbles in other rooms, and a removed bubble could take an old
+  // message with it. Each session now stamps its ids, so they cannot meet an
+  // id from any other session, whenever the saved threads arrive.
   const idRef = useRef(0)
-  const nextId = () => `m${++idRef.current}`
+  const idStampRef = useRef('')
+  if (!idStampRef.current) idStampRef.current = messageIdStamp()
+  const nextId = () => `m${idStampRef.current}-${++idRef.current}`
   const noticeIdRef = useRef(0)
   const nextNoticeId = () => `notice-${++noticeIdRef.current}`
 
@@ -4211,6 +4232,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kind: 'project',
         intent: `interview — ${project.name || '(untitled)'}`,
         room: project.id,
+        // Stop is real only when a turn launches an engine (see `runTask`).
+        stoppable: isNative() && buildEngineProviders(settingsRef.current, project.id).primaryReal,
       })
       let end: { outcome: RunOutcome; detail: string } = {
         outcome: 'stopped',
@@ -4236,8 +4259,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           native: isNative(),
           buildProviders: () => buildEngineProviders(settingsRef.current, project.id),
           resolveVault: () => resolveVaultDir(settingsRef.current.vaultPath),
-          runTask: (prompt, vault, providers, runId) => runNativeTask(prompt, vault, providers, runId),
+          runTask: (prompt, vault, providers, runId) => {
+            // Stop is asked of the card; it cancels THIS engine run.
+            engineOfRunRef.current.set(liveId, runId)
+            return runNativeTask(prompt, vault, providers, runId)
+          },
           cancelRun: cancelEngineRun,
+          stopped: () => stopAskedRef.current.has(liveId),
           budget,
           lastStep: async () => lastStepFromSpans(await readSpansTail(vaultDir, 8)),
           offlineReason,
@@ -4258,10 +4286,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // call and WE had cancelled it. The four endings are now distinct: our
         // own cancellation (with elapsed and what it was doing), a genuinely
         // unreachable provider, a placeholder reply, and the two refusals.
+        if (ending.kind === 'stopped') {
+          dispatch({
+            type: 'ADD_MESSAGE',
+            thread: project.id,
+            message: { id: nextId(), kind: 'notice', text: 'Stopped by you — no question was asked.' },
+          })
+        }
         end =
           ending.kind === 'reply'
             ? { outcome: 'passed', detail: '' }
-            : ending.kind === 'cancelled'
+            : ending.kind === 'stopped'
+              ? { outcome: 'stopped', detail: 'stopped by you' }
+              : ending.kind === 'cancelled'
               ? { outcome: 'stopped', detail: cancelledDetail(ending.facts) }
               : ending.kind === 'unreachable'
                 ? { outcome: 'failed', detail: UNREACHABLE_DETAIL }
@@ -4274,6 +4311,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         end = { outcome: 'failed', detail: 'the interview turn failed' }
         throw err
       } finally {
+        stopAskedRef.current.delete(liveId)
+        engineOfRunRef.current.delete(liveId)
         dispatch({ type: 'SET_RUNNING', running: false })
         endLiveRun(liveId, end.outcome, end.detail)
       }

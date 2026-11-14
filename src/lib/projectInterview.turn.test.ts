@@ -440,3 +440,32 @@ describe('runInterviewTurn — a progressing run outlives one flat wall', () => 
     expect(cancelRun).toHaveBeenCalledTimes(1)
   })
 })
+
+// STOP (2026-11-15). The user ended the turn: the engine was cancelled and its
+// call came back with nothing. That is not an unreachable provider, and nothing
+// is recorded as said by the AI — the room says who stopped it.
+describe('runInterviewTurn — a turn the user stopped', () => {
+  it('ends as "stopped", and puts no words in the AI’s mouth', async () => {
+    const h = makeDeps({ stopped: () => true })
+    h.runTask.mockResolvedValue(null)
+    const ending = await runInterviewTurn(makeProject(), 'hello', h.deps)
+    expect(ending).toEqual({ kind: 'stopped' })
+    // Only the user's own turn was recorded.
+    expect(h.appendTurn).toHaveBeenCalledTimes(1)
+    expect(h.appendTurn.mock.calls[0][1]).toMatchObject({ role: 'user', text: 'hello' })
+  })
+
+  it('a reply that did come back is still the reply, stop asked or not', async () => {
+    const h = makeDeps({ stopped: () => true })
+    h.runTask.mockResolvedValue({ response: 'Who is the audience?' })
+    const ending = await runInterviewTurn(makeProject(), 'hello', h.deps)
+    expect(ending.kind).toBe('reply')
+  })
+
+  it('nothing coming back with no stop asked is still "unreachable"', async () => {
+    const h = makeDeps({ stopped: () => false })
+    h.runTask.mockResolvedValue(null)
+    const ending = await runInterviewTurn(makeProject(), 'hello', h.deps)
+    expect(ending.kind).toBe('unreachable')
+  })
+})
