@@ -347,13 +347,27 @@ export default function Workspace() {
   // "go") is not a job: the manager answers it and no team is staffed.
   // Everything the composer says and does below reads this, so the words, the
   // controls and the send can never disagree.
+  //
+  // WHILE THE PROJECT IS BEING INTERVIEWED, THE ROOM'S SENDS ARE THE
+  // INTERVIEW'S. An answer that happened to name work ("please write the plan
+  // now") was read as a job and sent to the Manager's team: a board ran, "the
+  // team's final plan" came back as prose, and the project still had no plan.
+  // An answer is an answer whatever words are in it; a lane picked by hand
+  // still wins.
+  const interviewAnswer =
+    !!activeProject &&
+    nextSendMode(activeProject) === 'project-interview' &&
+    target === 'team' &&
+    !teamPicked
   const effectiveTarget: typeof target = lane.on
     ? 'project'
-    : target === 'project'
-      ? 'team'
-      : target === 'team' && routing.small
-        ? 'companion'
-        : target
+    : interviewAnswer
+      ? 'companion'
+      : target === 'project'
+        ? 'team'
+        : target === 'team' && routing.small
+          ? 'companion'
+          : target
 
   // The active project's REAL activity feed (run/skill/created events) — shown
   // in the engine/activity console below the chat (the rail keeps team-only).
@@ -598,7 +612,9 @@ export default function Workspace() {
           ? 'you get a proposal to review'
           : effectiveTarget === 'staff'
             ? `${companionName} staffs this project`
-            : `${primaryName} takes this`
+            : interviewAnswer
+              ? 'this answers the interview'
+              : `${primaryName} takes this`
 
   const proposalCanRun = isNative() && buildEngineProviders(settings).primaryReal
   const hasContent = !!draft.trim() || attachments.length > 0 || !!image
@@ -1446,10 +1462,12 @@ export default function Workspace() {
             >
               {lane.on
                 ? lane.line
-                : effectiveTarget === 'team' && routing.mode === 'team' && !routing.floor && plan.line
-                  ? plan.line
-                  : routingLine(routing)}
-              {!lane.on && routing.soloNote && routing.mode !== 'refused' && (
+                : interviewAnswer
+                  ? `this answers the interview for «${activeProject?.name ?? ''}» — the plan comes after its questions`
+                  : effectiveTarget === 'team' && routing.mode === 'team' && !routing.floor && plan.line
+                    ? plan.line
+                    : routingLine(routing)}
+              {!lane.on && !interviewAnswer && routing.soloNote && routing.mode !== 'refused' && (
                 <span className="chat__routingnote"> · {routing.soloNote}</span>
               )}
               {!lane.on && routeHint !== 'auto' && (

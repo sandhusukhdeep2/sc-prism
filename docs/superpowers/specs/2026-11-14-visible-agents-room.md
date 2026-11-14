@@ -366,6 +366,19 @@ path states about a message — so it plans one reply step, the checks are not
 run over it (a conversation changes no files), and no judge call is spent
 grading a question.
 
+**While a project is being interviewed, the room's sends are the
+interview's.** An interview answer that happened to name work ("placeholder
+text is fine — please write the plan now") was read as a job and sent to the
+Manager's team: a board ran, "the team's final plan" came back as prose, and
+the project still had no plan. An unpicked message in a project that has no
+plan yet is the interview's, whatever words are in it; the composer says so
+before the send ("this answers the interview for «…» — the plan comes after
+its questions"), and a lane picked by hand still wins.
+
+The new-project form was drawn for a page and is shown in the 186px project
+list, where its two-across row and its toggle ran past the edge. In the list
+it stacks.
+
 ## A message's id is its own, across restarts (2026-11-15)
 
 Seen in the installed app: an old answer in the Manager's room had two later

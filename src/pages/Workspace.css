@@ -103,6 +103,17 @@
    spaced to match the rail exactly (same width, same pill, same heading), and
    the two read as one continuous sidebar instead of two competing ones. */
 .ws__nav { width: 186px; flex: 0 0 186px; display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 0; overflow-y: auto; }
+/* The new-project form was drawn for a page and is shown in this 186px list:
+   its two-across row and its toggle ran out past the edge ("Attac existin",
+   "project nam"). In the list everything stacks, and nothing is wider than it. */
+.ws__nav .proj__form { margin: 6px 0 10px; padding: 12px; gap: 8px; min-width: 0; }
+.ws__nav .proj__modetoggle { align-self: stretch; display: flex; }
+.ws__nav .proj__modebtn { flex: 1 1 0; min-width: 0; padding: 6px 4px; font-size: 11.5px; }
+.ws__nav .proj__forminput,
+.ws__nav .proj__formtextarea { flex: none; width: 100%; min-width: 0; box-sizing: border-box; padding: 8px 10px; }
+.ws__nav .proj__formrow { flex-direction: column; gap: 8px; }
+.ws__nav .proj__startbtn,
+.ws__nav .proj__formsubmit { align-self: stretch; padding: 0 10px; white-space: normal; height: auto; min-height: 36px; }
 .ws__navlabel { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--v2-muted); margin: 20px 0 6px; padding: 0 12px; }
 .ws__navempty { font-size: 12px; opacity: 0.5; padding: 4px; }
 .ws__navitem {

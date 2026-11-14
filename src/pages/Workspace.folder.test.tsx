@@ -238,3 +238,67 @@ describe('a project’s room labels only a board it is drawing', () => {
     h.spans = []
   })
 })
+
+// WHILE A PROJECT IS BEING INTERVIEWED, THE ROOM'S SENDS ARE THE INTERVIEW'S
+// (2026-11-15). Seen in the installed app: an interview answer that happened
+// to name work — "placeholder text is fine, please write the plan now" — was
+// read as a job and sent to the Manager's team. A board ran, "the team's final
+// plan" came back as prose, and the project sat there still being interviewed
+// with no plan in it. An answer is an answer whatever words are in it.
+describe('Work composer → a project that is being interviewed', () => {
+  beforeEach(() => {
+    clean()
+    h.runNativeProject.mockReset()
+    h.runNativeTeam.mockReset()
+    h.runNativeTask.mockReset()
+    h.runNativeTask.mockResolvedValue(verdict)
+    localStorage.setItem(
+      'scprism.settings',
+      JSON.stringify({
+        providers: [
+          { id: 'claude-cli', name: 'Claude', baseUrl: '', apiKey: '', enabled: true, primary: true, connected: true },
+          { id: 'local', name: 'Local model', baseUrl: 'http://localhost:1234', apiKey: '', enabled: true, primary: false, connected: true },
+        ],
+        projectWrites: true,
+      }),
+    )
+  })
+  afterEach(clean)
+
+  async function openInterview(): Promise<string> {
+    const p = addProject('retry check', 'two short lines in notes.md', '', '~/vault/projects/retry-check')
+    renderWorkspace()
+    await act(async () => {
+      captured.app!.setActiveProject(p.id)
+      await Promise.resolve()
+    })
+    return p.id
+  }
+
+  it('an answer that names work still goes to the interview, not to a team', async () => {
+    const id = await openInterview()
+    type('Placeholder text is fine — please write the plan now, three small steps')
+    expect(screen.getByLabelText('Who takes this, and why').textContent).toBe(
+      'this answers the interview for «retry check» — the plan comes after its questions',
+    )
+    await send()
+    expect(h.runNativeTeam).not.toHaveBeenCalled()
+    expect(h.runNativeProject).not.toHaveBeenCalled()
+    expect(h.runNativeTask).toHaveBeenCalledTimes(1)
+    // The interview's own prompt, with the answer in it — and a conversation.
+    const [prompt, , , , , , , , mode] = h.runNativeTask.mock.calls[0]
+    expect(prompt).toContain('You are the lead for a project called "retry check"')
+    expect(prompt).toContain('please write the plan now')
+    expect(mode).toBe('converse')
+    const said = getProjects().projects.find((p) => p.id === id)!.transcript.map((t) => `${t.role}: ${t.text}`)
+    expect(said.some((t) => t.startsWith('user: ') && t.includes('please write the plan now'))).toBe(true)
+  })
+
+  it('the team can still be picked by hand', async () => {
+    await openInterview()
+    type('Placeholder text is fine — please write the plan now, three small steps')
+    openComposerControls()
+    fireEvent.click(screen.getByRole('radio', { name: /^team$/i }))
+    expect(screen.getByLabelText('Who takes this, and why').textContent).not.toMatch(/answers the interview/)
+  })
+})
