@@ -112,6 +112,9 @@ async function sendJob(id: string, text: string) {
   await settle()
 }
 
+/** The seats of a roster string, in order. */
+const seatsOf = (roster: string): string[] => roster.split(',').map((pair) => pair.split(':')[0])
+
 describe('a job for the folder — through the real store', () => {
   beforeEach(() => {
     clean()
@@ -182,6 +185,33 @@ describe('a job for the folder — through the real store', () => {
     await sendJob(id, 'Rewrite hello.md as a warmer greeting')
     const lines = thread(id).map((m) => `${m.kind}: ${m.text}`)
     expect(lines).toContain('user: → folder: Rewrite hello.md as a warmer greeting')
+    // One piece of work: the room is told which two seats took it.
+    expect(lines).toContain(
+      'notice: Step 2 of 2 — Implementer + Planner are working in ~/vault/projects/hello-crew now.',
+    )
+  })
+
+  // A JOB FOR TWO (lib/stepTeam.ts), through the real store: what the engine
+  // is actually sent. Seen in the installed app — a one-line change went to
+  // all five seats and took fifteen minutes.
+  it('one piece of work is sent to two seats, the writer first', async () => {
+    const id = finishedProject()
+    renderApp()
+    await settle()
+    await sendJob(id, 'Rewrite hello.md as a warmer greeting')
+    const [, , , , opts] = h.runNativeProject.mock.calls[0]
+    expect(seatsOf(opts.roster)).toEqual(['implementer', 'planner'])
+  })
+
+  it('a job that asks for the whole team is sent to all of it, and the room says "your team"', async () => {
+    const id = finishedProject()
+    renderApp()
+    await settle()
+    await sendJob(id, 'Rewrite hello.md as a warmer greeting with the whole team')
+    const [, , , , opts] = h.runNativeProject.mock.calls[0]
+    expect(seatsOf(opts.roster).length).toBeGreaterThan(2)
+    expect(seatsOf(opts.roster)[0]).toBe('implementer')
+    const lines = thread(id).map((m) => `${m.kind}: ${m.text}`)
     expect(lines).toContain('notice: Step 2 of 2 — your team is working in ~/vault/projects/hello-crew now.')
   })
 

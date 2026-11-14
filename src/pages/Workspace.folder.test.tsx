@@ -127,6 +127,16 @@ describe('Work composer → the project folder', () => {
   it('a change says, before the send, that it goes to the folder and why', async () => {
     await openRoom()
     type('Rewrite hello.md as a warmer greeting')
+    // One piece of work: two seats take it, and the line names them.
+    expect(screen.getByLabelText('Who takes this, and why').textContent).toBe(
+      'Implementer + Planner make this change in ~/vault/projects/hello-crew — one piece of work, so two seats · say “whole team” for every AI',
+    )
+    expect(screen.getByText('Implementer + Planner work in the folder')).toBeTruthy()
+  })
+
+  it('a change that asks for the whole team says the team takes it', async () => {
+    await openRoom()
+    type('Rewrite hello.md as a warmer greeting with the whole team')
     expect(screen.getByLabelText('Who takes this, and why').textContent).toBe(
       'your team makes this change in ~/vault/projects/hello-crew — because you asked for a change',
     )
@@ -158,7 +168,7 @@ describe('Work composer → the project folder', () => {
     openComposerControls()
     fireEvent.click(screen.getByRole('radio', { name: /^folder$/i }))
     expect(screen.getByLabelText('Who takes this, and why').textContent).toBe(
-      'your team makes this change in ~/vault/projects/hello-crew — you chose the folder',
+      'Implementer + Planner make this change in ~/vault/projects/hello-crew — one piece of work, so two seats · say “whole team” for every AI',
     )
     await send()
     expect(h.runNativeProject).toHaveBeenCalledTimes(1)

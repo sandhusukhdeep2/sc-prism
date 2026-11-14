@@ -457,4 +457,16 @@ describe('a job for the folder', () => {
       'Not sent to the folder — «Site» needs the installed app to run.',
     )
   })
+
+  // A job for two (lib/stepTeam.ts) is said as who took it — "your team" over
+  // two seats of five would be the app naming more hands than it sent.
+  it('names the seats when the job went to two of them', () => {
+    expect(
+      folderJobNotice({ ok: true, index: 4, total: 5, starts: 'now' }, '~/vault/projects/hello-crew', 'Implementer + Planner'),
+    ).toBe('Step 5 of 5 — Implementer + Planner are working in ~/vault/projects/hello-crew now.')
+    // Queued behind the plan, nobody is working yet: the seats are not named.
+    expect(
+      folderJobNotice({ ok: true, index: 2, total: 3, starts: 'with-plan' }, '~/site', 'Implementer + Planner'),
+    ).toBe('Added as step 3 of 3 — it runs with the rest of the plan when you start the build.')
+  })
 })

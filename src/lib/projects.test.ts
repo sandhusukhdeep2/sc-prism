@@ -17,6 +17,7 @@ import {
   type Project,
   openFolderAsProject,
   renameProject,
+  usesDefaultTeam,
 } from './projects'
 import type { StoredAgent } from './agents'
 import { allowAllProviders } from './roster'
@@ -319,6 +320,31 @@ describe('projectBuildRoster — a re-seating applies to the default team only',
     updateProject(p.id, { roster: 'solo:gemini' })
     const updated = getProjects().projects.find((x) => x.id === p.id)!
     expect(projectBuildRoster(updated, systemTeam(), allowAllProviders, allLocal)).toBe('solo:gemini')
+  })
+})
+
+// Whether a build runs on the default team is the question `stepTeam` asks
+// before it sizes a job typed in the room: only the default team is sized.
+describe('usesDefaultTeam', () => {
+  it('true with no agents of its own and no typed roster', () => {
+    const p = addProject('Plain', 'goal', 'npm test')
+    expect(usesDefaultTeam(p, systemTeam())).toBe(true)
+  })
+
+  it('false once the project has agents of its own', () => {
+    const p = addProject('Teamed', 'goal', 'npm test')
+    const agents: StoredAgent[] = [
+      makeAgent({ id: 'a-1', name: 'compliance-checker', model: 'claude', assignedTo: p.id }),
+      ...systemTeam(),
+    ]
+    expect(usesDefaultTeam(p, agents)).toBe(false)
+  })
+
+  it('false with a roster typed by hand', () => {
+    const p = addProject('Typed', 'goal', 'npm test')
+    updateProject(p.id, { roster: 'solo:gemini' })
+    const updated = getProjects().projects.find((x) => x.id === p.id)!
+    expect(usesDefaultTeam(updated, systemTeam())).toBe(false)
   })
 })
 

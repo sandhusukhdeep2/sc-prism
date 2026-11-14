@@ -95,11 +95,16 @@ export function stepShowsFolder(
  * The line the app posts in the room when a job is sent to the folder. The
  * app speaking, not a model: every word comes from what the store recorded.
  */
-export function folderJobNotice(job: FolderJob, folder: string): string {
+export function folderJobNotice(
+  job: FolderJob,
+  folder: string,
+  /** The two seats, when the job is one for two (lib/stepTeam.ts) — else ''. */
+  two = '',
+): string {
   if (!job.ok) return `Not sent to the folder — ${job.reason.replace(/\.+$/, '')}.`
   const where = `step ${job.index + 1} of ${job.total}`
   return job.starts === 'now'
-    ? `S${where.slice(1)} — your team is working in ${folder} now.`
+    ? `S${where.slice(1)} — ${two ? `${two} are` : 'your team is'} working in ${folder} now.`
     : `Added as ${where} — it runs with the rest of the plan when you start the build.`
 }
 

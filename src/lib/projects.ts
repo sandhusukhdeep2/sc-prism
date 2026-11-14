@@ -243,6 +243,16 @@ export function projectBuildRoster(
 }
 
 /**
+ * The build runs on the DEFAULT team — rule 3 of `projectBuildRoster`: no
+ * agents of the project's own, no roster typed by hand. Only this team is
+ * ever re-seated (the workload slider) or sized to the job (`lib/stepTeam`);
+ * a team the user chose for the project is run as chosen.
+ */
+export function usesDefaultTeam(project: Pick<Project, 'id' | 'roster'>, agents: StoredAgent[]): boolean {
+  return agentsForProject(agents, project.id).length === 0 && !(project.roster ?? '').trim()
+}
+
+/**
  * THE STAFFING GATE (2026-08-30). A roster's role key must name a REAL
  * library/system agent, or the seat is REFUSED with the reason — never sent
  * to the engine, whose `parse_agents` would silently bind a fallback charter

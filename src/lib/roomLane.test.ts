@@ -37,6 +37,31 @@ describe('folderLane — does this message go to the project folder?', () => {
     )
   })
 
+  // One piece of work is a job for two seats (lib/stepTeam.ts). The line says
+  // who, and how to get everyone — before the send, like every other lane.
+  it('names the two seats when the job is one piece of work', () => {
+    const lane = folderLane({
+      project: project(),
+      text: 'Add a fourth line to hello.md',
+      ...auto,
+      two: 'Implementer + Planner',
+    })
+    expect(lane.line).toBe(
+      'Implementer + Planner make this change in ~/vault/projects/hello-crew — one piece of work, so two seats · say “whole team” for every AI',
+    )
+  })
+
+  it('a blocked folder says the block, whoever would have taken the job', () => {
+    const lane = folderLane({
+      project: project({ status: 'running' }),
+      text: 'Add a fourth line to hello.md',
+      picked: 'folder',
+      hasAttachments: false,
+      two: 'Implementer + Planner',
+    })
+    expect(lane.line).toMatch(/^the folder cannot take this yet — /)
+  })
+
   it('a question stays a conversation', () => {
     expect(folderLane({ project: project(), text: 'What does hello.md say?', ...auto }).on).toBe(false)
   })

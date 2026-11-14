@@ -29,6 +29,9 @@ export function folderLane(input: {
    *  'other' — the user picked the manager, the team or a specialist lane. */
   picked: 'auto' | 'folder' | 'other'
   hasAttachments: boolean
+  /** The two seats that take this job, in the room's own names, when it is a
+   *  job for two (lib/stepTeam.ts). '' or omitted: the whole team takes it. */
+  two?: string
 }): FolderLane {
   const { project, picked } = input
   // No project, or one still being interviewed into a plan: there is no folder
@@ -43,9 +46,11 @@ export function folderLane(input: {
   if (!on) return { offered: true, on: false, block, line: '' }
   const line = block
     ? `the folder cannot take this yet — ${block}`
-    : `your team makes this change in ${project.path} — ${
-        picked === 'folder' ? 'you chose the folder' : 'because you asked for a change'
-      }`
+    : input.two
+      ? `${input.two} make this change in ${project.path} — one piece of work, so two seats · say “whole team” for every AI`
+      : `your team makes this change in ${project.path} — ${
+          picked === 'folder' ? 'you chose the folder' : 'because you asked for a change'
+        }`
   return { offered: true, on: true, block, line }
 }
 

@@ -251,6 +251,35 @@ on its own", and the first screen after setup says the Companion's heartbeat
 is now on (every two hours, a real AI run) with "Turn it off / Keep it on".
 With no AI connected the Companion is called "Your local model" throughout.
 
+## A job for two, in a project's room (after 0.2.1)
+
+Seen on the 0.2.1 build: "Add a fourth line to hello.md", typed in a
+project's room, took fifteen minutes and 32 model calls — every job typed
+there went to the whole five-seat build team. The Manager's room already
+sizes a message (talk — one AI; a job — two seats; a big job — every seat).
+
+A job typed in a project's room is now sized by the same rule
+(`lib/stepTeam.ts`, `messageLevel`):
+
+- **One piece of work → two seats**: the seat that does the work, and the one
+  that plans — on the primary when the primary is on the team (`jobRoster`).
+  The writer still leads (`buildWriter` settles the cut the same way it
+  settles the team).
+- **Several parts, a long brief, or a call for more eyes** ("review…",
+  "…with the whole team") → every seat.
+- **Never sized**: a step of the plan (it was approved with its team), and a
+  team the user chose for the project — its own agents or a roster typed by
+  hand (`usesDefaultTeam`).
+
+Said before the send ("Implementer + Planner make this change in … — one
+piece of work, so two seats · say “whole team” for every AI"), on the
+composer's who-button, and in the room's notice after it ("Step 5 of 5 —
+Implementer + Planner are working in … now"). All three and the run read the
+same function, so the words cannot name more hands than the run gets. The
+board still shows the project's whole team; two seats light.
+
+A rule, never a model's choice.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

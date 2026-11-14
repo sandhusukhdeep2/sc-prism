@@ -62,7 +62,8 @@ import { dedupeSpans } from '../lib/dedupeSpans'
 import { proposeAgentBrief } from '../lib/agentProposals'
 import { projectNeeds, rosterCharter } from '../lib/projectRoster'
 import { appRunCapabilities } from '../lib/delegation'
-import { useProjects, useProjectsHydrated, nextSendMode, openFolderAsProject, projectBuildRoster } from '../lib/projects'
+import { useProjects, useProjectsHydrated, nextSendMode, openFolderAsProject, projectBuildRoster, usesDefaultTeam } from '../lib/projects'
+import { jobTwoNames } from '../lib/stepTeam'
 import { folderLane, sentLane } from '../lib/roomLane'
 import { NewProjectForm, ProjectContextPanel, StatusChip } from './Projects'
 import './Projects.css'
@@ -321,11 +322,25 @@ export default function Workspace() {
   // project's folder — it becomes the next step and the governed build makes
   // it on disk — while a question stays a conversation. Decided by rule,
   // shown before the send, flipped by one click (lib/roomLane.ts).
+  const agents = useAgents()
+  // One piece of work typed here is a job for two seats of the default team
+  // (lib/stepTeam.ts). The same reading the send makes, so the line cannot
+  // name more hands than the run gets.
+  const jobTwo = activeProject
+    ? jobTwoNames({
+        roster: projectBuildRoster(activeProject, agents, allowAllProviders, (r) => seatByWorkload(settings, r)),
+        agents,
+        primaryToken: workloadAIs(settings).primary,
+        defaultTeam: usesDefaultTeam(activeProject, agents),
+        text: draft,
+      })
+    : ''
   const lane = folderLane({
     project: activeProject,
     text: draft,
     picked: target === 'project' ? 'folder' : target === 'team' && !teamPicked ? 'auto' : 'other',
     hasAttachments: attachments.length > 0 || !!image,
+    two: jobTwo,
   })
   // WHERE THIS MESSAGE REALLY GOES. A change in a project's room goes to the
   // folder. Otherwise, on the default team lane a small message ("hello",
@@ -342,7 +357,6 @@ export default function Workspace() {
 
   // The active project's REAL activity feed (run/skill/created events) — shown
   // in the engine/activity console below the chat (the rail keeps team-only).
-  const agents = useAgents()
   // The picker mounted in the composer's team panel reads the SAME provider
   // gate the launch itself applies, so what it offers and what actually runs
   // cannot drift apart. It is handed the WHOLE library — including the agents
@@ -567,7 +581,9 @@ export default function Workspace() {
   // it can never name a coworker the message will not reach.
   const targetSentence =
     effectiveTarget === 'project'
-      ? 'your team works in the folder'
+      ? jobTwo
+        ? `${jobTwo} work in the folder`
+        : 'your team works in the folder'
       : effectiveTarget === 'team'
       ? 'your team takes this'
       : effectiveTarget === 'agent'

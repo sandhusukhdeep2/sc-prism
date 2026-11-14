@@ -139,6 +139,7 @@ import {
   getProjects,
   nextSendMode,
   projectBuildRoster,
+  usesDefaultTeam,
   staffRoster,
   unstaffedRefusal,
   updateProject,
@@ -162,7 +163,7 @@ import {
 import type { RunAction } from '../lib/projectRun'
 import { neverTouchGlobs } from '../lib/neverTouch'
 import { effortsArg } from '../lib/efforts'
-import { seatByWorkload } from '../lib/workloadSeats'
+import { seatByWorkload, workloadAIs } from '../lib/workloadSeats'
 import {
   canCompact,
   compactionArchiveMarkdown,
@@ -202,6 +203,7 @@ import { agentCapabilityNames,
   teamCapabilityArgs,
 } from '../lib/delegation'
 import { buildWriter } from '../lib/buildWriter'
+import { jobTwoNames, seatInfoFrom, stepForTwo, stepTeam } from '../lib/stepTeam'
 import {
   blockedReason as rosterBlockedReason,
   parseRosterBlock,
@@ -4353,20 +4355,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // team on which nobody may is refused here, in words, before the board is
       // run three times for nothing (seen 2026-11-14: "all file writes
       // rejected: planner was not granted the 'writes' capability").
-      const writing = buildWriter(availableRoster, (role) => {
-        // A roster names a seat by its SLUG ("reviewer-verifier"); matching on
-        // the name key alone missed "Reviewer / Verifier", which then went
-        // into the grant table holding nothing.
-        const agent = listAgents().find(
-          (a) => agentSlug(a.name) === agentSlug(role) || agentNameKey(a.name) === agentNameKey(role),
-        )
-        return { capabilities: agentCapabilityNames(agent), builtIn: !!agent?.system }
-      })
+      const seatInfo = seatInfoFrom(listAgents())
+      const writing = buildWriter(availableRoster, seatInfo)
       if (!writing.ok) {
         notify('attention', `«${project.name}» — ${writing.reason}`)
         return
       }
-      const roster = writing.roster
+      // A JOB FOR TWO (lib/stepTeam.ts). One piece of work typed in the room
+      // is sent to two seats of the default team, not all of it — the same
+      // rule the Manager's room follows. Decided per step, by rule: a step of
+      // the plan, a bigger job, or a team the user chose keeps every seat.
+      const defaultTeam = usesDefaultTeam(project, listAgents())
+      const teamFor = (index: number) => {
+        const team = stepTeam({
+          roster: availableRoster,
+          seatInfo,
+          primaryToken: workloadAIs(settingsRef.current).primary,
+          defaultTeam,
+          forTwo: stepForTwo(project, index),
+        })
+        return team.ok ? team : { ...writing, cut: false }
+      }
 
       let idx = project.stepIndex
       let rp = project.refinePass
@@ -4425,7 +4434,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         intent: project.name || '(untitled project)',
         // The roster the app ASKED the engine to build with — a real
         // request fact. Who actually answered comes from the run's spans.
-        models: roster.split(',').map((r) => r.trim()).filter(Boolean),
+        models: teamFor(project.stepIndex).roster.split(',').map((r) => r.trim()).filter(Boolean),
         room: project.id,
         // Stop cancels the step in hand and ends the build here (below).
         stoppable: true,
@@ -4483,6 +4492,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const previousVerdict = lastStepVerdictId
               ? `${vault}/verdicts/${lastStepVerdictId}.json`
               : ''
+            // The seats THIS step is sent to (a retry of it keeps them).
+            const team = teamFor(idx)
+            const roster = team.roster
             const opts =
               rp === 0
                 ? {
@@ -4529,7 +4541,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               // The seats and grants `buildWriter` settled on: the writer
               // first, and on the built-in team the doer asked for `writes`.
               const buildCaps = teamCapabilityArgs(
-                writing.seats,
+                team.seats,
                 appRunCapabilities(settingsRef.current),
               )
               if (buildCaps) {
@@ -4806,7 +4818,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return
       }
       const job = addProjectStep(project.id, text)
-      say('notice', folderJobNotice(job, project.path))
+      // One piece of work goes to two seats (lib/stepTeam.ts) — and the room
+      // is told which two, not "your team".
+      const two =
+        job.ok && job.starts === 'now'
+          ? jobTwoNames({
+              roster: projectBuildRoster(project, listAgents(), allowAllProviders, (r) =>
+                seatByWorkload(settingsRef.current, r),
+              ),
+              agents: listAgents(),
+              primaryToken: workloadAIs(settingsRef.current).primary,
+              defaultTeam: usesDefaultTeam(project, listAgents()),
+              text,
+            })
+          : ''
+      say('notice', folderJobNotice(job, project.path, two))
       if (job.ok && job.starts === 'now') await runProject(project.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
