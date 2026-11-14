@@ -74,7 +74,7 @@ import {
   sectionFromParam,
   type SettingsSectionId,
 } from '../lib/settingsSections'
-import { DEFAULT_TOKEN_BUDGET, clampBudget, dailyUsage } from '../lib/budget'
+import { DEFAULT_TOKEN_BUDGET, clampBudget, dailyUsage, usageToday } from '../lib/budget'
 import { brandBudgetStatus, brandOf, isEstimatedSpend, type Brand } from '../lib/providerBudget'
 import { buildKindPicks } from '../lib/localModelPick'
 import { persistedStats, persistedVerdicts } from '../store/AppStore'
@@ -1303,7 +1303,10 @@ function BudgetRow() {
   // Today's TOTAL is its own fact, not a fraction of a PER-RUN budget. Showing
   // "3,570,818 of 100,000" pinned the bar red forever and claimed a run had
   // stopped when none had (found on the real screen, 2026-09-03).
-  const today = dailyUsage(stats.tokensToday, verdicts.length)
+  // TODAY means today: counted from the runs stamped today, not the store's
+  // running total (never reset by day) beside every run on record.
+  const usedToday = usageToday(verdicts, Date.now())
+  const today = dailyUsage(usedToday.tokens, usedToday.runs)
   const cloudPct = Math.max(0, 100 - localSharePct)
 
   const commit = () => {
@@ -1353,7 +1356,7 @@ function BudgetRow() {
           <span className="settings__splitlocal" style={{ width: `${localSharePct}%` }} />
         </span>
         <span className="settings__clihint">
-          <strong>{localSharePct}%</strong> on your Mac · <strong>{cloudPct}%</strong> in the cloud
+          <strong>{localSharePct}%</strong> of runs on your Mac · <strong>{cloudPct}%</strong> in the cloud
         </span>
       </div>
     </div>

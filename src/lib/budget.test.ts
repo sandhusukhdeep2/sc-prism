@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_TOKEN_BUDGET, budgetStatus, clampBudget, dailyUsage } from './budget'
+import { DEFAULT_TOKEN_BUDGET, budgetStatus, clampBudget, dailyUsage, usageToday } from './budget'
 
 // ---------------------------------------------------------------------------
 // The token budget controller (Sukhdeep, 2026-09-03: "I also need a controller
@@ -117,5 +117,39 @@ describe('the daily total is not measured against a per-run budget', () => {
 
   it('handles a single run without saying "1 runs"', () => {
     expect(dailyUsage(5000, 1).label).toContain('1 run ')
+  })
+})
+
+// Seen in the installed app, 2026-11-14: Settings said "3,573,470 tokens today,
+// across 108 runs". Neither number was today's — the token count has never
+// been reset by day and 108 was every run on record. "Today" is counted from
+// the runs whose own timestamp is today.
+describe('usageToday — what was really used today', () => {
+  const day = (d: number, h: number) => new Date(2026, 10, d, h, 30).toISOString()
+  const now = new Date(2026, 10, 14, 16, 0).getTime()
+  const run = (at: string | undefined, tokensIn: number, tokensOut: number) => ({ at, tokensIn, tokensOut })
+
+  it('counts only the runs stamped today', () => {
+    const u = usageToday(
+      [run(day(14, 9), 1000, 200), run(day(14, 15), 300, 50), run(day(13, 23), 9000, 900), run(day(1, 9), 5, 5)],
+      now,
+    )
+    expect(u).toEqual({ tokens: 1550, runs: 2 })
+  })
+
+  it('a run with no timestamp is not claimed for today', () => {
+    expect(usageToday([run(undefined, 100, 100), run('not a date', 7, 7)], now)).toEqual({ tokens: 0, runs: 0 })
+  })
+
+  it('midnight is the line, in local time', () => {
+    const justBefore = new Date(2026, 10, 13, 23, 59, 59).toISOString()
+    const justAfter = new Date(2026, 10, 14, 0, 0, 1).toISOString()
+    expect(usageToday([run(justBefore, 10, 0), run(justAfter, 20, 0)], now)).toEqual({ tokens: 20, runs: 1 })
+  })
+
+  it('reads as one sentence through dailyUsage', () => {
+    const u = usageToday([run(day(14, 9), 1000, 200)], now)
+    expect(dailyUsage(u.tokens, u.runs).label).toBe('1,200 tokens today, across 1 run ')
+    expect(dailyUsage(0, 0).label).toBe('No runs yet today.')
   })
 })

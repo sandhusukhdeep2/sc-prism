@@ -81,6 +81,39 @@ export interface DailyUsage {
  * percentage "of". Showing one would invent a limit that does not exist —
  * exactly the failure the per-run budget card was built to end.
  */
+/**
+ * What was really used TODAY: the runs whose own timestamp falls on today's
+ * date (local time), and the tokens they took.
+ *
+ * The store's running `tokensToday` was never reset by day, and the run count
+ * beside it was every run on record — so Settings said "3,573,470 tokens
+ * today, across 108 runs" when neither figure was today's (seen 2026-11-14).
+ * A run with no readable timestamp is not claimed for today.
+ */
+export function usageToday(
+  verdicts: readonly { at?: string; tokensIn: number; tokensOut: number }[],
+  now: number,
+): { tokens: number; runs: number } {
+  const today = new Date(now)
+  let tokens = 0
+  let runs = 0
+  for (const v of verdicts) {
+    if (!v.at) continue
+    const at = new Date(v.at)
+    if (Number.isNaN(at.getTime())) continue
+    if (
+      at.getFullYear() !== today.getFullYear() ||
+      at.getMonth() !== today.getMonth() ||
+      at.getDate() !== today.getDate()
+    ) {
+      continue
+    }
+    runs += 1
+    tokens += (Number(v.tokensIn) || 0) + (Number(v.tokensOut) || 0)
+  }
+  return { tokens, runs }
+}
+
 export function dailyUsage(tokensToday: number, runsToday: number): DailyUsage {
   const tokens = Number.isFinite(tokensToday) && tokensToday > 0 ? Math.floor(tokensToday) : 0
   const runs = Number.isFinite(runsToday) && runsToday > 0 ? Math.floor(runsToday) : 0

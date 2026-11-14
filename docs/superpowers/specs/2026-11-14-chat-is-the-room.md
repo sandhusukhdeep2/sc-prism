@@ -105,6 +105,29 @@ assistive technology, and installed a window-wide Escape key that answered No.
 - Details says where the project stands ("awaiting your answer"), not the
   question again. "Resume build" there is for a step that needs attention.
 
+### Reviewed the same day: an answer belongs to one project and one run
+
+The first version kept a Yes in shared state and kept one waiting-answer slot
+for the whole app. Two leaks followed, both caught by review and pinned by
+tests: a Yes whose build was refused before it started stayed behind and would
+have answered a LATER question unasked; and with one project's build parked
+live, an answer pressed on another project's row was taken by the first. The
+waiting answer is now keyed by project, and a Yes travels with the one run it
+starts and is spent on the first question that run meets.
+
+## Figures that agree
+
+Seen on the Work and Settings pages: "38% of runs on your Mac" in the head
+beside "67% local" in the rail, and "3,573,470 tokens today, across 108 runs".
+
+- The rail's local meter (a share of tokens) is on every page, so the Work
+  head states no share of its own: "113 runs recorded all time", leading to
+  Stats, where both shares sit side by side and named.
+- "Today" in Settings is counted from the runs stamped today. The store's
+  running token total was never reset by day, and the run count beside it was
+  every run on record.
+- The split under it says what it is a share of: runs.
+
 ## Not built here
 
 - **Stop.** There is still no way to stop a run from the room. A chat send

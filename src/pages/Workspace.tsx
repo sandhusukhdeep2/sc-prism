@@ -820,12 +820,6 @@ export default function Workspace() {
 
   const removeImage = () => setImage(null)
 
-  // The Live agent card's ONE input: the run genuinely executing right now
-  // (parked runs excluded, same as everything else that says "live") plus the
-  // REAL per-agent model_call spans of that run. `liveSpans` is already [] when
-  // 2+ runs are in flight, so a model is never named on the wrong card.
-  const s = state.stats
-
   // Context meter (P2-4): how full the ACTIVE thread is, plus the compaction
   // levers it unlocks. Honest scope — this is conversation length, not a
   // per-call token claim.
@@ -841,7 +835,7 @@ export default function Workspace() {
   // record the ledger reads, so the strip cannot disagree with the rail.
   const runsRecorded = state.verdicts.length
   // "of runs": the rail's meter counts tokens; this counts runs (runsPill.ts).
-  const statusChip = runsPill(runsRecorded, s.localSharePct)
+  const statusChip = runsPill(runsRecorded)
 
   // Header status line — Desk.tsx has the shared useDeskState() hook so
   // header and rail compute identically and can never drift.
