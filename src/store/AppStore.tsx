@@ -1161,6 +1161,12 @@ export const WAKE_VAULT_TOOLS = false
  */
 export const WAKE_TOKEN_BUDGET = 60_000
 
+/** A wake's beat line when the user stopped it (the room's Stop). */
+export const STOPPED_WAKE_LINE = 'stopped by you — no check was made'
+
+/** A manager job's run line when the user stopped it (the room's Stop). */
+export const STOPPED_JOB_SUMMARY = 'stopped by you — no report was written'
+
 /**
  * A BUILD STEP's contract envelope — the hard token cap the step's Verdict
  * enforces. SIZED FROM A MEASUREMENT, like the wake's budget above: the first
@@ -2202,6 +2208,9 @@ export function reducer(state: AppState, action: Action): AppState {
           intent: action.line,
           startedAt: at,
           models: [],
+          // The wake honours Stop (`heartbeatWake`): its engine run is
+          // cancelled and the beat is recorded as stopped by the user.
+          stoppable: true,
         }
         return {
           ...state,
@@ -3166,6 +3175,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       try {
         const hbRunId = newRunId()
+        // Stop is asked of the CARD (a fixed id); it cancels THIS engine run.
+        engineOfRunRef.current.set(HEARTBEAT_RUN_ID, hbRunId)
         const outcome = await raceCancelable(
           // "ONE small piece of work" is a REAL bound, not just prompt text:
           // 20k tokens ride the run's contract envelope (`--token-budget`),
@@ -3189,6 +3200,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // 4. Tokens from the verdict accrue to the beat — a real sum, never
         // an estimate (the card's per-day line adds these up).
         const tokens = verdict ? verdict.tokensIn + verdict.tokensOut : 0
+        if (!real && stopAskedRef.current.has(HEARTBEAT_RUN_ID)) {
+          // STOPPED BY THE USER (2026-11-15). The engine was cancelled, so
+          // there is no reply — not a failed wake, not a provider that went
+          // away, not our wall. The beat says who stopped it; the cadence
+          // advances as for any beat, so it wakes again at its time.
+          recordManagerBeat(companion.id, {
+            at: Date.now(),
+            action: 'rested',
+            line: STOPPED_WAKE_LINE,
+            ok: false,
+            tokens: 0,
+          })
+          beatEnd = { outcome: 'stopped', detail: 'stopped by you' }
+          return
+        }
         if (!real) {
           // No real reply → no work happened: an honest failed rest, never a
           // fabricated 'worked'. A TIMEOUT is its own honest line — the run
@@ -3286,6 +3312,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         recordManagerBeat(companion.id, { at: Date.now(), action, line, ok: !blank, tokens })
         beatEnd = { outcome: blank ? 'failed' : 'passed', detail: line }
       } finally {
+        stopAskedRef.current.delete(HEARTBEAT_RUN_ID)
+        engineOfRunRef.current.delete(HEARTBEAT_RUN_ID)
         // Clears the orb AND the live card in one honest transition.
         dispatch({
           type: 'SET_HEARTBEAT_LIVE',
@@ -3523,6 +3551,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               kind: 'team',
               intent: `${manager.name} · ${job.title}`,
               models: roster.split(',').map((r) => r.trim()).filter(Boolean),
+              stoppable: true,
             }),
             outcome: 'stopped',
             detail: 'the team run ended without a recorded outcome',
@@ -3541,6 +3570,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             teamRunId,
           )
           const res = teamOutcome.timedOut ? null : teamOutcome.value
+          if (!res && stopAskedRef.current.has(jobLive.id)) {
+            recordJobRun(job.id, Date.now(), false, STOPPED_JOB_SUMMARY)
+            jobLive = { id: jobLive.id, outcome: 'stopped', detail: 'stopped by you' }
+            return
+          }
           const { ok, text, label, summary: teamSummary } = teamReportBody(res)
           // Who was not at the table rides into the saved report and the job's
           // own run line — an unattended run must not hide a shrunken team.
@@ -3574,6 +3608,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: mgrRunId,
             kind: 'manager',
             intent: `${manager.name} · ${job.title}`,
+            // Stop cancels this job's engine run (same id) — see below.
+            stoppable: true,
           }),
           outcome: 'stopped',
           detail: 'the job ended without a recorded outcome',
@@ -3609,6 +3645,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         )
         const verdict = mgrOutcome.timedOut ? null : mgrOutcome.value
         const real = !!verdict && isRealCompletion(verdict.response)
+        // STOPPED BY THE USER (2026-11-15). The engine was cancelled, so there
+        // is no reply — which is not a failed report and not an absent
+        // provider. The job's own run line says who stopped it, nothing is
+        // appended to its report file, and it comes round again at its time.
+        if (!real && stopAskedRef.current.has(jobLive.id)) {
+          recordJobRun(job.id, Date.now(), false, STOPPED_JOB_SUMMARY)
+          jobLive = { id: jobLive.id, outcome: 'stopped', detail: 'stopped by you' }
+          return
+        }
         // A dispatch is only ok when the verified pipeline PASSED; a report is
         // ok when a real reply came back at all (unchanged behavior).
         const ok = kind === 'dispatch' ? real && verdict!.passed === true : real
@@ -3649,7 +3694,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } finally {
         // The ONE guaranteed clear for this tick's job — success, honest
         // failure, timeout or throw. Nothing else clears it.
-        if (jobLive) endLiveRun(jobLive.id, jobLive.outcome, jobLive.detail)
+        if (jobLive) {
+          stopAskedRef.current.delete(jobLive.id)
+          endLiveRun(jobLive.id, jobLive.outcome, jobLive.detail)
+        }
         managerBusyRef.current = false
       }
     }
@@ -3751,7 +3799,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // detail the honesty law forbids; the card fills models in from the run's
       // REAL spans. `chatEnd` records the honest ending, defaulting to
       // 'stopped' so an unexpected exit never claims a pass.
-      const chatRunLiveId = beginLiveRun({ kind: 'chat', intent: display, room: originThread })
+      // STOP (2026-11-15). One AI answering is a real engine run, so it can
+      // be stopped like a team run — when it IS one. The sim path and a send
+      // with no real primary launch no engine, and a Stop that cancels
+      // nothing is not offered.
+      const chatIsEngineRun =
+        isNative() && buildEngineProviders(settingsRef.current, activeProjectIdRef.current).primaryReal
+      const chatRunLiveId = beginLiveRun({
+        kind: 'chat',
+        intent: display,
+        room: originThread,
+        stoppable: chatIsEngineRun,
+      })
       let chatEnd: { outcome: RunOutcome; detail: string } = {
         outcome: 'stopped',
         detail: 'the send ended without a recorded outcome',
@@ -3833,6 +3892,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               // cancel), so no zombie keeps running; its late result is also
               // dropped by the race, so it can't backfill after the error card.
               const runId = newRunId()
+              // Stop cancels THIS engine run (the card has its own id).
+              engineOfRunRef.current.set(chatRunLiveId, runId)
               // SMALL TALK (2026-11-11): the same rule the composer shows
               // before the send (lib/messageWeight). A greeting or a one-word
               // message with no image is answered by the primary and not
@@ -3931,6 +3992,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   : { outcome: 'passed', detail: '' }
                 return // real output shown — the finally block resets running/agents
               }
+              // STOPPED BY THE USER. The engine was cancelled, so its call came
+              // back with nothing — which is not an outage and is not said as
+              // one: no error card, and the provider is NOT marked unreachable
+              // (that would gate the next send over a call the user ended).
+              if (stopAskedRef.current.has(chatRunLiveId)) {
+                dispatch({ type: 'REMOVE_MESSAGE', id: assistantId })
+                dispatch({
+                  type: 'ADD_MESSAGE',
+                  thread: originThread,
+                  message: { id: nextId(), kind: 'notice', text: 'Stopped by you — no answer was written.' },
+                })
+                chatEnd = { outcome: 'stopped', detail: 'stopped by you' }
+                return
+              }
               // Distinguish an honest TIMEOUT (slow but live — don't mark down)
               // from a genuine error (real null / offline-stub — mark down).
               if (turn.kind === 'timeout') {
@@ -3954,6 +4029,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }
               return
             } catch {
+              if (stopAskedRef.current.has(chatRunLiveId)) {
+                dispatch({ type: 'REMOVE_MESSAGE', id: assistantId })
+                chatEnd = { outcome: 'stopped', detail: 'stopped by you' }
+                return
+              }
               honestFailure()
               chatEnd = { outcome: 'failed', detail: 'the run failed before a reply came back' }
               return
@@ -3977,6 +4057,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_RUNNING', running: false })
         // The ONE guaranteed clear for a chat send — success, honest failure,
         // timeout or throw. Without this the card would glow forever.
+        stopAskedRef.current.delete(chatRunLiveId)
+        engineOfRunRef.current.delete(chatRunLiveId)
         endLiveRun(chatRunLiveId, chatEnd.outcome, chatEnd.detail)
       }
     }
@@ -5010,20 +5092,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
             kind: 'test',
             intent: `checking «${project.name}» — ${project.verifyCommand}`,
             room: project.id,
+            // The check is launched under this id, so Stop can cancel it.
+            stoppable: true,
           })
           let testEnd: { outcome: RunOutcome; detail: string } = {
             outcome: 'stopped',
             detail: 'the check ended without a recorded outcome',
           }
           let ok = false
+          let testStopped = false
           try {
-            const v = await runNativeVerify(dir, project.verifyCommand, vault, providers)
+            const v = await runNativeVerify(dir, project.verifyCommand, vault, providers, testLiveId)
             ok = !!v && v.passed === true
-            testEnd = ok
-              ? { outcome: 'passed', detail: '' }
-              : { outcome: 'failed', detail: v ? 'the checks failed' : 'the checks did not run' }
+            // STOPPED BY THE USER: the check was cancelled, so it reported
+            // nothing — which is not "the checks failed".
+            testStopped = !v && stopAskedRef.current.has(testLiveId)
+            testEnd = testStopped
+              ? { outcome: 'stopped', detail: 'stopped by you' }
+              : ok
+                ? { outcome: 'passed', detail: '' }
+                : { outcome: 'failed', detail: v ? 'the checks failed' : 'the checks did not run' }
           } finally {
+            stopAskedRef.current.delete(testLiveId)
             endLiveRun(testLiveId, testEnd.outcome, testEnd.detail)
+          }
+          if (testStopped) {
+            recordScheduleRun(schedule.id, Date.now(), false, 'stopped by you')
+            return
           }
           recordScheduleRun(schedule.id, Date.now(), ok, loopRunSummary('test', ok))
           if (!ok) {
@@ -5050,6 +5145,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           id: taskRunId,
           kind: 'task',
           intent: schedule.task,
+          // Stop cancels this task's engine run (same id).
+          stoppable: true,
         })
         // Same shape as every other registered runner: compute the honest end,
         // clear in the `finally` so a throw can never leave the card glowing.
@@ -5059,6 +5156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         let verdict: Verdict | null = null
         let ok = false
+        let taskStopped = false
         try {
           const taskOutcome = await raceCancelable(
             runNativeTask(schedule.task, vault, providers, taskRunId),
@@ -5067,13 +5165,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
           )
           verdict = taskOutcome.timedOut ? null : taskOutcome.value
           ok = !!verdict && isRealCompletion(verdict.response)
-          taskEnd = taskOutcome.timedOut
-            ? { outcome: 'stopped', detail: weStoppedIt(180_000) }
-            : ok
-              ? { outcome: 'passed', detail: '' }
-              : { outcome: 'failed', detail: 'no real reply' }
+          // STOPPED BY THE USER: the engine was cancelled, so there is no
+          // reply — not a provider that went away.
+          taskStopped = !ok && stopAskedRef.current.has(taskLiveId)
+          taskEnd = taskStopped
+            ? { outcome: 'stopped', detail: 'stopped by you' }
+            : taskOutcome.timedOut
+              ? { outcome: 'stopped', detail: weStoppedIt(180_000) }
+              : ok
+                ? { outcome: 'passed', detail: '' }
+                : { outcome: 'failed', detail: 'no real reply' }
         } finally {
+          stopAskedRef.current.delete(taskLiveId)
           endLiveRun(taskLiveId, taskEnd.outcome, taskEnd.detail)
+        }
+        if (taskStopped) {
+          recordScheduleRun(schedule.id, Date.now(), false, 'stopped by you')
+          return
         }
         recordScheduleRun(
           schedule.id,

@@ -324,6 +324,31 @@ run; and when the reviewer's own model cannot be reached, Tier-2 falls back
 to a heuristic that scored those no-answer wakes 0.86 "ok" (the verdict still
 failed, on the no-answer rule).
 
+## Stop, for every run the app makes (2026-11-15)
+
+0.2.0 could stop a team run and a build. The other four kinds of run could
+only be watched. Each now stops the same way: the engine's own process is
+cancelled (`cancel_engine_run`), and the run is recorded as **stopped by
+you** — never as a failure, never as a provider that went away, never as our
+own wall.
+
+| the run | where Stop is | what is recorded |
+|---|---|---|
+| one AI answering | the composer: while it answers, Send is Stop ("Stopping…" once pressed) | the thinking bubble goes; the room says "Stopped by you — no answer was written."; the provider is **not** marked unreachable |
+| a heartbeat wake | the board, in the Manager's room | the beat "stopped by you — no check was made"; the cadence advances |
+| a manager job (one AI, or a team) | the board, in the Manager's room | the job's run line "stopped by you — no report was written"; nothing is appended to its report file |
+| a standing task | the board, in the Manager's room | the schedule's run "stopped by you"; no "provider offline?" notice |
+| a standing check | the board, in the project's room | the schedule's run "stopped by you"; no "verify failed" notice |
+
+Two runs needed plumbing to be cancellable at all. The wake's card has a
+fixed id, so the card is mapped to the wake's engine run before it is
+launched. The verify-only run was launched with a blocking `cmd.output()` and
+no id; `run_engine_verify` now takes a run id and retains its child like every
+other engine command (blank id: uncancellable, as before).
+
+Stop is offered only where it is real: the simulator and a send with no AI
+connected launch no engine, so a chat there has no Stop.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

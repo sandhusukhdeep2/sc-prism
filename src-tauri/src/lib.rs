@@ -844,6 +844,11 @@ const VERIFY_INTENT: &str =
 #[allow(clippy::too_many_arguments)]
 async fn run_engine_verify(
     app: tauri::AppHandle,
+    runs: tauri::State<'_, EngineRuns>,
+    // The client's id for this check. Present → the child is retained under it
+    // and `cancel_engine_run` can stop it (the room's Stop on a standing
+    // check). Absent or blank → uncancellable, exactly as before.
+    run_id: Option<String>,
     project_dir: String,
     verify_command: String,
     vault: String,
@@ -868,6 +873,8 @@ async fn run_engine_verify(
 ) -> Result<String, String> {
     // Engine runs take seconds-to-minutes (subscription CLIs especially) —
     // NEVER on the main thread, or the whole window beachballs.
+    let runs = runs.inner().clone();
+    let run_id = run_id.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
     let mut rt = resolve_engine_runtime(&app)
         .ok_or_else(|| "could not locate the engine (scprism_engine)".to_string())?;
@@ -944,9 +951,9 @@ async fn run_engine_verify(
     set_env(&mut cmd, "SCPRISM_CLAUDE_MODEL", &claude_model);
     set_env(&mut cmd, "SCPRISM_GEMINI_MODEL", &gemini_model);
 
-    let output = cmd
-        .output()
-        .map_err(|e| format!("failed to launch python: {e}"))?;
+    // Retained-child capture (cancellable when a run id was given), the same
+    // stdout/verdict contract as the blocking `cmd.output()` it replaces.
+    let output = run_capturing(cmd, &run_id, &runs)?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !stdout.is_empty() {

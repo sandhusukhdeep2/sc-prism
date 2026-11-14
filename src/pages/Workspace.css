@@ -371,6 +371,11 @@
 }
 .chat__send:hover:not(:disabled) { filter: brightness(1.15); }
 .chat__send:disabled { opacity: 0.45; cursor: default; }
+/* Stop, while one AI answers: the same place and size as Send, drawn as an
+   outline so it does not read as "send again". */
+.chat__send--stop { background: var(--v2-card); color: var(--v2-ink); border: 1px solid var(--v2-line); }
+.chat__send--stop:hover:not(:disabled) { filter: none; border-color: var(--v2-coral); color: var(--v2-coral-ink); }
+.chat__send--stop:disabled { opacity: 1; color: var(--v2-muted); }
 
 /* Per-message route control (auto / local / cloud). Theme-token styling only —
    the track is a translucent overlay (reads on light AND dark surfaces) and the

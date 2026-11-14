@@ -251,6 +251,8 @@ describe('M1 — every real engine runner registers a live run', () => {
     cleanStores()
     h.runNativeTask.mockReset()
     h.runNativeVerify.mockReset()
+    h.cancelEngineRun.mockReset()
+    h.cancelEngineRun.mockImplementation(async () => {})
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -301,6 +303,71 @@ describe('M1 — every real engine runner registers a live run', () => {
     expect(live()).toHaveLength(0) // it finished within the tick
     expect(finished()[0]).toMatchObject({ kind: 'task', outcome: 'passed' })
     expect(finished()[0].intent).toBe('summarise yesterday')
+  })
+
+  // STOP (2026-11-15). A standing job is the app working on a schedule; the
+  // room could only watch it. Stop cancels the engine's process, and the
+  // schedule's run line says who stopped it — not "no real reply (provider
+  // offline?)", and no attention notice about a provider that did not fail.
+  it('Stop on a standing TASK: the engine is cancelled and the run is recorded as stopped by you', async () => {
+    let killed: (v: Verdict | null) => void = () => {}
+    h.runNativeTask.mockImplementation(() => new Promise<Verdict | null>((res) => (killed = res)))
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    addSchedule('summarise yesterday', 1, '')
+    renderApp()
+    await settle()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000)
+    })
+    await settle()
+    const run = live().find((r) => r.kind === 'task')!
+    expect(run).toBeDefined()
+    expect(run.stoppable).toBe(true)
+
+    await act(async () => {
+      captured.app!.stopLiveRun(run.id)
+    })
+    await settle()
+    await settle()
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(run.id)
+    expect(live()).toHaveLength(0)
+    expect(finished()[0]).toMatchObject({ kind: 'task', outcome: 'stopped', detail: 'stopped by you' })
+    expect(getSchedules()[0].runs[0].summary).toBe('stopped by you')
+    // No notice blaming a provider for a run the user ended.
+    expect(captured.app!.state.notices.some((n) => /provider offline|no real reply/.test(n.text))).toBe(false)
+  })
+
+  it('Stop on a standing TEST: the check is cancelled by its own run id and recorded as stopped by you', async () => {
+    let killed: (v: { passed: boolean } | null) => void = () => {}
+    h.runNativeVerify.mockImplementation(
+      () => new Promise<{ passed: boolean } | null>((res) => (killed = res)),
+    )
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    const project = addProject('Dashboard', 'ship it', 'npm test')
+    updateProject(project.id, { status: 'planned' })
+    addSchedule('nightly checks', 1, '', project.id, 'test')
+    renderApp()
+    await settle()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000)
+    })
+    await settle()
+    const run = live().find((r) => r.kind === 'test')!
+    expect(run).toBeDefined()
+    expect(run.stoppable).toBe(true)
+    // The check was launched with a run id the bridge can cancel: the card's.
+    expect(h.runNativeVerify.mock.calls[0][4]).toBe(run.id)
+
+    await act(async () => {
+      captured.app!.stopLiveRun(run.id)
+    })
+    await settle()
+    await settle()
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(run.id)
+    expect(live()).toHaveLength(0)
+    expect(finished()[0]).toMatchObject({ kind: 'test', outcome: 'stopped', detail: 'stopped by you' })
+    expect(getSchedules()[0].runs[0].summary).toBe('stopped by you')
+    expect(captured.app!.state.notices.some((n) => /verify failed/.test(n.text))).toBe(false)
   })
 
   it('a standing TEST schedule registers as a "test" run, with the real pass/fail', async () => {

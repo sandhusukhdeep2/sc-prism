@@ -15,6 +15,7 @@ import type { TeamResult } from '../lib/nativeEngine'
 const h = vi.hoisted(() => ({
   runNativeProject: vi.fn(),
   runNativeTeam: vi.fn(),
+  runNativeTask: vi.fn(),
   cancelEngineRun: vi.fn(async (_id: string) => {}),
 }))
 
@@ -34,6 +35,7 @@ vi.mock('../lib/nativeEngine', async (orig) => {
     storeSet: async () => {},
     runNativeProject: h.runNativeProject,
     runNativeTeam: h.runNativeTeam,
+    runNativeTask: h.runNativeTask,
     runNativeProjectFinish: async () => ({ ok: true, detail: '' }),
     cancelEngineRun: h.cancelEngineRun,
   }
@@ -87,7 +89,9 @@ describe('Stop', () => {
     localStorage.clear()
     h.runNativeProject.mockReset()
     h.runNativeTeam.mockReset()
-    h.cancelEngineRun.mockClear()
+    h.runNativeTask.mockReset()
+    h.cancelEngineRun.mockReset()
+    h.cancelEngineRun.mockImplementation(async () => {})
     connected()
   })
   afterEach(() => {
@@ -163,7 +167,47 @@ describe('Stop', () => {
     expect(find(p.id).lastNote).toBe('Stopped by you at step 1 of 3 — Resume build carries on from this step.')
   })
 
-  it('only a run that can really be stopped is offered: one AI answering is not', async () => {
+  // ONE AI ANSWERING (2026-11-15). A chat turn can run for minutes on a slow
+  // model, and the only way to end it was to wait for the wall. It is a real
+  // engine run like the others, so it stops like the others: the engine's own
+  // process is cancelled, the room says it was stopped — and the provider is
+  // not marked unreachable for a call the user ended.
+  it('one AI answering: the engine is cancelled, the room says it was stopped, and the provider is not blamed', async () => {
+    let killed: (v: Verdict | null) => void = () => {}
+    h.runNativeTask.mockImplementation(() => new Promise<Verdict | null>((res) => (killed = res)))
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    renderApp()
+    await settle()
+    await act(async () => {
+      void captured.app!.send('what is the plan for today, in two lines?')
+    })
+    await settle(40)
+    expect(h.runNativeTask).toHaveBeenCalledTimes(1)
+    const run = live().find((r) => r.kind === 'chat')!
+    expect(run).toBeDefined()
+    expect(run.stoppable).toBe(true)
+
+    await act(async () => {
+      captured.app!.stopLiveRun(run.id)
+    })
+    await settle(40)
+    // The cancel names the ENGINE's run — the id the task was launched with —
+    // not the card's.
+    const engineRunId = h.runNativeTask.mock.calls[0][3] as string
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(engineRunId)
+    expect(live()).toHaveLength(0)
+    const finished = captured.app!.state.finishedRuns[0]
+    expect(finished.outcome).toBe('stopped')
+    expect(finished.detail).toBe('stopped by you')
+    const thread = captured.app!.state.threads['universal'] ?? []
+    // No error card, and nothing that reads as an outage.
+    expect(thread.some((m) => m.kind === 'error')).toBe(false)
+    const said = lines('universal').join('\n')
+    expect(said).toContain('Stopped by you — no answer was written.')
+    expect(said).not.toMatch(/unreachable|offline|not connected/i)
+  })
+
+  it('a run registered without Stop is not offered it, and asking cancels nothing', async () => {
     renderApp()
     await settle()
     let id = ''

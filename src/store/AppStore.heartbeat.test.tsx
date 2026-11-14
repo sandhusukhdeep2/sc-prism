@@ -77,6 +77,7 @@ function seedManagersStore(heartbeat: Record<string, unknown>): void {
 const captured: {
   state?: import('./AppStore').AppState
   wakeNow?: () => Promise<string | null>
+  stopLiveRun?: (id: string) => void
   claimEngine?: () => boolean
 } = {}
 
@@ -99,6 +100,7 @@ async function boot() {
     // "Wake now" (2026-08-05 §Part 3) is a context action, captured the same
     // way — the tests below drive the REAL button path, not a private copy.
     captured.wakeNow = app.wakeNow
+    captured.stopLiveRun = app.stopLiveRun
     captured.claimEngine = app.claimEngine
     return null
   }
@@ -349,6 +351,47 @@ describe('manager driver — the heartbeat wake is ONE live signal (orb + card)'
       outcome: 'passed',
       detail: 'Drafted a vault summary.',
     })
+  })
+
+  // STOP (2026-11-15). A wake is the app working on its own, and the one run
+  // the user could not end. Stop cancels the engine's process — the wake's own
+  // run, not the card's fixed id — and the beat says who stopped it: not a
+  // failed wake, not a provider that went away, and not our wall.
+  it('Stop on a wake: the engine is cancelled and the beat is recorded as stopped by you', async () => {
+    seedManagersStore(companionHb())
+    let killed: (v: Verdict | null) => void = () => {}
+    h.runNativeTask.mockImplementation(() => new Promise<Verdict | null>((res) => (killed = res)))
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    const { managers } = await boot()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    const run = captured.state!.liveRuns[0]
+    expect(run.kind).toBe('heartbeat')
+    expect(run.stoppable).toBe(true)
+
+    await act(async () => {
+      captured.stopLiveRun!(run.id)
+      await vi.advanceTimersByTimeAsync(1_000)
+    })
+    // The cancel names the ENGINE's run id — the one the wake was launched
+    // with ([3]) — because the card's id is the fixed word "heartbeat".
+    const engineRunId = h.runNativeTask.mock.calls[0][3] as string
+    expect(engineRunId).not.toBe(run.id)
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(engineRunId)
+    expect(captured.state!.liveRuns).toHaveLength(0)
+    expect(captured.state!.heartbeatLive).toBeNull()
+    expect(captured.state!.finishedRuns[0]).toMatchObject({
+      kind: 'heartbeat',
+      outcome: 'stopped',
+      detail: 'stopped by you',
+    })
+    const beat = managers.getManagers().managers[0].heartbeat!.beats[0]
+    expect(beat.line).toBe('stopped by you — no check was made')
+    expect(beat.action).toBe('rested')
+    expect(beat.line).not.toMatch(/offline|we stopped it/)
+    expect(h.writeVaultNote).not.toHaveBeenCalled()
   })
 
   it('a wake that TIMES OUT still clears the live run and records it as stopped', async () => {

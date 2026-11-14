@@ -2192,12 +2192,16 @@ export async function runNativeVerify(
   verifyCommand: string,
   vault: string,
   providers: EngineProviders,
+  /** Launch the check under this id so `cancelEngineRun(runId)` can stop it.
+   *  Omitted → '' → the bridge runs it uncancellable, exactly as before. */
+  runId = '',
 ): Promise<Verdict | null> {
   if (!isNative()) return null
   const started = Date.now()
   const intent = "Run the project's verification and report pass/fail — make no changes."
   try {
     const json = await invoke<string>('run_engine_verify', {
+      runId,
       projectDir,
       verifyCommand,
       vault,

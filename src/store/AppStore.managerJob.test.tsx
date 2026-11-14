@@ -45,7 +45,10 @@ vi.mock('../lib/nativeEngine', async (orig) => {
   }
 })
 
-const captured: { state?: import('./AppStore').AppState } = {}
+const captured: {
+  state?: import('./AppStore').AppState
+  stopLiveRun?: (id: string) => void
+} = {}
 
 /** Fresh module registry per test — the managers store is a load-time singleton. */
 async function boot() {
@@ -59,7 +62,9 @@ async function boot() {
   const A = store.AppProvider
   captured.state = undefined
   const Capture = () => {
-    captured.state = store.useApp().state
+    const app = store.useApp()
+    captured.state = app.state
+    captured.stopLiveRun = app.stopLiveRun
     return null
   }
   render(
@@ -328,6 +333,41 @@ describe('a timed-out manager job says WE stopped it — never "provider offline
     const call = h.runNativeTask.mock.calls[0]
     expect(call[6]).toBeGreaterThan(0)
     expect(call[7]).toBeGreaterThan(0)
+  })
+
+  // STOP (2026-11-15). A manager job can run for minutes on a local model and
+  // the room could only watch it. Stop cancels the engine's own process; the
+  // job is recorded as stopped by the user — not as a failed report, and not
+  // as a provider that went away — and nothing is written to its report file.
+  it('Stop on a manager job: the engine is cancelled and the job is recorded as stopped by you', async () => {
+    seedStore(withDueJob)
+    let killed: (v: Verdict | null) => void = () => {}
+    h.runNativeTask.mockImplementation(() => new Promise<Verdict | null>((res) => (killed = res)))
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    const { managers } = await boot()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(h.runNativeTask).toHaveBeenCalledTimes(1)
+    const run = captured.state!.liveRuns.find((r) => r.kind === 'manager')!
+    expect(run).toBeDefined()
+    expect(run.stoppable).toBe(true)
+
+    await act(async () => {
+      captured.stopLiveRun!(run.id)
+      await vi.advanceTimersByTimeAsync(1_000)
+    })
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(run.id)
+    expect(captured.state!.liveRuns).toHaveLength(0)
+    const finished = captured.state!.finishedRuns[0]
+    expect(finished.outcome).toBe('stopped')
+    expect(finished.detail).toBe('stopped by you')
+    const jobRun = managers.getManagers().jobs[0].runs[0]
+    expect(jobRun.summary).toBe('stopped by you — no report was written')
+    expect(jobRun.summary).not.toMatch(/offline|we stopped it/)
+    // Nothing goes into the report file for a run the user ended.
+    expect(h.writeVaultNote).not.toHaveBeenCalled()
   })
 
   // WHY THE OWNER'S MANAGER JOBS FAILED (found 2026-11-15, four of the last

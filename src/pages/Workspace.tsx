@@ -462,6 +462,10 @@ export default function Workspace() {
   // One AI answering a message has no seat in the spans; the board lights the
   // lead for it, and nothing else on the page repeats it.
   const answering = roomRuns.some((r) => r.kind === 'chat' && !r.paused)
+  // The one of them that can really be stopped (a real engine run — the sim
+  // and a send with no AI connected launch nothing to cancel).
+  const answeringRun = roomRuns.find((r) => r.kind === 'chat' && !r.paused && r.stoppable)
+  const [stoppingAnswer, setStoppingAnswer] = useState('')
   const roomRoster = useMemo(
     () =>
       rosterSeats(
@@ -1678,15 +1682,35 @@ export default function Workspace() {
                 <span className="chat__whohint">{targetSentence}</span>
                 <span aria-hidden="true">{overrideOpen ? '▾' : '▸'}</span>
               </button>
-              <button
-                type="button"
-                className="chat__send"
-                onClick={submit}
-                disabled={state.running || !canSend}
-                aria-label="Send"
-              >
-                Send
-              </button>
+              {answeringRun ? (
+                // STOP, FOR ONE AI ANSWERING. A team run and a build carry
+                // their Stop on the board; one AI answering is not drawn
+                // there, so its Stop is where the answer was asked for. Asked
+                // once: it says "Stopping…" until the run itself is gone.
+                <button
+                  type="button"
+                  className="chat__send chat__send--stop"
+                  onClick={() => {
+                    if (stoppingAnswer === answeringRun.id) return
+                    setStoppingAnswer(answeringRun.id)
+                    stopLiveRun(answeringRun.id)
+                  }}
+                  disabled={stoppingAnswer === answeringRun.id}
+                  aria-label={stoppingAnswer === answeringRun.id ? 'Stopping this answer' : 'Stop this answer'}
+                >
+                  {stoppingAnswer === answeringRun.id ? 'Stopping…' : 'Stop'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="chat__send"
+                  onClick={submit}
+                  disabled={state.running || !canSend}
+                  aria-label="Send"
+                >
+                  Send
+                </button>
+              )}
             </div>
           </div>
         </div>
