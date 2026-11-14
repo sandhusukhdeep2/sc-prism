@@ -73,6 +73,6 @@ export const pages: PageItem[] = [
   { num: '17', to: '/automations', title: 'Automations' },
   { num: '19', to: '/agents', title: 'Agent library' },
   { num: '20', to: '/skills', title: 'Skills library' },
-  { num: '21', to: '/memory', title: 'Memory & learning' },
+  { num: '21', to: '/memory', title: 'Memory' },
   { num: '22', to: '/library', title: 'Library' },
 ]

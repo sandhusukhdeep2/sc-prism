@@ -9,7 +9,10 @@
 .auto__head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .auto__title { font-size: 21px; font-weight: 300; color: var(--ink); margin: 0; }
 .auto__title b { font-weight: 600; }
-.auto__hint { font-size: 10.5px; color: var(--muted-2); }
+/* A sentence, in body type (it was 10.5px monospace). */
+.auto__hint { font-size: 13px; color: var(--v2-muted); }
+.auto__hint a { color: var(--v2-ink-2); }
+.auto .mgrs__empty { font-size: 13px; }
 .auto__spacer { flex: 1; }
 .auto__link { font-size: 11px; color: var(--ink-3); text-decoration: none; }
 .auto__link:hover { text-decoration: underline; }

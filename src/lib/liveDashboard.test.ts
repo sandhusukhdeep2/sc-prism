@@ -227,7 +227,7 @@ describe('useLiveDashboard', () => {
   })
 })
 
-// Wiring pin: all four data pages must read the ONE shared hook and drive it
+// Wiring pin: the data pages must read the ONE shared hook and drive it
 // from the live-run registry — not from four private useEffects (the pre-2026-
 // 08-09 shape, which fetched once with deps [verdicts.length, vaultPath] and
 // then never moved), and not from a timer that runs while the app is idle.
@@ -235,8 +235,15 @@ describe('the data pages are wired to the shared hook', () => {
   const pages: Array<[string, string]> = [
     ['Stats.tsx', statsSrc],
     ['Console.tsx', consoleSrc],
-    ['Memory.tsx', memorySrc],
   ]
+
+  // Memory stopped repeating the dashboard's figures on 2026-11-14 (Stats,
+  // Console and the rail's meter own them), so it reads no dashboard at all —
+  // and must not grow a private fetch of its own.
+  it('Memory.tsx reads no dashboard, by the hook or by a fetch of its own', () => {
+    expect(memorySrc).not.toMatch(/useLiveDashboard\(/)
+    expect(memorySrc).not.toMatch(/nativeDashboard\(/)
+  })
 
   for (const [name, src] of pages) {
     it(`${name} refetches via useLiveDashboard, gated on activeRuns(state.liveRuns)`, () => {

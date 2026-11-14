@@ -108,4 +108,16 @@ describe('Governance Console against a real-shaped dashboard', () => {
     renderConsole()
     await waitFor(() => expect(screen.getByText('live engine')).toBeInTheDocument())
   })
+
+  // Seen in the installed app, 2026-11-14: one page said "stable across 625
+  // runs" and "415 verdicts", and Stats said "126 checked runs" — three
+  // counts, and nothing saying they count different things. Each figure names
+  // what it counts, in the words Stats uses for the same figure.
+  it('each run count says what it counts: engine runs, and runs the reviewer judged', async () => {
+    renderConsole()
+    await screen.findByText('claude')
+    expect(document.body.textContent).toContain('stable across 51 engine runs')
+    expect(document.body.textContent).toMatch(/· 0 judged runs/)
+    expect(document.body.textContent).not.toMatch(/\d+ verdicts/)
+  })
 })

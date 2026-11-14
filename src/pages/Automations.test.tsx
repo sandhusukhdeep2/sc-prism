@@ -7,7 +7,7 @@ import type { ManagersState } from '../lib/managers'
 import { SettingsProvider } from '../lib/settings'
 import { ConnectivityProvider } from '../lib/connectivity'
 import { OnboardingProvider } from '../lib/onboarding'
-import { AppProvider } from '../store/AppStore'
+import { AppProvider, useApp } from '../store/AppStore'
 
 // Finding 1 of the 2026-08-09 honesty pass. /loop used to render a build-loop
 // SIMULATOR whose plan came from a seeded RNG over a canned STEP_POOL, and whose
@@ -72,6 +72,12 @@ const withJobs: ManagersState = {
   ],
 }
 
+const captured: { app?: ReturnType<typeof useApp> } = {}
+function Capture() {
+  captured.app = useApp()
+  return null
+}
+
 function renderAutomations() {
   return render(
     <MemoryRouter initialEntries={['/loop']}>
@@ -79,6 +85,7 @@ function renderAutomations() {
         <ConnectivityProvider>
           <OnboardingProvider>
             <AppProvider>
+              <Capture />
               <Automations />
             </AppProvider>
           </OnboardingProvider>
@@ -101,8 +108,10 @@ describe('Automations — real recurring work, or an honest empty state', () => 
 
     expect(screen.getByText('Vault health')).toBeInTheDocument()
     expect(screen.getByText('Cost & drift review')).toBeInTheDocument()
-    // The manager that owns them, named from the real store.
-    expect(screen.getAllByText('Local manager').length).toBeGreaterThan(0)
+    // The manager that owns them, named from the real store — ONCE, as the
+    // heading of its jobs. It used to be repeated as a chip on every row
+    // under its own name (seen in the installed app, 2026-11-14).
+    expect(screen.getAllByText('Local manager')).toHaveLength(1)
     // Cadence + last outcome, from the job's own record — never invented.
     expect(document.body.textContent).toMatch(/every 1d/)
     expect(document.body.textContent).toMatch(/every 30m/)
@@ -127,10 +136,33 @@ describe('Automations — real recurring work, or an honest empty state', () => 
     expect(document.body.textContent).toMatch(/they are created on the Agents page/)
   })
 
-  it('claims nothing is running when the live-run registry is empty', () => {
+  // 2026-11-14 (the once-only pass): an empty "Running now — nothing is
+  // running — this fills the moment a run starts" card sat at the top of the
+  // page at all times. Nothing running is this page's normal state, and an
+  // empty block announcing it is one more thing to read past.
+  it('with nothing running there is no Running-now block at all', () => {
     held.state = withJobs
     renderAutomations()
-    expect(document.body.textContent).toMatch(/nothing is running/)
+    expect(screen.queryByText('Running now')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/nothing is running/)
+  })
+
+  it('a run in flight brings the Running-now block, with the run in it', () => {
+    held.state = withJobs
+    renderAutomations()
+    act(() => {
+      captured.app!.beginLiveRun({ kind: 'manager', intent: 'Vault health sweep' })
+    })
+    expect(screen.getByText('Running now')).toBeInTheDocument()
+    expect(document.body.textContent).toMatch(/1 run in flight/)
+    expect(screen.getByText('Vault health sweep')).toBeInTheDocument()
+  })
+
+  it('the page’s sentences are set as text, not as code', () => {
+    held.state = withJobs
+    renderAutomations()
+    expect(document.querySelector('.auto__hint.mono')).toBeNull()
+    expect(document.querySelector('.mgrs__empty.mono')).toBeNull()
   })
 
   // Finding 3c: the clock ticked ONLY while `live.length > 0`, and nothing
@@ -171,7 +203,7 @@ describe('Automations — real recurring work, or an honest empty state', () => 
   it('points one-off multi-step work at Work / Projects', () => {
     held.state = withJobs
     renderAutomations()
-    expect(document.body.textContent).toMatch(/for a one-off piece of multi-step work/)
+    expect(document.body.textContent).toMatch(/For a one-off job, use Work or a project/)
     expect(screen.getByRole('link', { name: 'project' })).toHaveAttribute('href', '/projects')
   })
 

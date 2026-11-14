@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../store/AppStore'
-import { isCliProvider, isCustomProvider, useSettings } from '../lib/settings'
-import { costDirection, costFloorSeries } from '../lib/costTrend'
-import { costSpark } from '../lib/costSpark'
+import { useSettings } from '../lib/settings'
 import {
   isNative,
   resolveVaultDir,
@@ -13,8 +11,6 @@ import {
 } from '../lib/nativeEngine'
 import { okfGroups, whereLine, type OkfGroup } from '../lib/okfReport'
 import DrawerSection from '../components/DrawerSection'
-import { heroSaves, localShare, pendingHero } from '../lib/engineStats'
-import { staleNote, useLiveDashboard } from '../lib/liveDashboard'
 import { useSpanTail } from '../lib/engineConsole'
 import { activeRuns } from '../lib/liveRuns'
 import './Memory.css'
@@ -175,19 +171,19 @@ function OkfCard() {
   )
 }
 
-// Memory & learning — the three-tier memory model, the token-budget gauge, and the learning
-// flywheel (local-vs-cloud share, Tier-1 saves, cost floor).
+// Memory — the vault's health check, the three-tier memory model, and the
+// token-budget gauge.
 //
-// Finding 2 of the 2026-08-09 honesty pass: this page never called the engine
-// dashboard, so it stated the OPPOSITE of the truth on the user's own install —
-// "local now handles 0%" while the engine's model_call spans said 75%, a budget
-// gauge pinned at "over cap!" because it compared cumulative session tokens to a
-// PER-INJECTION cap, and a four-bar weekly "ramp" that was hardcoded. All three
-// are gone. Every number here now comes from a measurement, and each one SAYS
-// whether it is engine-scoped (every run ever recorded in the vault) or
-// session-scoped (this app launch only).
-// The REAL "Run learning step" honest gate lives on the dedicated Training page (see
-// LearningPanel.tsx) — this page only links to it, it never states a fake measured outcome.
+// THE PAGE IS ABOUT MEMORY (2026-11-14, the once-only pass). It used to carry a
+// "learning flywheel" under the tiers: the local-versus-cloud share (also the
+// rail's meter, Stats and Console), Tier-1 saves (Stats' own hero card), a
+// cost line (Stats), a count of recorded runs, and two cards about the
+// learning gate that only pointed at the Training tab beside this one. Each
+// of those figures has one page that owns it; none is repeated here.
+//
+// What remains is measured: the budget gauge reads the engine's own `memory`
+// span for ONE run (it once compared a cumulative session total to a
+// per-injection cap and sat at "over cap!"), or says nothing has been measured.
 
 /** The real memory-injection reading: budget + injected tokens for ONE run. */
 export interface MemInjection {
@@ -228,111 +224,21 @@ export function memInjection(spans: readonly EngineSpan[]): MemInjection | null 
 
 export default function Memory() {
   const { state } = useApp()
-  const { stats, verdicts } = state
-  const { settings } = useSettings() // also drives the cloud-configured caption below
-  // Is a cloud provider actually configured? (a CLI bridge, or a cloud provider
-  // with a real key). Drives an HONEST reasoning caption — a default local-only
-  // setup keeps reasoning local (R2), so "stay on frontier models" would lie.
-  const cloudConfigured = settings.providers.some(
-    (p) =>
-      p.enabled &&
-      (isCliProvider(p.id) ||
-        (p.id !== 'local' && !isCustomProvider(p.id) && !!p.apiKey?.trim())),
-  )
-
-  // REAL engine measurements (native only), refreshed by the ONE shared hook
-  // while a run is genuinely live and never polled when idle (Finding 5).
+  const { settings } = useSettings()
+  // The span tail is followed only while a run is genuinely live; it already
+  // carries the `memory` retrieval span the budget gauge needs.
   const live = activeRuns(state.liveRuns).length > 0
-  // 'loading' is its own state: the hook used to start at `null`, the SAME value
-  // it uses for "no engine here", so every mount painted the session fallback
-  // ("local handles 0% of this session's routed work") for a frame before
-  // snapping to the measured 86%. A failed read now keeps the last measurement
-  // and says so, instead of rewriting a measured number to zero every 2.5s.
-  const dashRead = useLiveDashboard(settings.vaultPath, live, verdicts.length)
-  const dash = dashRead.dash
-  const dashLoading = dashRead.status === 'loading'
-  const dashNote = staleNote(dashRead)
-  // The same span tail every other narration surface reads — it already carries
-  // the `memory` retrieval span the budget gauge needs.
   const { spans } = useSpanTail(settings.vaultPath, live)
-
-  // Local-vs-cloud share — the ENGINE's per-model token split (`claude-cli` /
-  // `gemini-cli` / `local`, bucketed by the shared helper). The old page read
-  // `stats.localSharePct`, which counts top-level verdict ROUTING inside one app
-  // launch: on the user's install that said 0% while the engine said 75%. The
-  // session number survives only as the in-browser fallback, labelled as such.
-  const share = useMemo(() => {
-    if (dash) {
-      const s = localShare(dash.cost_by_model)
-      return {
-        pct: s.pct,
-        localTokens: s.localTokens,
-        cloudTokens: s.cloudTokens,
-        measured: s.measured,
-        engineScoped: true,
-        loading: false,
-      }
-    }
-    // Nothing has been read yet — not "0%", which is a measurement.
-    if (dashLoading) {
-      return { pct: 0, localTokens: 0, cloudTokens: 0, measured: false, engineScoped: true, loading: true }
-    }
-    return {
-      pct: Math.max(0, Math.min(100, stats.localSharePct)),
-      localTokens: 0,
-      cloudTokens: 0,
-      measured: verdicts.length > 0,
-      engineScoped: false,
-      loading: false,
-    }
-  }, [dash, dashLoading, stats.localSharePct, verdicts.length])
 
   // Token-budget gauge — the REAL memory-injection span of the newest run that
   // injected anything (budget + injected_tokens), or nothing at all.
   const injection = useMemo(() => memInjection(spans), [spans])
 
-  // Tier-1 saves — the engine's whole gate history when the installed app can
-  // read it, else this session, said out loud. Same projection Stats' hero uses.
-  const hero = useMemo(
-    () => (dashLoading ? pendingHero() : heroSaves(dash, verdicts)),
-    [dash, dashLoading, verdicts],
-  )
-
-  // Cost floor — ONE series for the line and for the sentence under it: the
-  // engine's recorded runs when the app can read them, else this session's
-  // verdicts (costFloorSeries). The line used to walk the session's verdicts
-  // while the sentence read the engine's series.
-  const costSeries = useMemo(
-    () => costFloorSeries(dash, [...verdicts].reverse().map((v) => v.cost)),
-    [dash, verdicts],
-  )
-  const costPaths = useMemo(() => costSpark(costSeries), [costSeries])
-  const costScope = dash
-    ? costSeries.length === 1
-      ? 'marginal cost per run · the one recorded run'
-      : `marginal cost per run · all ${costSeries.length.toLocaleString()} recorded runs`
-    : 'marginal cost per task · this session’s verdicts'
-
-  // REAL count — no fabricated base: the verdicts in the durable record, the
-  // same number (and the same words) as the Work header's pill. It was
-  // labelled "this session" here, which it is not — it outlives a session.
-  const runsRecorded = verdicts.length
-
-  // Honest cost-trend — only claim a direction the REAL cost series actually
-  // shows (first vs last, 2% deadband); otherwise no directional claim. The
-  // direction also drives the COLOR: rising cost is a warning, not a success.
-  const costDir = useMemo(() => costDirection(costSeries), [costSeries])
-  const costTrend = costDir === 'down' ? ' · trending down' : costDir === 'up' ? ' · trending up' : ''
-
   return (
     <div className="memory">
       {/* A dropped engine read is STATED via `hint`, not silently rendered
           as "0%". */}
-      <PageHead
-        title="Memory"
-        em="& learning"
-        hint={dashNote || 'three tiers · measured from your own runs'}
-      />
+      <PageHead title="Memory" hint="three tiers · measured from your own runs" />
 
       <OkfCard />
 
@@ -414,170 +320,6 @@ export default function Memory() {
                 run injects memory.
               </div>
             )}
-          </div>
-        </div>
-
-        {/* BOTTOM: learning flywheel */}
-        <div className="mem-bottom">
-          {/* local vs cloud share */}
-          <div className="mem-share">
-            <div className="kicker">Routine lane · local vs cloud share</div>
-            <div className="mem-share__illustrative">
-              {share.loading
-                ? 'reading the engine…'
-                : share.engineScoped
-                  ? 'measured by the engine over every recorded run — the model calls themselves, not top-level routing'
-                  : 'this app session only — the installed app measures every run'}
-            </div>
-            {share.measured ? (
-              <>
-                <div className="mem-share__split" role="img" aria-label={`local ${share.pct}%, cloud ${100 - share.pct}%`}>
-                  <div className="mem-share__seg mem-share__seg--local" style={{ width: `${share.pct}%` }} />
-                  <div className="mem-share__seg mem-share__seg--cloud" style={{ width: `${100 - share.pct}%` }} />
-                </div>
-                {share.engineScoped && (
-                  <div className="mem-share__tokens mono">
-                    {share.localTokens.toLocaleString()} local ·{' '}
-                    {share.cloudTokens.toLocaleString()} cloud tokens
-                  </div>
-                )}
-                {/* INSIDE the measured guard. Outside it, this line printed
-                    "local handles 0% of this session's routed work" directly
-                    under "no model call measured yet" — a percentage of nothing,
-                    stated as a fact. */}
-                <div className="mem-share__caption">
-                  <b>local handles {share.pct}%</b> of{' '}
-                  {share.engineScoped ? 'measured model-call tokens' : 'this session’s routed work'} ·{' '}
-                  {cloudConfigured
-                    ? 'reasoning & planning route to your cloud model'
-                    : 'reasoning & planning stay local too — no cloud configured'}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mem-share__empty">
-                  {share.loading
-                    ? 'reading the engine…'
-                    : 'no model call measured yet — nothing to divide'}
-                </div>
-                <div className="mem-share__caption">
-                  {share.loading
-                    ? 'the split appears once the engine answers'
-                    : cloudConfigured
-                      ? 'the split appears on your first measured model call · reasoning & planning route to your cloud model'
-                      : 'the split appears on your first measured model call · no cloud configured, so everything stays local'}
-                </div>
-              </>
-            )}
-            <div className="mem-legend">
-              <span>
-                <span className="mem-legend__sw" style={{ background: 'var(--v2-local)' }} />
-                local
-              </span>
-              <span>
-                <span className="mem-legend__sw" style={{ background: 'var(--v2-blue)' }} />
-                cloud
-              </span>
-            </div>
-          </div>
-
-          {/* middle stack: Tier-1 saves + cost floor */}
-          <div className="mem-midcol">
-            <div className="mem-saves">
-              <div className="mem-saves__head">
-                <span className="mem-saves__bolt">
-                  <svg width="11" height="11" viewBox="0 0 24 24" style={{ fill: '#4a3a00' }}>
-                    <path d="M13 2 4 14h6l-1 8 9-12h-6z" />
-                  </svg>
-                </span>
-                <span className="mem-saves__kicker">
-                  Tier-1 saves ·{' '}
-                  {hero.pending
-                    ? 'reading the engine'
-                    : hero.engineScoped
-                      ? 'all recorded runs'
-                      : 'this session'}
-                </span>
-              </div>
-              <div className="mem-saves__num">{hero.pending ? '—' : hero.saves}</div>
-              <div className="mem-saves__sub">failures blocked before eval tokens</div>
-              <div className="mem-saves__note">{hero.note}</div>
-              {/* Runs the gate could not RUN are not saves — said out loud. */}
-              {hero.unverifiedNote && (
-                <div className="mem-saves__note">{hero.unverifiedNote}</div>
-              )}
-            </div>
-
-            <div className="mem-cost">
-              <div className="kicker">Cost floor</div>
-              <svg
-                width="100%"
-                height="40"
-                viewBox="0 0 220 40"
-                preserveAspectRatio="none"
-                className="mem-cost__svg"
-              >
-                {costPaths.area && <path d={costPaths.area} fill="var(--area-soft)" />}
-                <path
-                  className="mem-cost__line"
-                  d={costPaths.line}
-                  fill="none"
-                  stroke="var(--chart-dark)"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              <div
-                className={
-                  'mem-cost__trend' +
-                  (costDir === 'down'
-                    ? ' mem-cost__trend--down'
-                    : costDir === 'up'
-                      ? ' mem-cost__trend--up'
-                      : '')
-                }
-              >
-                {costScope}
-                {costTrend}
-              </div>
-            </div>
-          </div>
-
-          {/* right stack: honest link-out to the real learning gate (P4-1) —
-              no fabricated fine-tune/promotion claims; the REAL PROMOTE/DISCARD
-              decision only ever comes from actually running the dry-run gate,
-              which lives on the Training page (see LearningPanel.tsx). */}
-          <div className="mem-rightcol">
-            <div className="mem-ft">
-              <div className="mem-ft__head">
-                <span className="kicker">Route-policy learning</span>
-              </div>
-              <div className="mem-ft__nums">
-                <span className="mem-ft__val">{runsRecorded.toLocaleString()}</span>
-                <span className="mem-ft__label">{runsRecorded === 1 ? 'run' : 'runs'} recorded all time</span>
-              </div>
-              <div className="mem-ft__meta">
-                the router learns route selection (local vs cloud) from real outcomes — never LLM
-                fine-tuning; the learning step is a dry-run preview, and adopting a gate-passed
-                router is a separate, explicit action
-              </div>
-              <div className="mem-ft__spacer" />
-              <Link to="/library?tab=training" className="mem-ft__run">
-                See real learning on the Training page →
-              </Link>
-            </div>
-
-            <div className="mem-gate">
-              <div className="mem-gate__head">
-                <span className="mem-gate__kicker">Eval-lift gate</span>
-              </div>
-              <div className="mem-gate__desc">
-                a new router is only ever adopted if it proves lift on your goldens — no
-                regressions. Run the real, honest dry-run check on the Training page.
-              </div>
-            </div>
           </div>
         </div>
       </div>

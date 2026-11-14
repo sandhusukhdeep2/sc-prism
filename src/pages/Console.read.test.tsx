@@ -108,7 +108,7 @@ describe('Console — the numbers can be read', () => {
     const points = d.match(/[ML]/g) ?? []
     expect(points.length).toBeGreaterThan(1)
     expect(points.length).toBeLessThanOrEqual(48)
-    expect(document.body.textContent).toMatch(/383 verdicts/)
+    expect(document.body.textContent).toMatch(/383 judged runs/)
   })
 })
 

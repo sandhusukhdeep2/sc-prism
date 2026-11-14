@@ -55,16 +55,15 @@ function LiveRow({ intent, kind, startedAt, now }: { intent: string; kind: strin
   )
 }
 
-/** A manager job row: real title, manager, cadence, last outcome, next due. */
+/** A manager job row: real title, cadence, last outcome, next due. The
+ *  manager is named once, by the heading the row sits under. */
 function JobRow({
   job,
   manager,
-  managerName,
   now,
 }: {
   job: ManagerJob
   manager: Manager | undefined
-  managerName: string
   now: number
 }) {
   const last = job.runs[0]
@@ -95,7 +94,6 @@ function JobRow({
         }
       />
       <span className="mgrs__jobtitle">{job.title}</span>
-      <span className="mgrs__dept mono">{managerName}</span>
       {jobKind(job) === 'dispatch' && <span className="mgrs__kind mono">work</span>}
       {jobKind(job) === 'team' && <span className="mgrs__kind mono">team</span>}
       <span className="mgrs__spacer" />
@@ -123,9 +121,7 @@ function StandingLoops({ schedules, now }: { schedules: Schedule[]; now: number 
     <section className="auto__card">
       <div className="auto__cardhead">
         <span className="auto__kicker">Standing loops</span>
-        <span className="auto__hint mono">
-          a saved task re-run on a timer · fires while the app is open
-        </span>
+        <span className="auto__hint">a saved task, re-run on a timer while the app is open</span>
       </div>
       <div className="stand__form">
         <input
@@ -158,7 +154,7 @@ function StandingLoops({ schedules, now }: { schedules: Schedule[]; now: number 
         </button>
       </div>
       {schedules.length === 0 ? (
-        <div className="mgrs__empty mono">
+        <div className="mgrs__empty">
           no standing loops yet — add one above and it runs on its timer while the app is open
         </div>
       ) : (
@@ -262,41 +258,39 @@ export default function Automations() {
         <h1 className="auto__title">
           Automations <b>· recurring work</b>
         </h1>
-        <span className="auto__hint mono">
-          every piece of work this app repeats on a timer — and anything running right now
-        </span>
-        {/* This page is only about work on a TIMER. The deleted /loop composer
-            was where one-off multi-step work was started, and it was removed
-            without a successor being pointed at, so that need had nowhere to
-            go. It has a real home. */}
-        <span className="auto__hint mono">
-          for a one-off piece of multi-step work, use <Link to="/">Work</Link> or a{' '}
-          <Link to="/projects">project</Link> — this page is only for things that repeat
+        {/* ONE sentence, in body type (the once-only pass, 2026-11-14 — there
+            were two here, in monospace, saying overlapping things). This page
+            is only about work on a TIMER; one-off multi-step work has a real
+            home, and the sentence points at it. */}
+        <span className="auto__hint">
+          Work this app repeats on a timer. For a one-off job, use <Link to="/">Work</Link> or a{' '}
+          <Link to="/projects">project</Link>.
         </span>
       </div>
 
-      {/* RUNNING NOW — real registrations only (state.liveRuns). */}
-      <section className="auto__card">
-        <div className="auto__cardhead">
-          <span className="auto__kicker">Running now</span>
-          <span className="auto__hint mono">
-            {live.length === 0
-              ? 'nothing is running — this fills the moment a run starts'
-              : `${live.length} run${live.length === 1 ? '' : 's'} in flight`}
-          </span>
-        </div>
-        {live.map((r) => (
-          <LiveRow key={r.id} intent={r.intent} kind={kindLabel(r.kind)} startedAt={r.startedAt} now={now} />
-        ))}
-      </section>
+      {/* RUNNING NOW — real registrations only (state.liveRuns), and only
+          while there are any: nothing running is this page's normal state,
+          and an empty block announcing it is one more thing to read past. */}
+      {live.length > 0 && (
+        <section className="auto__card">
+          <div className="auto__cardhead">
+            <span className="auto__kicker">Running now</span>
+            <span className="auto__hint">
+              {live.length} run{live.length === 1 ? '' : 's'} in flight
+            </span>
+          </div>
+          {live.map((r) => (
+            <LiveRow key={r.id} intent={r.intent} kind={kindLabel(r.kind)} startedAt={r.startedAt} now={now} />
+          ))}
+        </section>
+      )}
 
       {/* STANDING JOBS — real manager jobs. */}
       <section className="auto__card">
         <div className="auto__cardhead">
           <span className="auto__kicker">Standing jobs</span>
-          <span className="auto__hint mono">
-            manager jobs · created and edited on the Agents page · a job only runs while its
-            manager is ON
+          <span className="auto__hint">
+            a manager’s jobs, made on the Agents page — a job runs only while its manager is on
           </span>
           <span className="auto__spacer" />
           <Link to="/agents" className="auto__link">
@@ -304,7 +298,7 @@ export default function Automations() {
           </Link>
         </div>
         {jobCount === 0 ? (
-          <div className="mgrs__empty mono">
+          <div className="mgrs__empty">
             no standing jobs — they are created on the Agents page, under a manager
           </div>
         ) : (
@@ -320,7 +314,7 @@ export default function Automations() {
                   </span>
                 </div>
                 {jobs.map((j) => (
-                  <JobRow key={j.id} job={j} manager={manager} managerName={name} now={now} />
+                  <JobRow key={j.id} job={j} manager={manager} now={now} />
                 ))}
               </div>
             )

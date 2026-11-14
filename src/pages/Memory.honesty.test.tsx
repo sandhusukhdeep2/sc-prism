@@ -87,24 +87,14 @@ function renderMemory() {
   )
 }
 
+// 2026-11-14 (the once-only pass): the share, the Tier-1 saves and the cost
+// line left this page for the pages that own them (Stats, Console, the rail's
+// meter) — their honesty is tested there. What Memory still measures is the
+// injection budget, and it still reads the engine's own span.
 describe('Memory reports the ENGINE measurement, not session routing', () => {
-  it('reads local share off the dashboard: 75%, never 0%', async () => {
-    renderMemory()
-    await waitFor(() => expect(screen.getByText(/local handles 75%/)).toBeInTheDocument())
-    expect(document.body.textContent).not.toMatch(/local (now )?handles 0%/)
-  })
-
-  it('says WHICH scope the share is: engine-measured model calls, not the session', async () => {
-    renderMemory()
-    await waitFor(() =>
-      expect(document.body.textContent).toMatch(/measured by the engine over every recorded run/),
-    )
-    expect(document.body.textContent).toMatch(/209,340 local · 69,833 cloud tokens/)
-  })
-
   it('has no hardcoded w1-w4 ramp bars left', async () => {
     const { container } = renderMemory()
-    await waitFor(() => expect(screen.getByText(/local handles 75%/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('1,450')).toBeInTheDocument())
     for (const label of ['w1', 'w2', 'w3', 'w4']) {
       expect(screen.queryByText(label)).not.toBeInTheDocument()
     }
@@ -118,16 +108,6 @@ describe('Memory reports the ENGINE measurement, not session routing', () => {
     expect(screen.getByText('under cap ✓')).toBeInTheDocument()
     const fill = container.querySelector('.mem-gauge__fill') as HTMLElement
     expect(fill.style.width).toBe(`${(1450 / 8000) * 100}%`)
-  })
-
-  it('takes Tier-1 saves from the engine (15 blocked), not the session counter', async () => {
-    renderMemory()
-    await waitFor(() => expect(screen.getByText('15')).toBeInTheDocument())
-    expect(screen.getByText(/Tier-1 saves · all recorded runs/)).toBeInTheDocument()
-    // The 36 runs the gate could not RUN are reported, and are NOT saves.
-    expect(document.body.textContent).toMatch(
-      /36 runs could not run the verify command — nothing was verified/,
-    )
   })
 })
 

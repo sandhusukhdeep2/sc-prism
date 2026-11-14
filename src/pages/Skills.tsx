@@ -63,8 +63,15 @@ function iconFor(name: string): { bg: string; color: string } {
   return ICONS[(h >>> 0) % ICONS.length]
 }
 
+/** The chip is a word; the sentence it stands for is its hover. (Every card
+ *  used to carry the whole sentence, and the detail panel says it again.) */
 function portableText(s: StoredSkill): string {
-  return s.portable ? 'portable markdown — usable by any agent runtime' : 'this workbench only'
+  return s.portable ? 'portable' : 'this app only'
+}
+function portableTitle(s: StoredSkill): string {
+  return s.portable
+    ? 'Portable markdown — usable by any agent runtime that reads SKILL.md'
+    : 'Usable by only this app — not written in the portable SKILL.md form'
 }
 
 // Per-role skill chips (P3-3): a skill's `roles` (parsed from its vault
@@ -459,7 +466,9 @@ function SkillCard({
         <span className={`prov prov--${PROV_CLASS[s.provenance]}`}>
           {PROV_TEXT[s.provenance]}
         </span>
-        <span className="portable">{portableText(s)}</span>
+        <span className="portable" title={portableTitle(s)}>
+          {portableText(s)}
+        </span>
         {stat?.underperforming && <span className="chip-warn">underperforming</span>}
         <RoleChips roles={s.roles} />
       </div>

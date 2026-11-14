@@ -56,10 +56,45 @@ describe('Memory page — no fabricated learning figures', () => {
     expect(document.body.textContent).not.toMatch(/2:14am/)
   })
 
-  it('links out to the real learning gate on the Training page', () => {
+})
+
+// THE MEMORY PAGE IS ABOUT MEMORY (2026-11-14, the once-only pass). Under the
+// three tiers and the budget gauge it used to carry a "learning flywheel": the
+// local-versus-cloud share (also the rail's meter, Stats and Console), Tier-1
+// saves (Stats' own hero card), a cost line (Stats), a "runs recorded" count,
+// and two cards about the learning gate that only pointed at the Training tab
+// beside it. The owner: "repetitive information is a lot… information is not
+// totally connected". Each of those figures has one page that owns it.
+describe('Memory page — it does not repeat what other pages own', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('keeps what is about memory: the three tiers and the injection budget', () => {
     renderMemory()
-    const link = screen.getByRole('link', { name: /see real learning on the training page/i })
-    expect(link).toHaveAttribute('href', '/library?tab=training')
+    for (const label of ['L1 · Profile', 'L2 · Working memory', 'L3 · Vault', 'Token budget · memory injection']) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  it('has no share, saves, cost, run-count or learning-gate cards of its own', () => {
+    renderMemory()
+    const text = document.body.textContent ?? ''
+    for (const gone of [
+      /local vs cloud share/i,
+      /Tier-1 saves/i,
+      /Cost floor/i,
+      /Route-policy learning/i,
+      /Eval-lift gate/i,
+      /runs? recorded all time/i,
+      /see real learning on the training page/i,
+    ]) {
+      expect(text, String(gone)).not.toMatch(gone)
+    }
+  })
+
+  it('is headed as what it is', () => {
+    renderMemory()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Memory$/)
   })
 })
 
@@ -85,21 +120,12 @@ describe('OKF validation — a failure looks like a failure', () => {
   })
 })
 
-// P3 honesty: status colors must tell the truth. A budget breach and a rising
-// marginal cost are WARNINGS — they may never render in success green. Both are
-// driven by the real store, so we seed the durable session (the shape AppStore's
-// loadSession restores) and assert the warn modifier class is applied.
+// P3 honesty: status colors must tell the truth. A budget breach is a WARNING
+// and may never render in success green — and a gauge is drawn only from a
+// real measurement. (The marginal-cost trend this block also covered lives on
+// Stats since 2026-11-14.)
 describe('Memory page — status colors tell the truth', () => {
   const baseStats = { tokensToday: 1240, costToday: 0.04, tier1Saves: 7, localSharePct: 61, evalAvg: 0.91 }
-  const makeVerdict = (cost: number) => ({
-    taskId: 't', task: 'x',
-    route: { target: 'local', model: 'm', via: '', reason: '', routeLabel: '' },
-    tier1: { tests: '0/0', lint: true, build: true, pass: true },
-    tier2: { evalScore: 0.9, passed: true, judge: 'j', trajectory: 'ok' },
-    tokensIn: 1, tokensOut: 1, cost, durationMs: 1, modelRoute: '',
-    hooks: { blocked: 0, passed: true },
-    writeback: { path: '', validated: true, committed: true }, passed: true,
-  })
   const seed = (over: Record<string, unknown>) =>
     localStorage.setItem('scprism.session', JSON.stringify({ threads: {}, verdicts: [], stats: baseStats, ...over }))
 
@@ -125,15 +151,6 @@ describe('Memory page — status colors tell the truth', () => {
     // 9000 session tokens against the old hardcoded 8k cap produced "9.0k / 8k".
     expect(document.body.textContent).not.toMatch(/9\.0k/)
     expect(document.body.textContent).not.toMatch(/\/ 8k budget/)
-  })
-
-  it('paints a rising marginal-cost trend as a warning (trending up uses the warn class)', () => {
-    // Newest-first (ADD_VERDICT prepends); reversed = [0.02, 0.20] → cost rising.
-    seed({ verdicts: [makeVerdict(0.2), makeVerdict(0.02)] })
-    renderMemory()
-    const trend = screen.getByText(/marginal cost per task/)
-    expect(trend.textContent).toMatch(/trending up/)
-    expect(trend).toHaveClass('mem-cost__trend--up')
   })
 })
 

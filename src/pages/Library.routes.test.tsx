@@ -43,7 +43,7 @@ beforeEach(() => {
 describe('the old routes still render after the rail shrank', () => {
   it.each([
     ['/skills', 'Skill library'],
-    ['/memory', 'Memory & learning'],
+    ['/memory', 'Memory'],
     ['/vault', 'Your vault'],
     ['/training', 'Improve routing'],
   ])('%s renders its page', async (route, heading) => {

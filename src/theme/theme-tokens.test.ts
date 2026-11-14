@@ -218,9 +218,9 @@ describe('primary surfaces drive their fill from tokens, not raw light literals'
     expect(ws).toMatch(/\.msg__bubble\s*\{[^}]*color:\s*var\(--bubble-ink\)/s)
   })
 
-  it('the Stats/Memory cost area still fills from a token', () => {
+  it('the Stats cost area still fills from a token', () => {
+    // (Memory drew a second copy of this line until 2026-11-14.)
     expect(read('src/pages/Stats.tsx')).toContain('fill="var(--area-soft)"')
-    expect(read('src/pages/Memory.tsx')).toContain('fill="var(--area-soft)"')
   })
 })
 
@@ -443,10 +443,10 @@ describe('local and cloud are told apart, and dark cards are legible', () => {
     expect(stats).toMatch(/\.stats__seg-txt \{[^}]*color: var\(--v2-on-fill\)/)
     expect(stats).toMatch(/\.stats__sw--gold \{[^}]*background: var\(--v2-local\)/)
     expect(stats).toMatch(/\.stats__sw--cloud \{[^}]*background: var\(--v2-blue\)/)
-    expect(mem).toMatch(/\.mem-share__seg--local \{[^}]*background: var\(--v2-local\)/)
-    expect(mem).toMatch(/\.mem-share__seg--cloud \{[^}]*background: var\(--v2-blue\)/)
-    const memTsx = read('src/pages/Memory.tsx')
-    expect(memTsx).not.toMatch(/mem-legend__sw" style=\{\{ background: 'var\(--(gold|chart-dark)\)'/)
+    // (Memory's own share bar and savings card left that page on 2026-11-14 —
+    // Stats, Console and the rail's meter own those figures — so there is no
+    // third copy of these colours to keep in step.)
+    expect(mem).not.toMatch(/\.mem-share|\.mem-saves/)
     // Console: the local bar is the local green; every cloud provider is the
     // cloud blue and can never be handed the local one.
     expect(con).toMatch(/\.console__bar--local \{[^}]*background: var\(--v2-local\)/)
@@ -456,16 +456,11 @@ describe('local and cloud are told apart, and dark cards are legible', () => {
   })
   it('the headline number on a dark card is an on-dark colour, never the accent', () => {
     expect(stats).toMatch(/\.stats__hero-num \{[^}]*color: var\(--on-dark\)/)
-    expect(mem).toMatch(/\.mem-saves__num \{[^}]*color: var\(--on-dark\)/)
   })
   it('secondary text on a dark card is a tint of the on-dark colour in every theme', () => {
     expect(tokens).toMatch(/--on-dark-muted:\s*color-mix\(in srgb, var\(--v2-on-accent\) \d+%, transparent\)/)
     for (const rule of ['.stats__kicker-dark', '.stats__dim']) {
       const r = stats.match(new RegExp(rule.replace('.', '\\.') + ' \\{[^}]*\\}'))?.[0] ?? ''
-      expect(r, rule).toMatch(/color: var\(--on-dark-muted\)/)
-    }
-    for (const rule of ['.mem-saves__kicker', '.mem-saves__sub', '.mem-saves__note']) {
-      const r = mem.match(new RegExp(rule.replace('.', '\\.') + ' \\{[^}]*\\}'))?.[0] ?? ''
       expect(r, rule).toMatch(/color: var\(--on-dark-muted\)/)
     }
   })

@@ -17,20 +17,22 @@ import './Training.css'
 export default function Training() {
   return (
     <div className="training">
+      {/* Each thing once (2026-11-14): what is learned is said in the one
+          sentence under the title, and the panel heads itself — the head's
+          hint and a titled card around the panel both said it again. */}
       <PageHead
         title="Improve"
         em="routing"
-        hint="route policy · never the models’ weights"
         sub={
           <>
             The router learns which model should handle each task — local vs cloud — from your{' '}
             <b>real run outcomes</b>. This tunes <b>route policy</b>, never the models&rsquo;
-            weights; the step below just previews the change, and a trained router is adopted only
-            if it beats your current one and you choose to.
+            weights. A trained router is adopted only if it beats your current one and you choose
+            to.
           </>
         }
       />
-      <Card title="Learning step" hint="a dry run — nothing is adopted without you">
+      <Card>
         <LearningPanel />
       </Card>
     </div>

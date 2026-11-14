@@ -98,6 +98,59 @@ its "said once" rules stand.
 - Prove names, and proves, the AI the seat really runs on.
 - A skill chip is the skill's name; how it has scored is its hover.
 
+## Found by driving the installed app
+
+The room was run in the packaged app with a real team job (Manager on the
+subscription CLI, Researcher on the local model, Critic on the CLI). The
+board, the head count, the labelled handoff with packets, the seat lines and
+the outcome strip all read as drawn above. Four things did not, and are fixed:
+
+- **The chat did not follow the run.** The run's lines were written under the
+  last message and stayed below the fold. The chat now follows them.
+- **A table was printed as pipes.** A team asked for "a short table" answered
+  with one; the chat renderer had no tables. Pipe tables render as tables
+  (header, alignment, inline formatting in cells; a line with a pipe and no
+  separator row stays text).
+- **The reviewer's raw line was printed whole** — "[llm-judge] … | score=0.51
+  vs threshold=0.7 -> BELOW | envelope ok". Its sentence is the reason; the
+  score and its bar are a chip ("review: 0.51 — needs 0.70").
+- **A stand-in was printed as the Manager's answer.** With the local server
+  down, the lead's final turn came back as the gateway's "[offline:…]"
+  stand-in and went into an answer bubble. The app now says, in its own voice,
+  that no final answer was written, with the engine's cause.
+
+## The reviewer is told what was left unchanged (engine)
+
+A step asked to "Rewrite hello.md" once wrote a new `hello.md` in the wrong
+place; the reviewer, shown only the new file, scored it 1.00 and the project
+was marked done. The write-path cause was fixed earlier. The general half:
+every project step now measures, before and after its write, which written
+files are NEW and which files the step's own words name that existed and were
+NOT written. Both go into the measured evidence the reviewer reads ("FILES THE
+TASK NAMES THAT THIS RUN DID NOT CHANGE", and a note when a new file wears a
+named file's name). Only the step's text counts — not the project goal above
+it. The engine still never edits its reviewer's marks.
+
+## Each count says what it counts
+
+Console said "stable across 625 runs" beside "415 verdicts"; Stats said "126
+checked runs"; Work's pill said "115 runs recorded". They count different
+things. The pill is gone with the rest of Work's head; Console now says
+"engine runs" and "judged runs", the words Stats uses for the same figures.
+
+## The once-only pass, continued
+
+- **Automations:** one sentence under the title, in body type (there were two,
+  in monospace); the "Running now" card only while something runs; a manager
+  is named once, as the heading of its jobs, not again on every row.
+- **Skills:** the chip on each card is "portable"; the sentence it stood for
+  is its hover.
+- **Memory:** the page is about memory — the vault check, the three tiers, the
+  injection budget. The share bar (also the rail's meter, Stats and Console),
+  Tier-1 saves (Stats), the cost line (Stats), a run count and two cards that
+  only pointed at the Training tab are gone from it.
+- **Training:** what is learned is said once, and the panel heads itself.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

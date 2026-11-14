@@ -212,7 +212,10 @@ export default function Console() {
   const firstEval = evalScores.length ? evalScores[0] : stats.evalAvg
   const lastEval = evalScores.length ? evalScores[evalScores.length - 1] : stats.evalAvg
   const evalCount = dash ? dash.eval_trend.length : verdicts.length
-  const evalNote = `${firstEval.toFixed(2)} → ${lastEval.toFixed(2)} · ${evalCount} verdicts`
+  // "judged runs": the runs that reached the reviewer — the same words Stats
+  // uses for the same figure. It is a different count from the engine's runs
+  // in the drift line, and each says which it is.
+  const evalNote = `${firstEval.toFixed(2)} → ${lastEval.toFixed(2)} · ${evalCount} judged run${evalCount === 1 ? '' : 's'}`
   const evalPaths = useMemo(() => evalSpark(evalScores), [evalScores])
 
   // Drift — REAL fired drift signals when native (the top signal wins).
@@ -372,7 +375,7 @@ export default function Console() {
             ) : (
               <>
                 <div className="console__drift-title">No drift signals</div>
-                <div className="console__drift-desc">every run within envelope · eval, cache, and cost stable across {dash.runs} runs</div>
+                <div className="console__drift-desc">every run within envelope · eval, cache, and cost stable across {dash.runs} engine run{dash.runs === 1 ? '' : 's'}</div>
               </>
             )
           ) : (

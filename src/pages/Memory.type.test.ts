@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 // Memory page 2026-11-11. Monospace stays for paths and for token figures.
 const src = readFileSync('src/pages/Memory.tsx', 'utf8')
 
-const SENTENCES = ['okf__stats', 'okf__errnote', 'okf__clean', 'okf__reason', 'mem-saves__note', 'mem-share__empty']
+const SENTENCES = ['okf__stats', 'okf__errnote', 'okf__clean', 'okf__reason', 'mem-budget__note', 'tier__desc']
 
 describe('the Memory page sets its sentences as text', () => {
   for (const cls of SENTENCES) {
@@ -15,10 +15,9 @@ describe('the Memory page sets its sentences as text', () => {
     })
   }
   it('says "nothing measured" as a sentence, apart from the token figures', () => {
-    expect(src).toMatch(/className="mem-share__empty"/)
+    expect(src).toMatch(/className="mem-budget__note"/)
   })
-  it('paths and token figures keep their monospace', () => {
+  it('paths keep their monospace', () => {
     expect(src).toMatch(/okf__path mono/)
-    expect(src).toMatch(/mem-share__tokens mono/)
   })
 })

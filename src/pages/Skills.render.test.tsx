@@ -46,4 +46,30 @@ describe('the Skills page renders', () => {
     expect(screen.getByText(/tools your crew built/i)).toBeInTheDocument()
     expect(screen.getByText(/none yet/i)).toBeInTheDocument()
   })
+
+  // Seen in the installed app, 2026-11-14 (the once-only pass): every skill
+  // card carried the chip "portable markdown — usable by any agent runtime" —
+  // one sentence, four times over, on a page whose detail panel says the same
+  // thing again. The chip is a word; the sentence is its hover.
+  it('a portable skill says "portable" once per card, and the sentence is its hover', () => {
+    render(
+      <MemoryRouter initialEntries={['/skills']}>
+        <SettingsProvider>
+          <ConnectivityProvider>
+            <AppProvider>
+              <Skills />
+            </AppProvider>
+          </ConnectivityProvider>
+        </SettingsProvider>
+      </MemoryRouter>,
+    )
+    const chips = [...document.querySelectorAll('.skill-card .portable')]
+    expect(chips.length).toBeGreaterThan(0)
+    for (const chip of chips) {
+      expect(['portable', 'this app only']).toContain(chip.textContent)
+      expect(chip.getAttribute('title') ?? '').toMatch(/any agent runtime|only this app/)
+    }
+    expect(document.querySelectorAll('.skill-card').length).toBeGreaterThan(0)
+    expect(document.body.textContent).not.toMatch(/portable markdown — usable by any agent runtime.*portable markdown — usable by any agent runtime/s)
+  })
 })
