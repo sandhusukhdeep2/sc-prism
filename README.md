@@ -7,7 +7,8 @@
 [![Latest release](https://img.shields.io/github/v/release/sandhusukhdeep2/sc-prism?label=release)](https://github.com/sandhusukhdeep2/sc-prism/releases/latest)
 ![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20Silicon-lightgrey)
 
-**[Download for macOS](https://github.com/sandhusukhdeep2/sc-prism/releases/latest)** ·
+**[Download for macOS](https://github.com/sandhusukhdeep2/sc-prism/releases/latest/download/SC.Prism.dmg)** ·
+**[Release notes](https://github.com/sandhusukhdeep2/sc-prism/releases/latest)** ·
 **[Build from source](BUILDING.md)** ·
 **[Website](https://sandhusukhdeep2.github.io/sc-prism/)** ·
 **[Design docs](specs/00-project-blueprint.md)**
@@ -24,7 +25,7 @@ of the thing.
 
 ![SC Prism at a glance: you describe one job; a deterministic orchestrator staffs a board with a seat on each AI you have; every call passes your grant, the agent's own definition, a destructive-command denylist and a privacy floor; your own tests decide the verdict and everything lands on a hash-chained record — shown with four screenshots of the running app](assets/hero.png)
 
-<sup>The four panels above are real captures of this build in ordinary use —
+<sup>The four panels above are real captures of the app in ordinary use (0.2.0) —
 see [Look inside](#look-inside).</sup>
 
 <picture>
@@ -156,7 +157,8 @@ it — live, attributed, and real:
 
 ## Look inside
 
-Captures of the build you can download, in ordinary use — not mockups. Each
+Captures of the app in ordinary use — not mockups. They were taken on 0.2.0;
+nothing they show changed in 0.2.1. Each
 frame is the working area of the window; the sidebar is left out because on
 the Work page it lists the author's own projects by name. Nothing inside a
 frame was retouched and no figure was altered: every number is what the app
@@ -318,9 +320,9 @@ returned success whether or not it had blocked.
 
 Each one is now covered by a test that fails without the fix.
 
-Version 0.2.0 has not been put through that probe again, and this page will
+Version 0.2.1 has not been put through that probe again, and this page will
 not pretend it has. What gates it is the suite every commit must pass before
-it lands: 3,423 client tests, 57 in the Rust shell and 1,536 in the engine,
+it lands: 3,497 client tests, 57 in the Rust shell and 1,552 in the engine,
 all green on the tagged source — and the release notes list what was checked
 by hand in the installed app and what was not.
 
@@ -419,9 +421,9 @@ record.
 
 ## Install
 
-1. Download `SC.Prism.dmg` from the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest).
+1. Download [`SC.Prism.dmg`](https://github.com/sandhusukhdeep2/sc-prism/releases/latest/download/SC.Prism.dmg) (the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest) has the notes).
 2. Open it, drag **SC Prism** to Applications, launch.
-3. **First launch only:** v0.2.0 is signed with a Developer ID but not yet
+3. **First launch only:** this build is signed with a Developer ID but not yet
    notarised by Apple, so macOS will say it can't verify the app. Open
    **System Settings → Privacy & Security**, scroll to *Security*, and click
    **Open Anyway** next to SC Prism. (Or run

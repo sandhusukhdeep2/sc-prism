@@ -49,7 +49,9 @@
     line-height: 1.65;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+  /* Side padding only: `padding: 0 24px` here outranked the header's and each
+     section's own top and bottom padding, so every section sat on its rule. */
+  .wrap { max-width: 940px; margin: 0 auto; padding-inline: 24px; }
   a { color: inherit; }
 
   header { padding: 88px 0 56px; }
@@ -131,13 +133,18 @@
     Your own tests decide what counts as done, not the model that did the work.
   </p>
   <div class="cta">
-    <a class="btn" href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest">Download for macOS</a>
+    <a class="btn" href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest/download/SC.Prism.dmg">Download for macOS</a>
     <a class="btn btn--ghost" href="https://github.com/sandhusukhdeep2/sc-prism">View the source on GitHub</a>
   </div>
   <p class="req">
     Free and open source · signed · macOS 14+ on Apple&nbsp;Silicon. Bring your own AI: a Claude or
     ChatGPT subscription, API keys, or a local model server. Ships with no keys and
     phones home to nobody.
+  </p>
+  <p class="req" id="first-launch">
+    First launch: this build is signed but not yet notarised by Apple, so macOS will say it
+    can’t verify the app. Open System Settings → Privacy &amp; Security and click
+    <strong>Open Anyway</strong>. <a href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest">Release notes</a>
   </p>
 </header>
 
@@ -169,7 +176,7 @@
 
 <section class="wrap">
   <h2>Look inside</h2>
-  <p class="sub">Captures of the build you can download, in ordinary use — not mockups. Each frame is
+  <p class="sub">Captures of the app in ordinary use — not mockups. They were taken on 0.2.0; nothing they show changed in 0.2.1. Each frame is
     the working area of the window; the sidebar is left out because on the Work page it lists the
     author's own projects by name. Nothing inside a frame was retouched, and no figure was altered —
     every number is what the app measured on the runs behind it.</p>
@@ -267,7 +274,7 @@
 
 <section class="wrap">
   <h2>Proven, not claimed</h2>
-  <p class="sub">Every subsystem is probed against a shipped bundle — not mocked, not described. This is the most recent probe pass, run against the 0.1.1 bundle. Version 0.2.0 has not been put through it again; what gates that release is the suite every commit must pass — 3,423 client tests, 57 in the Rust shell and 1,536 in the engine.</p>
+  <p class="sub">Every subsystem is probed against a shipped bundle — not mocked, not described. This is the most recent probe pass, run against the 0.1.1 bundle. Version 0.2.1 has not been put through it again; what gates that release is the suite every commit must pass — 3,497 client tests, 57 in the Rust shell and 1,552 in the engine.</p>
   <div class="proof">
     <table>
       <tr><td class="pass">PASS</td><td>denylist refuses <code>rm -rf ~</code></td><td>destructive command blocked pre-exec</td></tr>
@@ -393,7 +400,7 @@
     built by SC Prism's crew, on the record.
   </p>
   <div class="cta" style="margin-top:26px">
-    <a class="btn" href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest">Download for macOS</a>
+    <a class="btn" href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest/download/SC.Prism.dmg">Download for macOS</a>
     <a class="btn btn--ghost" href="https://github.com/sandhusukhdeep2/sc-prism/blob/main/BUILDING.md">Build from source</a>
   </div>
 </section>
