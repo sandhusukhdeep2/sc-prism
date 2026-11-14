@@ -73,7 +73,6 @@
   0%, 100% { box-shadow: var(--v2-shadow-soft); }
   50%      { box-shadow: var(--v2-shadow); }
 }
-}
 
 /* ── reduced motion: static badges + a plain bar, every animation above
    accounted for. None of the classes above set opacity/transform/box-shadow

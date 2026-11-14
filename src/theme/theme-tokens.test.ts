@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -544,4 +545,48 @@ describe('the Agents page section note', () => {
     expect(r).not.toMatch(/font-mono/)
     expect(Number(r.match(/font-size: ([\d.]+)px/)?.[1] ?? 0)).toBeGreaterThanOrEqual(11.5)
   })
+})
+
+// A STRAY BRACE DROPS THE NEXT RULE (found 2026-11-14 in the build log: the
+// CSS minifier had been warning `Unexpected "}"` for a day). A lone `}` at the
+// top level of a stylesheet is swallowed into the prelude of the rule after
+// it, and that rule is thrown away — here it was a reduced-motion block. No
+// test read braces, so nothing failed.
+describe('every stylesheet’s braces balance', () => {
+  const files: string[] = []
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name)
+      if (statSync(p).isDirectory()) walk(p)
+      else if (p.endsWith('.css')) files.push(p)
+    }
+  }
+  walk('src')
+
+  it('finds the stylesheets', () => {
+    expect(files.length).toBeGreaterThan(20)
+  })
+
+  for (const file of files) {
+    it(`${file} opens and closes the same number of blocks, in order`, () => {
+      const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+      let depth = 0
+      let strayAtLine = 0
+      const lines = css.split('\n')
+      outer: for (let i = 0; i < lines.length; i++) {
+        for (const ch of lines[i]) {
+          if (ch === '{') depth++
+          else if (ch === '}') {
+            depth--
+            if (depth < 0) {
+              strayAtLine = i + 1
+              break outer
+            }
+          }
+        }
+      }
+      expect(strayAtLine, `a "}" with no block open, near line ${strayAtLine}`).toBe(0)
+      expect(depth, 'a block left open at the end of the file').toBe(0)
+    })
+  }
 })
