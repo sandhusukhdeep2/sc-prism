@@ -1260,6 +1260,10 @@ def run(
             tier1_result=t1,
             files_written=list((project_result or {}).get("files_written") or []),
             root=tier1_cwd or "",
+            # The step's own before/after measurement: which written files are
+            # NEW, and which files the task names were left as they were.
+            created=list((project_result or {}).get("created") or []),
+            named_unchanged=list((project_result or {}).get("named_unchanged") or []),
         )
         if (
             no_judge

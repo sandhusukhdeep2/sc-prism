@@ -70,6 +70,7 @@ JUDGE_EXCERPT_BUDGET = 6000       # chars of written-file excerpts in total
 # Hard ceiling on the whole "what this run produced" block. `format_evidence`
 # never returns more than this, whatever the file set looks like.
 JUDGE_EVIDENCE_CHAR_BUDGET = 8000
+JUDGE_NAMED_UNCHANGED_MAX = 12    # task-named, unchanged files listed by name
 
 
 # --------------------------------------------------------------------------
@@ -241,8 +242,14 @@ class RunEvidence:
     produce.
     """
 
-    # {"path", "bytes", "excerpt", "excerpt_truncated", "missing"} per file.
+    # {"path", "bytes", "excerpt", "excerpt_truncated", "missing"} per file;
+    # plus "created": True for a file that did not exist before this run.
     files: List[Dict[str, Any]] = field(default_factory=list)
+    # Files the TASK NAMES that existed before the run and that the run did NOT
+    # write. Measured by the project step (project.py `post`), never inferred:
+    # the reviewer was once shown a new file in the wrong place and passed the
+    # run, never having been told the named file was untouched (2026-11-14).
+    named_unchanged: List[str] = field(default_factory=list)
     total_bytes: int = 0
     root: str = ""
     # The REAL Tier-1 outcome. `ran` is False when Tier-1 was never handed to us
@@ -297,6 +304,8 @@ def build_evidence(
     root: str = "",
     excerpt_budget: int = JUDGE_EXCERPT_BUDGET,
     per_file: int = JUDGE_EXCERPT_PER_FILE,
+    created: Optional[List[str]] = None,
+    named_unchanged: Optional[List[str]] = None,
 ) -> RunEvidence:
     """Measure what a run produced. Deterministic, zero tokens, best-effort I/O.
 
@@ -306,8 +315,16 @@ def build_evidence(
     it is proof the write actually landed. An unreadable/absent path is recorded
     as `missing` rather than silently dropped, and no I/O error may ever take a
     run down (this is an evidence gatherer, not a gate).
+
+    `created` — which of `files_written` did not exist before this run — and
+    `named_unchanged` — files the task names that existed before the run and
+    were not written by it — are the project step's own before/after
+    measurement (project.py `post`). Both default to nothing, which leaves the
+    record, and the block rendered from it, exactly as they were.
     """
     ev = RunEvidence(root=root or "")
+    ev.named_unchanged = [str(p) for p in (named_unchanged or [])]
+    new_files = {str(p) for p in (created or [])}
     if tier1_result is not None:
         ev.tier1_ran = True
         ev.tier1_passed = bool(getattr(tier1_result, "passed", False))
@@ -325,6 +342,8 @@ def build_evidence(
             "path": str(rel), "bytes": 0, "excerpt": "",
             "excerpt_truncated": False, "missing": False,
         }
+        if str(rel) in new_files:
+            entry["created"] = True
         abs_path = os.path.join(root, str(rel)) if root else str(rel)
         try:
             entry["bytes"] = os.path.getsize(abs_path)
@@ -433,6 +452,8 @@ def format_evidence(ev: Optional[RunEvidence], mode: str = "") -> str:
         )
         for f in shown:
             mark = "  [MISSING ON DISK]" if f.get("missing") else ""
+            if f.get("created") and not f.get("missing"):
+                mark += "  [NEW FILE — did not exist before this run]"
             lines.append(f"    - {f['path']} ({f['bytes']} bytes){mark}")
         if rest:
             rest_bytes = sum(int(f.get("bytes", 0)) for f in rest)
@@ -441,6 +462,39 @@ def format_evidence(ev: Optional[RunEvidence], mode: str = "") -> str:
                 f"(list elided by the evaluation harness to stay inside its "
                 f"prompt budget — these files DO exist)."
             )
+
+        # --- What the task NAMED and this run left alone. --------------------
+        # Stated BEFORE the excerpts so the last-resort clamp below can never
+        # cut it: it is the one fact a reviewer reading file content cannot see.
+        if ev.named_unchanged:
+            named = ev.named_unchanged[:JUDGE_NAMED_UNCHANGED_MAX]
+            more = len(ev.named_unchanged) - len(named)
+            lines.append("  FILES THE TASK NAMES THAT THIS RUN DID NOT CHANGE:")
+            for rel in named:
+                lines.append(f"    - {rel}")
+            if more > 0:
+                lines.append(
+                    f"    - ... and {more} more (list elided by the evaluation "
+                    f"harness to stay inside its prompt budget)."
+                )
+            lines.append(
+                "    Each existed before the run and is exactly as it was — "
+                "measured on disk, not inferred. If the task asked for a change "
+                "to one of them, that change was NOT made, whatever the reply "
+                "says."
+            )
+            # The exact shape of a write that landed in the wrong place: a NEW
+            # file wearing the file name of one the task named.
+            base_of = {os.path.basename(rel): rel for rel in ev.named_unchanged}
+            for f in ev.files:
+                twin = base_of.get(os.path.basename(str(f.get("path", ""))))
+                if f.get("created") and twin and twin != f.get("path"):
+                    lines.append(
+                        f"    NOTE: the new file {f['path']} has the same file "
+                        f"name as {twin}, which the task names and which was "
+                        f"left unchanged. A change meant for {twin} may have "
+                        f"been written to the wrong place."
+                    )
 
         excerpted = [f for f in ev.files if f.get("excerpt")]
         if excerpted:

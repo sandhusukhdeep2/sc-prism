@@ -1025,6 +1025,18 @@ def named_source_files(
     return (by_path + by_name)[: max(0, limit)]
 
 
+_STEP_LINE = re.compile(r"^Step \d+ of \d+:\s*(.*)\Z", re.M | re.S)
+
+
+def _step_text(intent: str) -> str:
+    """The step's own words, without the project goal the app writes above
+    them ("Project goal: …\\nStep N of M: …"). A file the GOAL mentions is not
+    a file this STEP was asked to change. An intent with no step line — a job
+    typed directly, a refine — is returned whole."""
+    m = _STEP_LINE.search(intent or "")
+    return m.group(1) if m else (intent or "")
+
+
 def step_source_files(
     project_dir: str, text: str, limit: int = REFINE_SOURCE_MAX_FILES
 ) -> List[str]:
@@ -1865,13 +1877,27 @@ def run_project(
         # apply_file_ops later rejects simply never lands in "written",
         # so it's naturally excluded from "overwrote" below.
         pre_existing: Dict[str, bool] = {}
+        root = os.path.realpath(project_dir)
         if existing_mode:
-            root = os.path.realpath(project_dir)
             for path, _content in filtered_ops:
                 norm = os.path.normpath(path)
                 dest = os.path.join(root, norm)
                 if os.path.exists(dest):
                     pre_existing[norm] = True
+
+        # THE STEP'S OWN BEFORE/AFTER MEASUREMENT (every mode), taken BEFORE
+        # anything is written: which destinations already exist — as
+        # apply_file_ops will resolve them — and which existing files the task
+        # NAMES. After the write these say which written files are NEW and
+        # which named files were left exactly as they were. Seen 2026-11-14: a
+        # step told to "Rewrite hello.md" wrote a new hello.md somewhere else,
+        # and the reviewer, shown only the new file, passed it.
+        existed_before = set()
+        for path, _content in filtered_ops:
+            dest_rel = os.path.normpath(_within_project(path, root))
+            if os.path.exists(os.path.join(root, dest_rel)):
+                existed_before.add(dest_rel)
+        named_before = named_source_files(project_dir, _step_text(intent))
 
         result = apply_file_ops(
             filtered_ops, project_dir, never_touch, grants=grants, agent=writer_agent
@@ -1891,6 +1917,14 @@ def run_project(
             project_dict["overwrote"] = [
                 p for p in result["written"] if p in pre_existing
             ]
+        # Recorded only when there is something to say, so a step with nothing
+        # to report writes the verdict it always wrote.
+        created = [p for p in result["written"] if p not in existed_before]
+        named_unchanged = [n for n in named_before if n not in result["written"]]
+        if created:
+            project_dict["created"] = created
+        if named_unchanged:
+            project_dict["named_unchanged"] = named_unchanged
         return project_dict
 
     # Attempt lineage (F1). Recorded on the Verdict BEFORE it is written, so the
