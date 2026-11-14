@@ -423,8 +423,13 @@ record.
 
 1. Download [`SC.Prism.dmg`](https://github.com/sandhusukhdeep2/sc-prism/releases/latest/download/SC.Prism.dmg) (the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest) has the notes).
 2. Open it, drag **SC Prism** to Applications, launch.
-3. **First launch only:** this build is signed with a Developer ID but not yet
-   notarised by Apple, so macOS will say it can't verify the app. Open
+3. **First launch only:** this build is signed with a Developer ID (team
+   `BRBG2SV36D`) but not yet notarised by Apple, so macOS will say it can't
+   verify the app. Check what you downloaded before you override that:
+   `shasum -a 256 SC.Prism.dmg` should print the SHA-256 given in the
+   [release notes](https://github.com/sandhusukhdeep2/sc-prism/releases/latest), and
+   `codesign -dv "/Applications/SC Prism.app"` should show
+   `TeamIdentifier=BRBG2SV36D`. Then open
    **System Settings → Privacy & Security**, scroll to *Security*, and click
    **Open Anyway** next to SC Prism. (Or run
    `xattr -dr com.apple.quarantine "/Applications/SC Prism.app"`.) A notarised

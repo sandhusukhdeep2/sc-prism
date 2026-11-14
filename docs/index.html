@@ -142,9 +142,11 @@
     phones home to nobody.
   </p>
   <p class="req" id="first-launch">
-    First launch: this build is signed but not yet notarised by Apple, so macOS will say it
-    can’t verify the app. Open System Settings → Privacy &amp; Security and click
-    <strong>Open Anyway</strong>. <a href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest">Release notes</a>
+    First launch: the app is signed with a Developer ID (team BRBG2SV36D) but not yet notarised by
+    Apple, so macOS will say it can’t verify it. Check your download before you override that:
+    <code>shasum -a 256 SC.Prism.dmg</code> should print the SHA-256 given in the
+    <a href="https://github.com/sandhusukhdeep2/sc-prism/releases/latest">release notes</a>. Then open System Settings → Privacy &amp; Security and click
+    <strong>Open Anyway</strong>.
   </p>
 </header>
 
