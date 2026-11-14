@@ -2306,7 +2306,7 @@ interface AppContextValue {
   // interview while it has no plan yet, else `sendIntent` (companion).
   send: (text: string, displayText?: string, route?: RouteHint, image?: EngineImage) => Promise<void>
   clearSession: () => void
-  runProject: (projectId: string) => Promise<void>
+  runProject: (projectId: string, opts?: { preAnswered?: boolean }) => Promise<void>
   /** Answer a build's parked "one more try?". With the driver still waiting
    *  this hands it the answer. Given the project's id it ALSO works when no
    *  driver is waiting (the app was restarted with the question open): Yes
@@ -4154,15 +4154,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // and the yes/no "one more refine?" park). There is no sim fallback here:
   // a project run is always the real engine, or it honestly refuses to start.
   const projectRunId = useRef(0)
-  const projectRequestRef = useRef<'idle' | 'pending' | 'granted' | 'declined'>('idle')
-  // A Yes given while NO driver was waiting (see `answerProjectRequest`): the
-  // build it starts finds its question already answered and does not ask again.
-  const projectPreAnswerRef = useRef<string | null>(null)
+  // The parked "one more try?" and its answer — KEYED BY PROJECT, so an answer
+  // meant for one project can never be taken by another project's waiting
+  // build. null = nothing is parked.
+  const projectRequestRef = useRef<{
+    projectId: string
+    state: 'pending' | 'granted' | 'declined'
+  } | null>(null)
 
   const runProject = useMemo(() => {
-    return async (projectId: string): Promise<void> => {
+    return async (projectId: string, opts?: { preAnswered?: boolean }): Promise<void> => {
       const project = getProjects().projects.find((p) => p.id === projectId)
       if (!project) return
+      // A Yes given while no driver was waiting (see `answerProjectRequest`)
+      // travels with THIS call and nowhere else: it is spent on the first
+      // question this run meets, and a run that is refused before it starts
+      // takes it with it. It is never kept where a later run could find it.
+      let preAnswered = opts?.preAnswered === true
 
       const notify = (kind: Notice['kind'], text: string): void => {
         dispatch({ type: 'ADD_NOTICE', notice: { id: nextNoticeId(), projectId, kind, text } })
@@ -4190,7 +4198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       const runId = ++projectRunId.current
-      projectRequestRef.current = 'idle'
+      projectRequestRef.current = null
 
       if (project.plan.length === 0) {
         notify('attention', `«${project.name}» has no plan to run yet.`)
@@ -4535,10 +4543,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             )
           }
 
-          if (action.kind === 'ask-extra-refine' && projectPreAnswerRef.current === projectId) {
+          if (action.kind === 'ask-extra-refine' && preAnswered) {
             // Already answered Yes — by the button that started this run. The
-            // question is not put a second time.
-            projectPreAnswerRef.current = null
+            // question is not put a second time, and the answer is now spent.
+            preAnswered = false
             extraGranted = true
             updateProject(projectId, { status: 'running' })
             pending = nextRunAction(
@@ -4560,13 +4568,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // "live" and the orb pulsed the whole time — activity with no engine
             // behind it, which is the one thing this app must never show.
             pauseLiveRun(buildLiveId, true)
-            projectRequestRef.current = 'pending'
-            while (projectRequestRef.current === 'pending') {
+            projectRequestRef.current = { projectId, state: 'pending' }
+            while (
+              projectRequestRef.current?.projectId === projectId &&
+              projectRequestRef.current.state === 'pending'
+            ) {
               if (projectRunId.current !== runId) return
               await loopDelay(140)
             }
-            const decision = projectRequestRef.current
-            projectRequestRef.current = 'idle'
+            // Only an answer addressed to THIS project is a decision; anything
+            // else (the slot cleared or taken) reads as "not granted".
+            const answered = projectRequestRef.current
+            const decision = answered?.projectId === projectId ? answered.state : 'declined'
+            if (answered?.projectId === projectId) projectRequestRef.current = null
             if (projectRunId.current !== runId) return
             // Answered — the engine is about to run again, so the card is live
             // again. (A supersede/throw exits above; the `finally` clears the
@@ -4945,8 +4959,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // off the ref and continues (granted) or finishes 'attention' (declined).
   const answerProjectRequest = useMemo(() => {
     return (grant: boolean, projectId?: string): void => {
-      if (projectRequestRef.current === 'pending') {
-        projectRequestRef.current = grant ? 'granted' : 'declined'
+      // A driver is waiting — and it is THIS project's (or the caller named
+      // none, the older call shape): hand it the answer.
+      const waiting = projectRequestRef.current
+      if (waiting?.state === 'pending' && (!projectId || waiting.projectId === projectId)) {
+        projectRequestRef.current = { projectId: waiting.projectId, state: grant ? 'granted' : 'declined' }
         return
       }
       // NO DRIVER IS WAITING — the app was restarted with the question open.
@@ -4958,8 +4975,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const project = getProjects().projects.find((p) => p.id === projectId)
       if (!project || project.status !== 'awaiting') return
       if (grant) {
-        projectPreAnswerRef.current = projectId
-        void runProject(projectId)
+        void runProject(projectId, { preAnswered: true })
       } else {
         updateProject(projectId, { status: 'attention' })
       }
@@ -5070,7 +5086,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (): void => {
       clearStoredSession()
       projectRunId.current += 1
-      projectRequestRef.current = 'idle'
+      projectRequestRef.current = null
       dispatch({ type: 'RESET_SESSION' })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
