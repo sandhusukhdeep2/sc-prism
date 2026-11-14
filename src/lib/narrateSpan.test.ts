@@ -137,6 +137,23 @@ describe('narrateSpan — the span → sentence table', () => {
       expected: 'nothing to verify yet — the workspace has no project manifest, so your checks were skipped',
     },
     {
+      // A chat turn in a project's room HAS a project bound and a verify
+      // command set — the engine skips the gate because a conversation changed
+      // nothing (verifier.CONVERSATION_MESSAGE). "No project bound" would be
+      // false, and so would "no manifest yet".
+      what: 'Tier-1 skipped because the turn was a conversation',
+      span: span({
+        name: 'tier1', type: 'tool_exec', status: 'ok',
+        attrs: {
+          passed: true, skipped: true, commands: [], skipped_commands: ['npm test'],
+          skip_reason:
+            "skipped — a conversation changes no files, so there was nothing of this turn's " +
+            'to check. A verify command is configured and was not run.',
+        },
+      }),
+      expected: 'a conversation — nothing of this turn’s to check, so your checks were not run',
+    },
+    {
       what: 'Tier-1 skipped because no verify command is configured at all',
       span: span({
         name: 'tier1', type: 'tool_exec', status: 'ok',

@@ -23,7 +23,7 @@ from .contract import TaskContract, parse
 from .planner import plan
 from . import conductor
 from .dispatcher import dispatch, ModelCall, ModelResult
-from .verifier import tier1, tier2, CommandResult, Tier1Result, Tier2Result
+from .verifier import tier1, tier1_conversation, tier2, CommandResult, Tier1Result, Tier2Result
 from .writeback import UNJUDGED_REASON
 from .writeback import Verdict
 from .gateway import Gateway, guard_cloud_tool_result, note_stand_in
@@ -1211,6 +1211,10 @@ def run(
                     ],
                     tokens=0,
                 )
+            elif tier1_commands and str(getattr(contract, "mode", "") or "") == "converse":
+                # A conversation is not put through the project's checks: it
+                # changed nothing for them to check (verifier.CONVERSATION_MESSAGE).
+                t1 = tier1_conversation(tier1_commands)
             else:
                 t1 = tier1(tier1_commands or [], cwd=tier1_cwd)
             t1s.set(

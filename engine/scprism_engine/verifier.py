@@ -157,6 +157,34 @@ NOTHING_TO_VERIFY_MESSAGE = (
     "run on that project's work."
 )
 
+# What the gate says about a CONVERSATION (contract mode "converse"). A chat
+# turn typed in a project's room is launched with the user's verify command
+# and that project's folder, and the loop used to run the command over it:
+# `npm test` on "hello", recorded as a failed run with "task not done". A
+# conversation writes nothing — the folder is as it was before the turn — so
+# there is nothing of this run's to check, and on a real project every question
+# asked in the room would cost the whole test suite. Skipped, out loud, with
+# the commands it did not run (`skipped_commands`), like every other skip.
+CONVERSATION_MESSAGE = (
+    "skipped — a conversation changes no files, so there was nothing of this "
+    "turn's to check. A verify command is configured and was not run: it "
+    "checks work done in the project, and this turn did none. This is neither "
+    "a pass nor a test failure."
+)
+
+
+def tier1_conversation(commands: List[str]) -> "Tier1Result":
+    """The Tier-1 result for a conversation turn: skipped, never run."""
+    return Tier1Result(
+        passed=True,
+        commands=[],
+        tokens=0,
+        skipped=True,
+        skip_reason=CONVERSATION_MESSAGE,
+        skipped_commands=list(commands),
+    )
+
+
 # What the gate says when it was handed no commands at all — this run simply
 # has nothing to check. Still a skip, still said out loud: an empty gate must
 # never read as "your checks passed".

@@ -280,6 +280,50 @@ board still shows the project's whole team; two seats light.
 
 A rule, never a model's choice.
 
+**A cut never moves a grant.** Who may write is settled once, for the whole
+team (`buildWriter`). The first version settled it again on the two seats,
+which could hand `writes` to a seat the team's settlement had not given it to
+(the user gives Writes to the Reviewer; a cut of "Implementer + Planner",
+settled afresh, asked the Implementer for it), and could turn a gated team
+into an ungated pair. A cut is now two seats OF that settlement — the seat
+that writes for the team and one other — each holding exactly what it held
+there; and if a cut ever came back with no grant table while its team has
+one, the team's is sent.
+
+## Why the background jobs were failing (found 2026-11-15)
+
+Read from the recorded runs of the last three days (46 runs).
+
+- **Manager report jobs — four of the last five failed, every one the same
+  way.** Reply: "[incomplete: I ran out of tool turns (6 used)…]". Verdict:
+  "token_budget: 207245 > 60000" (123,507; 177,141; 80,132). A report job was
+  given the wake's token budget and its tool-turn cap, and not the one bound
+  that made the wake work: one step. The engine therefore planned it as
+  understand → locate → produce — three tool loops of six turns each, inside
+  a budget sized for one. It now asks for one step (`WAKE_STEPS`), as the
+  comment above the call always said it did.
+- **A "hello" typed in a project's room was recorded as a failed run**
+  ("tier-1 failed; tier-2 did not run; 1 governance block"). A chat turn in a
+  project's room is launched with the user's verify command and that
+  project's folder, and the loop ran the command over the chat turn: `npm
+  test`, in a folder with no package.json, on a greeting. A conversation
+  changes no files, so the engine now skips Tier-1 for a converse turn — out
+  loud, with the commands it did not run (`verifier.CONVERSATION_MESSAGE`).
+  A task in the same folder is still checked.
+- **Heartbeats — twelve of twenty-four failed, for two reasons that are not
+  faults of the app.** Seven: "claude exited 1: You've hit your session
+  limit" — the subscription the primary runs on was used up; the run is
+  recorded as unanswered, which is what happened. Five: the reviewer scored
+  the wake below 0.70, with reasons that hold — a wake that said it had read
+  and written vault notes on a wake that is given no vault tools, and one
+  that ended still asking for a tool.
+
+Not changed, and worth a decision: while the primary's session limit is
+spent the heartbeat still wakes every hour and records another unanswered
+run; and when the reviewer's own model cannot be reached, Tier-2 falls back
+to a heuristic that scored those no-answer wakes 0.86 "ok" (the verdict still
+failed, on the no-answer rule).
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

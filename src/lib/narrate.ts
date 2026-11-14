@@ -386,7 +386,13 @@ export function narrateSpan(s: EngineSpan): string {
       // bound" would be false — so the engine's own reason tells them apart.
       const unrun = Array.isArray(a.skipped_commands) ? a.skipped_commands : []
       if (unrun.length > 0) {
-        return String(a.skip_reason ?? '').includes('workspace has no project')
+        const why = String(a.skip_reason ?? '')
+        // A chat turn in a project's room: a project IS bound and a command
+        // IS set — the gate was not run because the turn changed nothing.
+        if (why.includes('a conversation changes no files')) {
+          return 'a conversation — nothing of this turn’s to check, so your checks were not run'
+        }
+        return why.includes('workspace has no project')
           ? 'nothing to verify yet — the workspace has no project manifest, so your checks were skipped'
           : 'nothing to verify — no project bound, so your checks were skipped'
       }

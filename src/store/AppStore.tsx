@@ -3585,11 +3585,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // a 4-6 tok/s local model is what made the wall matter at all. A
           // DISPATCH runs the full verified pipeline the user approved — its
           // envelope is the pipeline's own, unchanged.
+          //
+          // …AND ONE STEP (WAKE_STEPS). The budget and the turn cap were
+          // copied from the wake and the step count was not, so the engine
+          // planned a report as understand -> locate -> produce: three tool
+          // loops of six turns inside a budget sized for one. Four of five
+          // recorded runs ended "[incomplete: I ran out of tool turns]" with
+          // the envelope breached two to three times over.
           kind === 'report'
             ? runNativeTask(
                 intent,
                 vault,
-                providers,
+                { ...providers, steps: WAKE_STEPS },
                 mgrRunId,
                 undefined,
                 undefined,

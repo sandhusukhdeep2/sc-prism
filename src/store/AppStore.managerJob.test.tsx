@@ -329,4 +329,27 @@ describe('a timed-out manager job says WE stopped it — never "provider offline
     expect(call[6]).toBeGreaterThan(0)
     expect(call[7]).toBeGreaterThan(0)
   })
+
+  // WHY THE OWNER'S MANAGER JOBS FAILED (found 2026-11-15, four of the last
+  // five). The report job was given the wake's token budget and tool-turn cap
+  // — and not the one bound that made the wake work: ONE STEP. So the engine
+  // planned it as understand -> locate -> produce, three tool loops each with
+  // their own six turns, and every recorded run ends the same way:
+  //   reply:   "[incomplete: I ran out of tool turns (6 used) …]"
+  //   verdict: "token_budget: 207245 > 60000" (123,507; 177,141; 80,132)
+  // The same research three times, inside a budget sized for doing it once.
+  it('a report job is ONE piece of work, so it plans one step — like the wake', async () => {
+    seedStore(withDueJob)
+    h.runNativeTask.mockResolvedValue(reply('All notes healthy.'))
+    await boot()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+
+    expect(h.runNativeTask).toHaveBeenCalledTimes(1)
+    // [2] is the providers/options object the engine launch reads `steps` from.
+    const providers = h.runNativeTask.mock.calls[0][2] as { steps?: number }
+    expect(providers.steps).toBe(1)
+  })
 })
