@@ -169,45 +169,47 @@
 
 <section class="wrap">
   <h2>Look inside</h2>
-  <p class="sub">Captures of the shipping build, not mockups. The company, the projects and the
-    files in them are invented so that no personal data appears. Nothing on these six was retouched,
-    and no figure was altered — every number is what the app measured on the runs behind it.</p>
+  <p class="sub">Captures of the build you can download, in ordinary use — not mockups. Each frame is
+    the working area of the window; the sidebar is left out because on the Work page it lists the
+    author's own projects by name. Nothing inside a frame was retouched, and no figure was altered —
+    every number is what the app measured on the runs behind it.</p>
   <div class="shots">
     <figure>
-      <img src="assets/shots/01-work.png" alt="The work board mid-run: three named seats — lead, researcher and critic — each showing the model behind it and the tokens it returned, and a badge reading that six vault notes were read and stayed on this Mac.">
-      <figcaption><b>One board, and a live account of who is on it</b>
-        Every seat named, with the model actually behind it and what it sent back. Work that touched
-        your notes says so — and says it never left the machine.</figcaption>
+      <img src="assets/shots/01-work.png" alt="The Manager's room mid-run. A team board shows three seats — Manager, Researcher and Critic — each with the AI it runs on, its state and its tokens; packets travel the handoff from Researcher to Critic, whose ring is breathing. Under the question in the chat, three lines read: Manager answered and handed to Researcher; Researcher searched the web, read two sites, answered and handed to Critic; Critic is thinking.">
+      <figcaption><b>Your team on a board, and the run written out as it happens</b>
+        Every seat with its name, the AI actually behind it, what it is doing and its tokens. Under
+        the question, one line per seat says what it did — each from a recorded step.</figcaption>
     </figure>
     <figure>
-      <img src="assets/shots/02-agents.png" alt="The agents page: five system agents and a four-agent project team, each card carrying a model badge reading local, Claude or Gemini.">
-      <figcaption><b>Your crew, and which AI each one runs on</b>
-        Agents are markdown files in your vault, not rows in a database. Each carries its own
-        charter, its own skills and its own model.</figcaption>
+      <img src="assets/shots/02-agents.png" alt="The agents page: five built-in agents — Planner, Implementer, Reviewer / Verifier, Researcher, Retrieval — each card carrying a badge reading Claude or local, the line proven in real runs, its skills by name, and its own count of turns and tokens.">
+      <figcaption><b>Your crew, and where each seat really runs</b>
+        Agents are markdown files in your vault, not rows in a database. Each card shows the AI its
+        seat runs on, and whether it is proven — by a one-call proof or by turns it really answered.</figcaption>
     </figure>
     <figure>
-      <img src="assets/shots/03-skills.png" alt="The skill library with four portable SKILL.md skills, and above them two tools the crew built for itself: one scope-approved but not yet proven, one quarantined for asking for access it never declared.">
+      <img src="assets/shots/03-skills.png" alt="The skill library: two crew-built tools held at the gates — one scope-approved and not yet proven, one quarantined — above four portable skills, each with its uses and pass rate, three of them marked underperforming.">
       <figcaption><b>Skills it can use — and tools it builds when none fit</b>
-        The open <code>SKILL.md</code> format, so a skill written for another runtime works here.
-        A tool the crew writes itself stays inert until it passes four gates.</figcaption>
+        The open <code>SKILL.md</code> format, so a skill written for another runtime works here,
+        and each card says how it has really scored. A tool the crew writes itself stays inert until
+        it passes four gates.</figcaption>
     </figure>
     <figure>
-      <img src="assets/shots/04-ais.png" alt="Provider settings: Claude connected on a Pro or Max subscription and set as primary, OpenAI switched off, Gemini connected by API key with the credential held by the gateway and never shown again.">
+      <img src="assets/shots/04-ais.png" alt="The Your AIs settings: a local model connected at an address on this Mac, with a panel of measurements taken here — tokens per second, mean judged quality, and the kinds of work it is the best measured choice for.">
       <figcaption><b>Your AIs, on your terms</b>
-        A subscription, an API key, a local server, or all three — each switched on separately.
-        Keys go to the gateway and are never rendered back into the interface.</figcaption>
+        A subscription, an API key, a local server, or all three — each switched on separately. A
+        local model is measured where it runs. Keys go to the gateway and are never rendered back.</figcaption>
     </figure>
     <figure>
-      <img src="assets/shots/05-rules.png" alt="The rules review: paths never touched by any agent, actions that always ask first, the verify command that must pass before work is trusted, and the policy for which AI is allowed to handle what.">
-      <figcaption><b>Rules in your words, not a config file</b>
-        What it may never touch, what it must ask about first, which check has to pass before any
-        work is trusted, and which AI is allowed to see what.</figcaption>
-    </figure>
-    <figure>
-      <img src="assets/shots/09-console.png" alt="The governance console: token burn split between the local model and Claude with the share of runs that stayed on this Mac, hook latency and fire-rate, a drift monitor, and eval scores with a compliance export button.">
+      <img src="assets/shots/05-console.png" alt="The governance console: token burn split between the local model and Claude with 67% of tokens on this Mac, hook latency and fire-rate with no blocks and no hook errors, a drift alert reporting that the eval score fell, eval scores with a compliance export button, and a table of recent runs with their outcomes.">
       <figcaption><b>The governance console</b>
         Burn by provider, hook latency and fire-rate, drift across runs, and the eval scores behind
-        the verdicts — with the whole hash-chained record exportable.</figcaption>
+        the verdicts. On the day of this capture the drift monitor was raising an alert — and says so.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/shots/06-stats.png" alt="The stats page: 55 failures blocked by deterministic checks across 126 checked runs, with the runs that could not be verified stated beside it; token share by route at 67% local; a cache card; the eval score trend; and cost over time.">
+      <figcaption><b>Where the money and the checks actually went</b>
+        A measurement, not a promise: how much stayed on this Mac, what the cloud cost, and how many
+        failures free deterministic checks stopped before any AI judge was paid for.</figcaption>
     </figure>
   </div>
 </section>
@@ -265,7 +267,7 @@
 
 <section class="wrap">
   <h2>Proven, not claimed</h2>
-  <p class="sub">Every subsystem is probed against the shipped bundle before release — not mocked, not described. This is the most recent pass, against the build you can download.</p>
+  <p class="sub">Every subsystem is probed against a shipped bundle — not mocked, not described. This is the most recent probe pass, run against the 0.1.1 bundle. Version 0.2.0 has not been put through it again; what gates that release is the suite every commit must pass — 3,423 client tests, 57 in the Rust shell and 1,536 in the engine.</p>
   <div class="proof">
     <table>
       <tr><td class="pass">PASS</td><td>denylist refuses <code>rm -rf ~</code></td><td>destructive command blocked pre-exec</td></tr>

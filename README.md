@@ -24,8 +24,8 @@ of the thing.
 
 ![SC Prism at a glance: you describe one job; a deterministic orchestrator staffs a board with a seat on each AI you have; every call passes your grant, the agent's own definition, a destructive-command denylist and a privacy floor; your own tests decide the verdict and everything lands on a hash-chained record — shown with four screenshots of the running app](assets/hero.png)
 
-<sup>The four panels above are real captures of this build. The company and the
-projects in them are invented — see [Look inside](#look-inside).</sup>
+<sup>The four panels above are real captures of this build in ordinary use —
+see [Look inside](#look-inside).</sup>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-dark.svg">
@@ -132,109 +132,96 @@ AI tools ask you to trust a black box. SC Prism is built on the opposite bet:
 
 ## What you can watch it do
 
-When you send a task, the chat shows the work happening — live, attributed,
-and real:
+Every room opens on its team, and when you send a job you watch that team do
+it — live, attributed, and real:
 
-- **Every seat speaks for itself.** Each agent's contribution appears as its
-  own bubble — agent name · AI brand · board turn — with the manager's
-  synthesis labeled as exactly that.
-- **The stream is the evidence, not a summary of it.** Each file added or
-  updated appears by name, each terminal command with its exit code, each web
-  search with its query, each vault file read — every row expandable into
-  honest IN/OUT detail. Nothing summarized away, nothing invented.
-- **Governance is part of the story.** A blocked call shows ⛔ with the rule
-  that blocked it. A sensitive result fetched from the web but withheld from
-  the cloud shows 🔒. Held actions say they're waiting for your approval.
+- **The team is on a board, always.** Each seat shows its name, the AI it runs
+  on, what it is doing right now and the tokens it has used. The seat at work
+  breathes; the handoff in flight is drawn between the two seats it joins.
+- **The run is written out as it happens.** One line per stretch of one seat's
+  work — who, on which AI, what it searched, read and answered, and who it
+  handed to — each line from a recorded step. The full step log opens beside
+  the chat on request.
+- **Every seat's turn is kept.** When the run ends, each turn is one line that
+  opens the whole contribution exactly as it was written, with the manager's
+  synthesis standing on its own under them.
+- **One strip says how it ended.** Whether it passed, what your checks and the
+  reviewer said, how much stayed on your Mac, what it cost — and a run that
+  did not pass says why, in the engine's own words.
+- **Governance is part of the story.** A blocked call is marked on the line of
+  the seat that tried it. Notes read on a local seat are marked as having
+  stayed local, and results withheld from the cloud are counted.
+- **You can stop it.** A team run or a build stops from the board, and a
+  stopped build resumes from the step it was on.
 
 ## Look inside
 
-Captures of the shipping build, not mockups. The company, the projects and the
-files in them are invented so that nothing personal appears.
+Captures of the build you can download, in ordinary use — not mockups. Each
+frame is the working area of the window; the sidebar is left out because on
+the Work page it lists the author's own projects by name. Nothing inside a
+frame was retouched and no figure was altered: every number is what the app
+measured on the runs behind it.
 
-Two of them were altered afterwards, and it would be dishonest to imply
-otherwise. In the vault browser the home-folder path is painted over with a
-generic one — the app renders the real path and there is no setting that hides
-it. In the cost view a strip reporting this machine's search-index state was cut
-out and the panels below it slid up. Nothing else was changed, and no figure was
-touched: every number on these screens is what the app measured on the runs
-behind them, including the panels that report having measured nothing.
+### The room: your team on a board, and the run written out
 
-### One board, and a live account of who is on it
+The Manager, on a Claude subscription, has answered and handed to the
+Researcher on the local model, which searched the web, read two pages and
+handed on; the Critic is thinking. The same three facts are on the board
+(who is working, on which AI, with how many tokens) and in the lines under the
+question (what each one did) — and the head of the room counts them.
 
-You describe the job; the orchestrator staffs the board and holds the order.
-Every seat is named, with the model actually behind it and what it sent back —
-this run happened to be staffed entirely on the local model, and the badge says
-so: six vault notes read, none of it off the machine.
+![The Manager's room mid-run. A team board shows three seats — Manager, Researcher and Critic — each with the AI it runs on, its state and its tokens; packets travel the handoff from Researcher to Critic, whose ring is breathing. Under the question in the chat, three lines read: Manager answered and handed to Researcher; Researcher searched the web, read two sites, answered and handed to Critic; Critic is thinking.](assets/shots/01-work.png)
 
-![The work board: three named seats — lead, researcher, critic — each showing the model behind it and the tokens it returned, with a badge saying the vault reads stayed on this Mac](assets/shots/01-work.png)
+### Your crew, and where each seat really runs
 
-### Your crew, and which AI each one runs on
+Agents are markdown files in your vault, not rows in a database. Each card
+shows the AI its seat really runs on — here one setting puts planning and
+checking on Claude and the work itself on the local model — and whether the
+agent is proven: by a one-call proof, or by turns it has really answered.
 
-Agents are markdown files in your vault, not rows in a database. Every seat
-carries its own charter, its own skills, and its own model — change one and
-the file changes with it.
-
-![The agents page: system crew and a project team, each card showing its model badge](assets/shots/02-agents.png)
+![The agents page: five built-in agents — Planner, Implementer, Reviewer / Verifier, Researcher, Retrieval — each card carrying a badge reading Claude or local, the line "proven in real runs", its skills by name, and its own count of turns and tokens.](assets/shots/02-agents.png)
 
 ### Skills the crew can use — and tools it builds when none fit
 
 Skills are the open `SKILL.md` format, so one written for Claude Code, Codex,
-Cursor or Gemini CLI works here unchanged. When the crew hits a job no tool
-covers, it writes one — and that tool stays inert until it passes four gates.
-The two at the top show the system refusing itself: one is scope-approved but
-unproven, the other is quarantined for asking for access it never declared.
+Cursor or Gemini CLI works here unchanged, and each card says how the skill has
+actually scored — a skill that keeps failing is marked as underperforming.
+When the crew hits a job no tool covers, it writes one, and that tool stays
+inert until it passes four gates. The two at the top show the system refusing
+itself: one is scope-approved but unproven, the other is quarantined for asking
+for access it never declared.
 
-![The skill library, with two crew-built tools held at the gates above it](assets/shots/03-skills.png)
+![The skill library: two crew-built tools held at the gates — one scope-approved and not yet proven, one quarantined — above four portable skills, each with its uses and pass rate, three of them marked underperforming.](assets/shots/03-skills.png)
 
 ### Your AIs, on your terms
 
-Bring a subscription, an API key, a local server, or all three — each one
-switched on separately. Keys go to the gateway and are never rendered back into
-the interface, which is why the saved Gemini credential shows as saved and
-nothing else. Nothing is configured for you and nothing phones home.
+Bring a subscription, an API key, a local server, or all three — each switched
+on separately. A local model is measured where it runs: its speed, its judged
+quality, and which kinds of work it is the best choice for on this machine.
+Keys go to the gateway and are never rendered back into the interface. Nothing
+is configured for you and nothing phones home.
 
-![The providers settings: a Claude subscription on a Pro/Max plan, OpenAI switched off, and Gemini connected by API key with the credential held by the gateway](assets/shots/04-ais.png)
-
-### Rules in your words, not a config file
-
-What the crew may never touch — a production database, a secrets directory,
-client repositories — what it must stop and ask about first, which check has to
-pass before any work is trusted, and which AI is allowed to see what.
-
-![The rules review: six confirmed rule cards — the companion and the model behind it, the roles you hold, the actions that always ask first, the resources no agent may touch, the command that must pass before work is trusted, the compliance regime folded into every report, and the policy for which AI handles what](assets/shots/05-rules.png)
-
-### Standing work, on a timer
-
-Jobs that repeat — summarising new notes every twelve hours, a daily vault
-health sweep, a weekly cost and drift review — each with its own cadence and
-its own record. Below them, saved tasks you can re-run on a timer; these are
-switched off, and the page says so rather than implying they are live.
-
-![The automations page: standing jobs with cadences and standing build loops](assets/shots/06-automations.png)
-
-### Where the money and the privacy actually went
-
-Not a promise about local-first — a measurement of it, taken from the runs you
-have already done. Here 78% of measured model-call tokens stayed on the machine.
-The Tier-1 panel is equally literal: on these runs no project was bound, so it
-reports that there was nothing to verify rather than a saving it did not make.
-
-![The memory and learning page: three memory tiers, the local versus cloud token share at 78% local, the Tier-1 panel reporting that nothing was verified, and the cost floor](assets/shots/07-cost.png)
+![The Your AIs settings: a local model connected at an address on this Mac, with a panel of measurements taken here — tokens per second, mean judged quality, and the kinds of work it is the best measured choice for.](assets/shots/04-ais.png)
 
 ### The governance console — yours, single-machine
 
-Burn by provider, hook latency and fire-rate, drift across runs, and the eval
-scores behind the verdicts — with the whole hash-chained record exportable as a
-compliance report.
+Burn by provider, hook latency and fire-rate, drift across runs, the eval
+scores behind the verdicts, and the record of recent runs — with the whole
+hash-chained record exportable as a compliance report. On the day of this
+capture the drift monitor was raising an alert, because the judged score had
+fallen, and the page says so.
 
-![The governance console: token burn split between local and cloud with the share of runs that stayed on this Mac, hook latency and fire-rate, a drift monitor, and eval scores with a compliance export button](assets/shots/09-console.png)
+![The governance console: token burn split between the local model and Claude with 67% of tokens on this Mac, hook latency and fire-rate with no blocks and no hook errors, a drift alert reporting that the eval score fell, eval scores with a compliance export button, and a table of recent runs with their outcomes.](assets/shots/05-console.png)
 
-### One folder of markdown, and it is yours
+### Where the money and the checks actually went
 
-Agents, skills, projects, verdicts, the audit chain. Open it in Obsidian, diff
-it in git, carry it to another machine. Nothing is locked inside the app.
+Not a promise about local-first — a measurement of it, taken from the runs you
+have already done: here 67% of tokens stayed on the machine and three dollars
+were attributed to cloud calls. The dark card counts the failures that free,
+deterministic checks stopped before any AI judge was paid for — and says, in
+the same breath, how many runs could not be checked at all.
 
-![The vault browser: the agents folder open with every agent as its own markdown file, one agent definition rendered, and a link rail scanned live from the vault — showing zero in and zero out for this particular note](assets/shots/08-vault.png)
+![The stats page: 55 failures blocked by deterministic checks across 126 checked runs, with the runs that could not be verified stated beside it; token share by route at 67% local; a cache card; the eval score trend; and cost over time.](assets/shots/06-stats.png)
 
 ## The capability system — real power, three locks each
 
@@ -299,8 +286,8 @@ that was not applied.
 
 ## Proven, not claimed
 
-Every subsystem is probed against the shipped bundle before release — not
-mocked, not described. The most recent pass, run against this build:
+Every subsystem is probed against a shipped bundle — not mocked, not
+described. The most recent probe pass was run against the 0.1.1 bundle:
 
 ```
 PASS  denylist refuses rm -rf ~          destructive command blocked pre-exec
@@ -330,6 +317,12 @@ everything a run had accomplished instead of reporting it; and the eval gate
 returned success whether or not it had blocked.
 
 Each one is now covered by a test that fails without the fix.
+
+Version 0.2.0 has not been put through that probe again, and this page will
+not pretend it has. What gates it is the suite every commit must pass before
+it lands: 3,423 client tests, 57 in the Rust shell and 1,536 in the engine,
+all green on the tagged source — and the release notes list what was checked
+by hand in the installed app and what was not.
 
 ## What it learns from its own work
 
@@ -428,7 +421,7 @@ record.
 
 1. Download `SC.Prism.dmg` from the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest).
 2. Open it, drag **SC Prism** to Applications, launch.
-3. **First launch only:** v0.1.1 is signed with a Developer ID but not yet
+3. **First launch only:** v0.2.0 is signed with a Developer ID but not yet
    notarised by Apple, so macOS will say it can't verify the app. Open
    **System Settings → Privacy & Security**, scroll to *Security*, and click
    **Open Anyway** next to SC Prism. (Or run
