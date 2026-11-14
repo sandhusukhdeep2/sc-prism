@@ -51,7 +51,9 @@
 }
 
 /* ── page 06: Interview ─────────────────────────────────────── */
-.iv__split { flex: 1; min-height: 0; display: flex; gap: 22px; padding: 0 34px 24px; }
+/* 18px above: this page runs edge to edge, so without it the chat's first
+   bubble and the draft sit under the wizard's Back and Close buttons. */
+.iv__split { flex: 1; min-height: 0; display: flex; gap: 22px; padding: 18px 34px 24px; }
 
 .iv__chat { flex: 1; min-width: 0; overflow-y: auto; padding-right: 6px; }
 

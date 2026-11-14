@@ -1491,7 +1491,7 @@ export default function Interview() {
           <div className="iv__railcard">
             <div className="iv__railhead">
               <span className="iv__raildot" />
-              <span className="iv__railkicker">Drafting from your answers&hellip;</span>
+              <span className="iv__railkicker">Your governance draft</span>
             </div>
             <div className="iv__railrows mono">
               <RailRow label="Business">

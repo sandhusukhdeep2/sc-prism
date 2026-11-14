@@ -84,7 +84,31 @@ describe('Companion grants — one ask per screen, Continue locked to the end', 
     ).toBeInTheDocument()
     expect(screen.getByText('propose first')).toBeInTheDocument()
     expect(screen.getAllByText('off').length).toBeGreaterThan(0) // blocking + telegram
+    // Two asks were missing from this list (seen on a first run, 2026-11-15):
+    // the answers to "computer control" and "terminal access" were asked for
+    // and then not shown back.
+    const rows = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(rows).toContain('computer control · denied — hands off the machine')
+    expect(rows).toContain('terminal commands · denied — no commands')
     expect(screen.getByText('Continue →')).toBeInTheDocument()
+  })
+
+  it('the summary shows computer control and terminal access when they are granted', async () => {
+    renderGrants()
+    fireEvent.click(screen.getByText('Grant — build real files'))
+    fireEvent.click(screen.getByText('Deny — stay offline'))
+    fireEvent.click(screen.getByText('Grant computer control'))
+    fireEvent.click(screen.getByText('Grant terminal access'))
+    await waitFor(() =>
+      expect(screen.getByText('Ask me first (recommended)')).not.toBeDisabled(),
+    )
+    fireEvent.click(screen.getByText('Ask me first (recommended)'))
+    await waitFor(() => expect(screen.getByText('Propose first (recommended)')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Propose first (recommended)'))
+    fireEvent.click(screen.getByText('Skip — no reports'))
+    const rows = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(rows).toContain('computer control · granted')
+    expect(rows).toContain('terminal commands · granted')
   })
 
   it('telegram grant stays locked until a REAL delivery, then unlocks', async () => {

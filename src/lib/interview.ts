@@ -83,11 +83,15 @@ export const SIGNOFFS: SignoffMeta[] = [
 
 // ---------- defaults ----------
 
-// Seeded with the original mock answers so a fresh run still looks populated
-// and the review has meaningful content to derive — all fully editable.
+// What a fresh install starts with. The POLICY starts cautious — sign-off
+// gates on, a never-touch list, two hats — because a governance draft with
+// nothing in it protects nothing, and every item is shown for you to confirm.
+// The FACTS start empty: `business` used to carry a mock answer ("Solo
+// consultancy — I build data pipelines…") so a fresh run "looked populated",
+// and that sentence was then shown as your answer and handed to the Manager
+// as your business if you closed the wizard early.
 const DEFAULTS: InterviewState = {
-  business:
-    'Solo consultancy — I build data pipelines and internal tools for small logistics companies. One production client right now.',
+  business: '',
   companyName: '',
   website: '',
   departments: [],

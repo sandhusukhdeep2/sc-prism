@@ -3,6 +3,9 @@ import { useOnboarding } from '../lib/onboarding'
 import { useSettings } from '../lib/settings'
 import { pickFolder } from '../lib/nativeEngine'
 import './Welcome.css'
+// The version printed on the first screen is the package's own — a hand-typed
+// label said "v0.1" two releases after it stopped being true.
+import { version as APP_VERSION } from '../../package.json'
 
 export default function Welcome() {
   const { completeStep, nextRoute } = useOnboarding()
@@ -87,7 +90,7 @@ export default function Welcome() {
         </button>
       </div>
 
-      <div className="welcome__ver mono">v0.1 · solo alpha</div>
+      <div className="welcome__ver mono">v{APP_VERSION} · solo alpha</div>
     </div>
   )
 }

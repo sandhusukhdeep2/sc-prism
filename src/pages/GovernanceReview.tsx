@@ -207,7 +207,7 @@ export default function GovernanceReview() {
   if (activated) {
     return (
       <div className="gr gr--done">
-        <Stepper active={5} />
+        <Stepper active={6} />
 
         <div className="gr__done">
           <div className="gr__bloom-wrap" aria-hidden="true">
@@ -272,7 +272,7 @@ export default function GovernanceReview() {
           ✕ Close
         </button>
       </div>
-      <Stepper active={4} />
+      <Stepper active={5} />
 
       <div className="gr__body">
         <div className="gr__title">Review what {companion} drafted</div>

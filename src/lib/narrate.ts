@@ -91,6 +91,13 @@ export function narrateRun(v: Verdict): string {
   if (v.passed) {
     const evalNote =
       typeof v.tier2?.evalScore === 'number' ? ` (eval ${v.tier2.evalScore.toFixed(2)})` : ''
+    // A SKIPPED Tier-1 is not a passed one: there was nothing for the user's
+    // own checks to run (no tests in the folder, no verify command). Saying
+    // "Tier-1 tests … passed" over that is a tick nobody earned — the review
+    // is the only thing vouching for the step, and the line says so.
+    if (v.tier1?.skipped) {
+      return `Ran your team on this step — ${models}.${localNote}${govNote} Your checks had nothing to run here, so this rests on the Tier-2 review alone — it passed${evalNote}.`
+    }
     return `Ran your team on this step — ${models}.${localNote}${govNote} Verified: Tier-1 tests and the Tier-2 review passed${evalNote}.`
   }
   // ATTENTION — the engine's third outcome. Saying "it did not pass

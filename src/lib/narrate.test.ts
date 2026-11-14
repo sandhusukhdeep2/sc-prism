@@ -157,6 +157,34 @@ describe('narrateRun', () => {
     expect(s).toContain('passed (eval 0.88)')
   })
 
+  // Seen in the installed app on 2026-11-15: a step in a folder with no tests
+  // ended "Verified: Tier-1 tests and the Tier-2 review passed (eval 0.75)".
+  // Tier-1 had been SKIPPED — there was nothing to run. A tick it did not earn.
+  it('a pass where your checks had nothing to run says so — it never says the tests passed', () => {
+    const s = narrateRun(
+      verdict({
+        passed: true,
+        native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
+        tier1: { tests: 'skipped', lint: false, build: false, pass: true, skipped: true, skipReason: 'no verify command set' } as Verdict['tier1'],
+        tier2: { evalScore: 0.75 } as Verdict['tier2'],
+      }),
+    )
+    expect(s).not.toContain('Tier-1 tests')
+    expect(s).toContain('Your checks had nothing to run here, so this rests on the Tier-2 review alone — it passed (eval 0.75).')
+  })
+
+  it('a pass where your checks really ran still says both passed', () => {
+    const s = narrateRun(
+      verdict({
+        passed: true,
+        native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
+        tier1: { tests: '2/2', lint: true, build: true, pass: true } as Verdict['tier1'],
+        tier2: { evalScore: 0.9 } as Verdict['tier2'],
+      }),
+    )
+    expect(s).toContain('Verified: Tier-1 tests and the Tier-2 review passed (eval 0.90).')
+  })
+
   // The engine's third outcome, spoken into the project chat. Telling the user
   // "it did not pass verification" about a run whose Tier-1 tests genuinely ran
   // over the files it wrote and PASSED is the exact false report dc4124e set

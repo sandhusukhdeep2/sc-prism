@@ -421,6 +421,8 @@ export default function CompanionGrants() {
             <li>vault memory · <span>{settings.vaultPath}</span></li>
             <li>project files · <span>{settings.projectWrites ? 'granted — ~/SC Projects' : 'denied — projects off'}</span></li>
             <li>web research · <span>{settings.webResearch ? 'granted' : 'denied'}</span></li>
+            <li>computer control · <span>{settings.computerControl ? 'granted' : 'denied — hands off the machine'}</span></li>
+            <li>terminal commands · <span>{settings.terminalControl ? 'granted' : 'denied — no commands'}</span></li>
             <li>tools · <span>{settings.mcpApproval === 'ask' ? 'reading runs free — anything that changes something waits on your desk' : 'allowed within the gates'}</span></li>
             <li>team builds · <span>{settings.approvalMode === 'approve' ? 'propose first' : 'run automatically'}</span></li>
             <li>mid-run pause · <span>{settings.approvalBlocking ? (settings.mcpApproval === 'ask' ? 'on — pauses held tool calls, bounded' : 'on — inactive until tools are ask-first') : 'off'}</span></li>

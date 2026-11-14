@@ -213,6 +213,42 @@ Not changed: the allowance itself, and what a build does after a seat gives
 no answer. Not checked against a live server — the fixtures are the shapes
 the local server's source and log show.
 
+### A first run, on an empty home folder
+
+The setup wizard had only ever been covered by tests. The signed 0.2.1 build
+was started with `HOME` and `CFFIXED_USER_HOME` pointed at an empty folder,
+which gives it no settings, no vault and no AI — what a download sees — and
+the whole wizard was walked to "Activate & write to vault" and into the room.
+It works end to end. With nothing installed it says so ("Claude · not
+installed — see the link below"; "Local model is unreachable — is the server
+running?"; each seat "sits out" with its reason) and offers a way in without
+an AI. What was wrong, and is fixed:
+
+- **A tick nobody earned.** A step in a folder with no tests ended "Verified:
+  Tier-1 tests and the Tier-2 review passed". Tier-1 had been skipped. The
+  line now reads "Your checks had nothing to run here, so this rests on the
+  Tier-2 review alone — it passed (eval 0.75)." (`narrateRun`)
+- **An invented business.** Before one question was answered, the draft
+  beside the interview read "Solo consultancy — I build data pipelines…" — a
+  mock answer left in as the default, and the default is what the Manager is
+  told about the business if the wizard is closed early. A fresh install now
+  has no business description. The cautious policy defaults (sign-off gates,
+  never-touch, two hats) stay, and the panel is titled "Your governance
+  draft" rather than "Drafting from your answers".
+- **"v0.1 · solo alpha"** on the first screen of a 0.2.1 build. The label is
+  read from the package now.
+- **Two answers not shown back.** The grants summary left out computer
+  control and terminal access, both asked two screens earlier.
+- **The step marked was the wrong one.** On Review the steps along the top
+  still marked Interview.
+- **Buttons over the content.** The interview page runs edge to edge, so its
+  first bubble and the draft sat under Back and Close.
+
+Left as it is, for the owner to decide: the Companion step says "Nothing runs
+on its own", and the first screen after setup says the Companion's heartbeat
+is now on (every two hours, a real AI run) with "Turn it off / Keep it on".
+With no AI connected the Companion is called "Your local model" throughout.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the
