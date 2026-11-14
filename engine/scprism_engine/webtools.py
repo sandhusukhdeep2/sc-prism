@@ -498,6 +498,23 @@ def _flatten_ddg_topics(node: Any) -> List[Dict[str, Any]]:
     return out
 
 
+#: What the search tool reports when the results page asked for a human check.
+HUMAN_CHECK_MESSAGE = (
+    "the search engine asked for a human check instead of answering, so this "
+    "search could not be read — this is not a search with no results. Try a "
+    "simpler query (fewer quoted phrases and no OR), or set a search API key "
+    "in Settings."
+)
+
+_HUMAN_CHECK_MARKS = ("bots use duckduckgo", "anomaly-modal", "confirm this search was made by a human")
+
+
+def _is_human_check(html: str) -> bool:
+    """The results page is the search engine's bot challenge, not results."""
+    low = (html or "").lower()
+    return any(mark in low for mark in _HUMAN_CHECK_MARKS)
+
+
 class KeylessBackend(WebSearchBackend):
     """Keyless default: DuckDuckGo Instant-Answer JSON. Parses DEFENSIVELY (an
     empty/unparseable but SUCCESSFUL response → ``[]``, never a fabricated hit); a
@@ -573,6 +590,12 @@ class KeylessBackend(WebSearchBackend):
             out.append(
                 {"title": html_unescape(label).strip(), "url": href, "snippet": ""}
             )
+        if not out and _is_human_check(html):
+            # NOT an empty result. The page asked for a human check and gave no
+            # results at all — returning [] here told the model "nothing found",
+            # and a researcher reported five unused names as "all clear" on the
+            # strength of five searches that had read nothing.
+            raise WebSearchBackendError(HUMAN_CHECK_MESSAGE)
         return out
 
     @staticmethod

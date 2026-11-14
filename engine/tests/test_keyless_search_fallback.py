@@ -65,5 +65,56 @@ class TestKeylessFallback(unittest.TestCase):
                     b.search("anything")
 
 
+# What the results page sends when it decides the client is a bot (seen live
+# 2026-11-15, HTTP 202): a page asking for a human check, with no results.
+_CHALLENGE = (
+    '<div class="anomaly-modal__title">Unfortunately, bots use DuckDuckGo too.</div>'
+    '<div class="anomaly-modal__description">Please complete the following challenge '
+    "to confirm this search was made by a human.</div>"
+)
+
+
+class _ChallengeResp(_Resp):
+    status = 202
+
+
+class TestAHumanCheckIsNotAnEmptyResult(unittest.TestCase):
+    """Seen in the installed app: a team was asked to check that five names
+    were unused. The researcher ran five searches, every one came back
+    ``result_count: 0, is_error: False`` — and it reported "5/5 all clear".
+    The page those searches got was not an empty result: it was the search
+    engine asking for a human check. "Nothing found" and "the search could
+    not be read" are different facts, and only one of them is evidence."""
+
+    def test_a_human_check_page_is_a_failure_that_says_what_it_is(self):
+        b = KeylessBackend()
+        with mock.patch("scprism_engine.webtools._http_json", return_value={}):
+            with mock.patch("urllib.request.urlopen", return_value=_ChallengeResp(_CHALLENGE)):
+                with self.assertRaises(WebSearchBackendError) as ctx:
+                    b.search('"Levee & Lane" Wagga OR Riverina')
+        self.assertIn("human check", str(ctx.exception))
+        self.assertIn("not a search with no results", str(ctx.exception))
+
+    def test_the_page_is_recognised_by_what_it_says_whatever_its_status(self):
+        b = KeylessBackend()
+        with mock.patch("scprism_engine.webtools._http_json", return_value={}):
+            with mock.patch("urllib.request.urlopen", return_value=_Resp(_CHALLENGE)):
+                with self.assertRaises(WebSearchBackendError):
+                    b.search("anything")
+
+    def test_a_page_that_really_has_no_results_is_still_an_honest_empty(self):
+        b = KeylessBackend()
+        empty = '<div class="no-results">No results found for your search.</div>'
+        with mock.patch("scprism_engine.webtools._http_json", return_value={}):
+            with mock.patch("urllib.request.urlopen", return_value=_Resp(empty)):
+                self.assertEqual(b.search("zxqv no such thing"), [])
+
+    def test_results_on_the_page_win_over_any_stray_wording(self):
+        b = KeylessBackend()
+        with mock.patch("scprism_engine.webtools._http_json", return_value={}):
+            with mock.patch("urllib.request.urlopen", return_value=_Resp(_PAGE + "<p>bots use DuckDuckGo too</p>")):
+                self.assertEqual(len(b.search("working hours rules")), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

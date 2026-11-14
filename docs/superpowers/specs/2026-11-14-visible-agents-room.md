@@ -379,6 +379,43 @@ The new-project form was drawn for a page and is shown in the 186px project
 list, where its two-across row and its toggle ran past the edge. In the list
 it stacks.
 
+## A retry stays on the team that was chosen (engine, 2026-11-15)
+
+A refine turn runs on the lead alone — a decision of 2026-08-29, made by
+dropping the team and taking "the single-doer path on the primary". That is
+the lead's own AI only when the primary is on the team. Seen in the
+installed app: a project whose team was one local seat ran attempt 1 on the
+local model and both retries on the cloud primary, with no seat named — and
+the same would happen under the workload slider's "everything on this Mac".
+
+The question asked is now about the seat that will do the work: is the
+lead's own AI the primary routing would use (the gateway's answer, not a raw
+environment variable)? Yes — the old path, unchanged. No, or the primary
+cannot be told — the lead seat alone, named, on its own AI (`project.py`). It
+fails toward the team, never toward the cloud. On the default team the seat
+that writes is the local doer, so its retries now stay on the local model
+too. The reviewer's route is not this rule's business and is unchanged.
+
+## A human check is not an empty result (engine, 2026-11-15)
+
+Found by giving the app a real job: a team was asked to check that five
+names for a business were unused. The researcher ran five web searches, each
+recorded `result_count: 0, is_error: False`, and it reported "5/5 all clear".
+
+Fetched the way the engine fetches it, the results page for those queries
+was the search engine's bot challenge (HTTP 202, "bots use DuckDuckGo too"),
+which holds no results. The keyless backend parsed that as an honest empty
+result. "Nothing found" and "the search could not be read" are different
+facts, and only the first is evidence. A results page that is the human
+check now raises `WebSearchBackendError` with words that say so ("…this is
+not a search with no results…"), so the tool reports a failed search; a page
+that really has no results is still an honest empty.
+
+Seen in the same run and NOT changed: the other seats could not see that the
+researcher's searches had run at all, and called its answer "unsubstantiated"
+— a seat's measured tool use is shown to the user (the run lines) but not to
+the rest of the board.
+
 ## A message's id is its own, across restarts (2026-11-15)
 
 Seen in the installed app: an old answer in the Manager's room had two later

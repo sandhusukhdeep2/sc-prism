@@ -364,7 +364,9 @@ class RefineOnTheLeadTest(unittest.TestCase):
             board_calls.append(1)
             return real_adapter(*a, **kw)
 
-        with mock.patch.object(team_module, "team_model_adapter", spying_adapter), \
+        # default_roster()'s lead sits on claude — here, the primary.
+        with mock.patch.dict(os.environ, {"SCPRISM_PRIMARY": "claude"}), \
+                mock.patch.object(team_module, "team_model_adapter", spying_adapter), \
                 mock.patch.object(gw_module.Gateway, "model_call", real_board_model_call):
             verdict = run_project(
                 "build a landing page",
@@ -378,6 +380,140 @@ class RefineOnTheLeadTest(unittest.TestCase):
         # The refine ran and produced a verdict — WITHOUT assembling the board.
         self.assertEqual(board_calls, [])
         self.assertIsNotNone(verdict)
+
+    # A TEAM THAT WAS CHOSEN TO KEEP THE WORK OFF THE PRIMARY (2026-11-15).
+    # Seen in the installed app: a project whose team was set to one local
+    # seat ran its first attempt on the local model — and both retries on the
+    # cloud primary, with no seat named. "Dropping the roster takes the
+    # single-doer path on the primary" is right when the primary is ON the
+    # team. When it is not — every seat local (the slider's "everything on
+    # this Mac"), or a roster the user typed — the retry stays on the team's
+    # own lead seat.
+    def test_a_team_without_the_primary_keeps_its_refine_on_its_own_lead(self):
+        proj, vault = tempfile.mkdtemp(), tempfile.mkdtemp()
+        boards, providers = [], []
+        real_adapter = team_module.team_model_adapter
+
+        doing = {"on": False}
+
+        def spying_adapter(roster, *a, **kw):
+            boards.append([(seat.name, seat.primary) for seat in roster])
+            doer = real_adapter(roster, *a, **kw)
+
+            def watched(prompt, route):
+                doing["on"] = True
+                try:
+                    return doer(prompt, route)
+                finally:
+                    doing["on"] = False
+
+            return watched
+
+        def recording_call(self_, messages, route):
+            # The DOER's calls only: the reviewer has its own route, which this
+            # rule does not move.
+            if doing["on"]:
+                providers.append(route.provider)
+            return real_board_model_call(self_, messages, route)
+
+        local_team = [
+            AgentSpec("implementer", "Implement it.", "local"),
+            AgentSpec("reviewer", "Check it.", "local"),
+        ]
+        with mock.patch.dict(os.environ, {"SCPRISM_PRIMARY": "claude"}), \
+                mock.patch.object(team_module, "team_model_adapter", spying_adapter), \
+                mock.patch.object(gw_module.Gateway, "model_call", recording_call):
+            run_project(
+                "build a landing page",
+                project_dir=proj,
+                vault=vault,
+                roster=local_team,
+                refine_feedback="the previous attempt missed the footer",
+                attempt=2,
+                attempt_group="p:step-0",
+            )
+        # The lead seat alone, on its own AI — not the whole team, not the primary.
+        self.assertEqual(boards, [[("implementer", "local")]])
+        self.assertTrue(providers, "the doer called no model")
+        self.assertEqual(set(providers), {"local"})
+
+    def test_the_refine_follows_the_lead_seat_not_the_rest_of_the_team(self):
+        """The primary is ON this team — but the lead (the seat that writes)
+        is not on it. The retry is the lead's, so it stays on the lead's AI."""
+        proj, vault = tempfile.mkdtemp(), tempfile.mkdtemp()
+        boards = []
+        real_adapter = team_module.team_model_adapter
+
+        def spying_adapter(roster, *a, **kw):
+            boards.append([(seat.name, seat.primary) for seat in roster])
+            return real_adapter(roster, *a, **kw)
+
+        writer_first = [
+            AgentSpec("implementer", "Implement it.", "local"),
+            AgentSpec("planner", "Plan the work.", "claude"),
+        ]
+        with mock.patch.dict(os.environ, {"SCPRISM_PRIMARY": "claude"}), \
+                mock.patch.object(team_module, "team_model_adapter", spying_adapter), \
+                mock.patch.object(gw_module.Gateway, "model_call", real_board_model_call):
+            run_project(
+                "build a landing page",
+                project_dir=proj,
+                vault=vault,
+                roster=writer_first,
+                refine_feedback="the previous attempt missed the footer",
+                attempt=2,
+                attempt_group="p:step-0",
+            )
+        self.assertEqual(boards, [[("implementer", "local")]])
+
+    def test_a_primary_that_cannot_be_told_keeps_the_retry_on_the_lead_seat(self):
+        """No SCPRISM_PRIMARY at all: the rule must not read that as "the
+        cloud is fine". It fails toward the team."""
+        proj, vault = tempfile.mkdtemp(), tempfile.mkdtemp()
+        boards = []
+        real_adapter = team_module.team_model_adapter
+
+        def spying_adapter(roster, *a, **kw):
+            boards.append([(seat.name, seat.primary) for seat in roster])
+            return real_adapter(roster, *a, **kw)
+
+        env = {k: v for k, v in os.environ.items() if k != "SCPRISM_PRIMARY"}
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(team_module, "team_model_adapter", spying_adapter), \
+                mock.patch.object(gw_module.Gateway, "model_call", real_board_model_call):
+            run_project(
+                "build a landing page",
+                project_dir=proj,
+                vault=vault,
+                roster=[AgentSpec("implementer", "Implement it.", "local")],
+                refine_feedback="the previous attempt missed the footer",
+                attempt=2,
+                attempt_group="p:step-0",
+            )
+        self.assertEqual(boards, [[("implementer", "local")]])
+
+    def test_a_lead_on_the_primary_still_refines_on_the_primary_alone(self):
+        proj, vault = tempfile.mkdtemp(), tempfile.mkdtemp()
+        boards = []
+        real_adapter = team_module.team_model_adapter
+
+        def spying_adapter(roster, *a, **kw):
+            boards.append(1)
+            return real_adapter(roster, *a, **kw)
+
+        with mock.patch.dict(os.environ, {"SCPRISM_PRIMARY": "claude"}), \
+                mock.patch.object(team_module, "team_model_adapter", spying_adapter), \
+                mock.patch.object(gw_module.Gateway, "model_call", real_board_model_call):
+            run_project(
+                "build a landing page",
+                project_dir=proj,
+                vault=vault,
+                roster=default_roster(),  # its lead sits on claude
+                refine_feedback="the previous attempt missed the footer",
+                attempt=2,
+                attempt_group="p:step-0",
+            )
+        self.assertEqual(boards, [])
 
     def test_first_attempt_still_runs_the_board(self):
         proj, vault = tempfile.mkdtemp(), tempfile.mkdtemp()

@@ -1814,8 +1814,30 @@ def run_project(
     # synthesis, not a new debate. Dropping the roster here takes the
     # single-doer path on the primary — the seat the lead sits on. First
     # attempts keep the full board, byte-identical.
+    #
+    # ...WHEN THE LEAD'S OWN AI IS THE PRIMARY (2026-11-15). "The single-doer
+    # path on the primary" is the lead's seat only then. When the lead sits on
+    # another AI — the writer of the default team is the local doer; a team
+    # may be all-local (the workload slider's "everything on this Mac"), or a
+    # roster the user typed — dropping to the primary sent the retry, and the
+    # previous attempt's files with it, to an AI the lead seat is not on: seen
+    # live, a one-seat local team ran attempt 1 on the local model and both
+    # retries on the cloud primary, with no seat named.
+    #
+    # So the question asked is about the seat that will DO the work: is the
+    # lead's AI the primary routing would use (the gateway's own answer, not a
+    # raw env var)? Yes -> the old path, byte-identical. No, or the primary
+    # cannot be told -> the lead seat alone, named, on its own AI. It fails
+    # toward the team, never toward the cloud.
     if roster and refine_feedback:
-        roster = None
+        lead = (roster[0].primary or "").strip().lower()
+        try:
+            from .gateway import Gateway
+
+            effective = (Gateway(env=dict(os.environ)).primary or "").strip().lower()
+        except Exception:
+            effective = ""
+        roster = None if (effective and lead == effective) else [roster[0]]
     if roster and model is None:
         from .team import team_model_adapter
 
