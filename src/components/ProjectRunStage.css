@@ -1,13 +1,10 @@
-/* ── cinematic run stage (Task B5) ──────────────────────────────
-   Orb-spawn, glow progress, narration strip, request overlay. Every
-   animation here is transform/opacity only EXCEPT the two explicitly
-   requested glow pulses (box-shadow, matching dockPulse/approvalPulse
-   elsewhere in the app) — each has a reduced-motion static fallback below. */
+/* ProjectRunStage — where a build stands, inside a project's Details: dots
+   for the steps done, the step in hand, a bar. (The orb, the narration strip
+   and the pop-up request card it once carried are gone since 2026-11-14.)
+   Motion is transform/opacity plus one requested glow pulse on the bar; each
+   has a reduced-motion static fallback below. */
 
 .prs {
-  /* positioned ancestor for .prs__overlay — without this the absolute
-     request card would anchor to the page, not the stage */
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -66,52 +63,6 @@
 }
 .prs__barfill--live { animation: prsGlowPulse 1.6s ease-in-out infinite; }
 
-/* ── request overlay: circle-anchored card over the orb position ────── */
-.prs__overlay {
-  position: absolute;
-  top: -10px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  z-index: 1;
-}
-.prs__card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: min(360px, 100%);
-  padding: 18px 20px 16px;
-  border-radius: var(--v2-r-inner);
-  background: var(--card-solid);
-  box-shadow: 0 0 0 1px var(--hair-2), 0 18px 44px rgba(0, 0, 0, 0.28);
-  text-align: center;
-  animation: prsCardIn 0.4s ease both;
-}
-.prs__cardorb {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--orb);
-  box-shadow: var(--orb-glow);
-}
-.prs__cardtext { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
-.prs__cardbtns { display: flex; gap: 8px; }
-.prs__cardyes,
-.prs__cardno {
-  font: inherit;
-  font-size: 11.5px;
-  padding: 7px 15px;
-  border-radius: var(--r-pill);
-  cursor: pointer;
-  border: 1px solid rgba(131, 162, 219, 0.4);
-  background: transparent;
-  color: inherit;
-}
-.prs__cardyes { background: rgba(110, 154, 131, 0.14); border-color: rgba(110, 154, 131, 0.4); color: var(--ok-ink-2); }
-.prs__cardno { color: var(--muted-2); }
-
 /* ── keyframes ────────────────────────────────────────────────────── */
 @keyframes prsDotPop {
   0%   { opacity: 0; transform: scale(0.4); }
@@ -122,9 +73,6 @@
   0%, 100% { box-shadow: var(--v2-shadow-soft); }
   50%      { box-shadow: var(--v2-shadow); }
 }
-@keyframes prsCardIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ── reduced motion: static badges + a plain bar, every animation above
@@ -134,8 +82,7 @@
    state; nothing needs to be redeclared. ────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .prs__dot--pop,
-  .prs__barfill--live,
-  .prs__card {
+  .prs__barfill--live {
     animation: none;
   }
 }

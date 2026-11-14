@@ -197,15 +197,30 @@ describe('buildDeskItems', () => {
       ])
     })
 
-    it('falls back to lastNote when there is no matching request notice', () => {
-      const inputs: DeskInputs = {
+    // After a restart the live ask is gone, and the row showed only the last
+    // engine line ("$ project:post_dispatch [exit 1] …") above Yes and No —
+    // an answer with no question. It asks the question, then gives the reason.
+    it('with no live ask, it still asks the question and then gives the last result', () => {
+      const items = buildDeskItems({
         ...emptyInputs,
-        projects: [makeProject({ id: 'p1', status: 'awaiting', lastNote: 'fallback note' })],
-        notices: [makeNotice({ projectId: 'p1', kind: 'attention', text: 'irrelevant' })],
-      }
-      expect(buildDeskItems(inputs)).toEqual([
-        { kind: 'project-ask', projectId: 'p1', title: 'portfolio-site', detail: 'fallback note' },
+        projects: [makeProject({ id: 'p1', status: 'awaiting', lastNote: 'fallback note\nsecond line' })],
+      })
+      expect(items).toEqual([
+        {
+          kind: 'project-ask',
+          projectId: 'p1',
+          title: 'portfolio-site',
+          detail: 'Stuck on a step — give it one more try? Last result: fallback note',
+        },
       ])
+    })
+
+    it('with no live ask and no last result, the question stands alone', () => {
+      const items = buildDeskItems({
+        ...emptyInputs,
+        projects: [makeProject({ id: 'p1', status: 'awaiting', lastNote: '' })],
+      })
+      expect(items[0]).toMatchObject({ detail: 'Stuck on a step — give it one more try?' })
     })
 
     it('ignores non-awaiting projects', () => {

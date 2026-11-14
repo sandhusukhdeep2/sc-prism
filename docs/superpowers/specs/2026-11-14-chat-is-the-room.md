@@ -86,6 +86,25 @@ real project build showed five more repeats and one contradiction:
   "step 2 of 2 — …" over a bar, then a live narration console. It is now the
   step and the bar; the strip draws who is working and Steps holds the log.
 
+## A parked question is asked once, and its buttons work
+
+Seen in the installed app after a restart: a build waiting on "one more try?"
+asked it in three places at once — the Needs-you row (Yes / No / Resume), a
+banner in Details (Yes / No, beside "Resume build"), and a pop-up card over
+the pane (Yes / No). The driver that had been waiting was gone with the
+restart, so in all three Yes and No did nothing; only Resume worked, and then
+Yes had to be pressed again. The pop-up also hid the rest of the page from
+assistive technology, and installed a window-wide Escape key that answered No.
+
+- The question lives in the Needs-you row only, worded as a question even
+  when the live ask is gone ("Stuck on a step — give it one more try? Last
+  result: …"), with two buttons: "Yes, one more try" and "No, stop here".
+- Both always work. With no driver waiting, Yes starts the build again with
+  the answer already given (it is not asked a second time) and No leaves the
+  project needing attention, its reason kept — where a declined ask ends.
+- Details says where the project stands ("awaiting your answer"), not the
+  question again. "Resume build" there is for a step that needs attention.
+
 ## Not built here
 
 - **Stop.** There is still no way to stop a run from the room. A chat send

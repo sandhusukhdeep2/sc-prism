@@ -2307,7 +2307,11 @@ interface AppContextValue {
   send: (text: string, displayText?: string, route?: RouteHint, image?: EngineImage) => Promise<void>
   clearSession: () => void
   runProject: (projectId: string) => Promise<void>
-  answerProjectRequest: (grant: boolean) => void
+  /** Answer a build's parked "one more try?". With the driver still waiting
+   *  this hands it the answer. Given the project's id it ALSO works when no
+   *  driver is waiting (the app was restarted with the question open): Yes
+   *  starts the build again with the answer already given, No stops it. */
+  answerProjectRequest: (grant: boolean, projectId?: string) => void
   mergeProject: (projectId: string) => Promise<void>
   clearNotice: (id: string) => void
   /** The APP says one line in the Manager's room (a `notice` message — never
@@ -4151,6 +4155,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // a project run is always the real engine, or it honestly refuses to start.
   const projectRunId = useRef(0)
   const projectRequestRef = useRef<'idle' | 'pending' | 'granted' | 'declined'>('idle')
+  // A Yes given while NO driver was waiting (see `answerProjectRequest`): the
+  // build it starts finds its question already answered and does not ask again.
+  const projectPreAnswerRef = useRef<string | null>(null)
 
   const runProject = useMemo(() => {
     return async (projectId: string): Promise<void> => {
@@ -4526,6 +4533,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
               { plan: project.plan, stepIndex: idx, refinePass: rp, lastPassed: passed, extraRefineGranted: extraGranted },
               DEFAULT_MAX_REFINES,
             )
+          }
+
+          if (action.kind === 'ask-extra-refine' && projectPreAnswerRef.current === projectId) {
+            // Already answered Yes — by the button that started this run. The
+            // question is not put a second time.
+            projectPreAnswerRef.current = null
+            extraGranted = true
+            updateProject(projectId, { status: 'running' })
+            pending = nextRunAction(
+              { plan: project.plan, stepIndex: idx, refinePass: rp, lastPassed: false, extraRefineGranted: true },
+              DEFAULT_MAX_REFINES,
+            )
+            continue
           }
 
           if (action.kind === 'ask-extra-refine') {
@@ -4924,9 +4944,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Answer the parked "one more refine?" ask; the driver reads the decision
   // off the ref and continues (granted) or finishes 'attention' (declined).
   const answerProjectRequest = useMemo(() => {
-    return (grant: boolean): void => {
-      if (projectRequestRef.current !== 'pending') return
-      projectRequestRef.current = grant ? 'granted' : 'declined'
+    return (grant: boolean, projectId?: string): void => {
+      if (projectRequestRef.current === 'pending') {
+        projectRequestRef.current = grant ? 'granted' : 'declined'
+        return
+      }
+      // NO DRIVER IS WAITING — the app was restarted with the question open.
+      // The two buttons used to do nothing here, and a third ("Resume") had to
+      // be found first. They now mean what they say: Yes starts the build
+      // again with the answer already given; No stops it where it is, which is
+      // exactly where a declined ask ends ('attention', its reason kept).
+      if (!projectId) return
+      const project = getProjects().projects.find((p) => p.id === projectId)
+      if (!project || project.status !== 'awaiting') return
+      if (grant) {
+        projectPreAnswerRef.current = projectId
+        void runProject(projectId)
+      } else {
+        updateProject(projectId, { status: 'attention' })
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

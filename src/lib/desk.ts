@@ -132,7 +132,13 @@ export function buildDeskItems(i: DeskInputs): DeskItem[] {
   // 1. project-ask — projects awaiting the user's yes/no (extra-refine handshake).
   for (const p of i.projects) {
     if (p.status !== 'awaiting') continue
-    const detail = latestNoticeText(i.notices, p.id, 'request') ?? p.lastNote
+    // The live ask says the question itself. After a restart it is gone, and
+    // the row must still ASK — a last engine line above "Yes" and "No" is an
+    // answer with no question — then give the last result as the reason.
+    const reason = (p.lastNote ?? '').split('\n')[0].trim()
+    const detail =
+      latestNoticeText(i.notices, p.id, 'request') ??
+      `Stuck on a step — give it one more try?${reason ? ` Last result: ${reason}` : ''}`
     items.push({ kind: 'project-ask', projectId: p.id, title: p.name, detail })
   }
 

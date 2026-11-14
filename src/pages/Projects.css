@@ -176,23 +176,8 @@
 }
 .proj__lastnote { font-size: 11.5px; color: var(--muted-2); }
 
-/* awaiting fallback banner (the orb overlay in B5 is the primary affordance) */
-.proj__askbanner {
-  border-radius: var(--v2-r-inner); background: rgba(131, 162, 219, 0.1); border: 1px solid rgba(131, 162, 219, 0.35);
-  padding: 13px 16px; display: flex; flex-direction: column; gap: 8px;
-}
-.proj__askbannertext { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
-.proj__askbannerhint { font-size: 10.5px; color: var(--warn-ink); }
-.proj__askbannerbtns { display: flex; gap: 8px; }
-.proj__askyes, .proj__askno {
-  font: inherit; font-size: 11.5px; padding: 6px 14px; border-radius: var(--r-pill); cursor: pointer;
-  border: 1px solid rgba(131, 162, 219, 0.4); background: transparent; color: inherit;
-}
-.proj__askyes { background: rgba(110, 154, 131, 0.14); border-color: rgba(110, 154, 131, 0.4); color: var(--ok-ink-2); }
-.proj__askno { color: var(--muted-2); }
-
-/* MV5: approve-mode build proposal — calm, not a warning (askbanner's amber
-   is reserved for "needs your input"; this is routine confirmation). */
+/* MV5: approve-mode build proposal — calm, not a warning: this is routine
+   confirmation, not something that needs the user's input. */
 .proj__proposal {
   border-radius: var(--v2-r-inner); background: rgba(120, 130, 150, 0.08); border: 1px solid rgba(120, 130, 150, 0.25);
   padding: 13px 16px; display: flex; flex-direction: column; gap: 10px;

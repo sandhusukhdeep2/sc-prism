@@ -1038,7 +1038,7 @@ function DeskRow({
   retryBusy,
 }: {
   item: DeskItem
-  onAnswer: (grant: boolean) => void
+  onAnswer: (grant: boolean, projectId?: string) => void
   onResume: (projectId: string) => void
   onApproveDispatch: (jobId: string) => void
   onRejectDispatch: (jobId: string) => void
@@ -1085,20 +1085,23 @@ function DeskRow({
           </>
         )}
         {item.kind === 'project-ask' && (
+          // ONE question, two buttons that always work (2026-11-14): with the
+          // project's id the store answers even when no driver is waiting
+          // (the app was restarted), so there is no third "Resume" to find.
           <>
-            <button type="button" className="desk__btn desk__btn--yes" onClick={() => onAnswer(true)}>
-              Yes
+            <button
+              type="button"
+              className="desk__btn desk__btn--yes"
+              onClick={() => onAnswer(true, item.projectId)}
+            >
+              Yes, one more try
             </button>
-            <button type="button" className="desk__btn desk__btn--no" onClick={() => onAnswer(false)}>
-              No
-            </button>
-            {/* Resume fallback (B4): after a reload the parked driver is gone,
-                so Yes/No above would no-op — Resume re-parks the ask with a
-                live driver behind it. Mirrors Projects.tsx's dual affordance
-                for status 'awaiting' (proj__startbtn + proj__askbanner both
-                shown together). */}
-            <button type="button" className="desk__btn" onClick={() => onResume(item.projectId)}>
-              Resume
+            <button
+              type="button"
+              className="desk__btn desk__btn--no"
+              onClick={() => onAnswer(false, item.projectId)}
+            >
+              No, stop here
             </button>
           </>
         )}

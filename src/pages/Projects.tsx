@@ -7,7 +7,7 @@ import VerdictCard, { toVerdictView } from '../components/VerdictCard'
 import ProjectRunStage from '../components/ProjectRunStage'
 import DrawerSection from '../components/DrawerSection'
 import { filesSummary, loopsSummary, planSummary, teamSummary, verdictsSummary } from '../lib/drawerSummary'
-import { useApp, isUsableProjectDir, latestNotice } from '../store/AppStore'
+import { useApp, isUsableProjectDir } from '../store/AppStore'
 import { agentActivity, agentsForProject, useAgents } from '../lib/agents'
 import {
   expandUserPath,
@@ -721,7 +721,7 @@ function FilesPanel({ project }: { project: Project }) {
 }
 
 export function ProjectContextPanel({ project }: { project: Project }) {
-  const { state, runProject, answerProjectRequest, mergeProject } = useApp()
+  const { state, runProject, mergeProject } = useApp()
   const { settings } = useSettings()
   const { health } = useConnectivity()
   const agents = useAgents()
@@ -756,10 +756,6 @@ export function ProjectContextPanel({ project }: { project: Project }) {
     .map((id) => state.verdicts.find((v) => v.taskId === id))
     .filter((v): v is Verdict => v !== undefined)
 
-  // Notices accumulate (never cleared by the driver itself), so take the LAST
-  // matching ask — the first would show a previous ask's stale text on a
-  // second park.
-  const awaitingNotice = latestNotice(state.notices, project.id, 'request')
 
 
 
@@ -885,30 +881,15 @@ export function ProjectContextPanel({ project }: { project: Project }) {
               </div>
             </div>
           )}
-          {/* 'awaiting' needs Resume too: after an app reload the parked
-              driver is gone, so the banner's Yes/No would no-op — runProject
-              special-cases status==='awaiting' and re-parks the ask with a
-              live driver behind the buttons. */}
-          {(project.status === 'attention' || project.status === 'awaiting') && (
+          {/* A step that needs attention is resumed from here. A build
+              WAITING ON AN ANSWER is not: its one question, with the two
+              buttons that answer it, is in the Needs-you row above the chat —
+              asked once (2026-11-14; it used to be asked here too, and again
+              in a pop-up card). */}
+          {project.status === 'attention' && (
             <button type="button" className="proj__startbtn" onClick={() => void runProject(project.id)}>
               Resume build →
             </button>
-          )}
-          {project.status === 'awaiting' && (
-            <div className="proj__askbanner">
-              <div className="proj__askbannertext">
-                {awaitingNotice?.text ?? `«${project.name}» is waiting for your answer.`}
-              </div>
-              <div className="proj__askbannerhint">waiting for your answer — see the orb</div>
-              <div className="proj__askbannerbtns">
-                <button type="button" className="proj__askyes" onClick={() => answerProjectRequest(true)}>
-                  Yes, one more try
-                </button>
-                <button type="button" className="proj__askno" onClick={() => answerProjectRequest(false)}>
-                  No, stop here
-                </button>
-              </div>
-            </div>
           )}
           <ProjectRunStage project={project} />
         </div>

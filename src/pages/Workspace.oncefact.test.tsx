@@ -117,6 +117,44 @@ describe('the room says each thing once', () => {
     expect(details.querySelector('.prs__bar')).not.toBeNull()
   })
 
+  // Seen in the installed app after a restart, 2026-11-14: the same "one more
+  // try?" was asked in the Needs-you row (Yes / No / Resume), again in a
+  // banner in Details (Yes / No, plus "Resume build"), and again in a pop-up
+  // card that covered the pane — and in all three, Yes and No did nothing.
+  it('a build waiting on an answer asks once, and its two buttons work', async () => {
+    const project = addProject('Once Only', 'ship the thing', '', '/tmp/once-only')
+    updateProject(project.id, {
+      status: 'awaiting',
+      plan: ['lay the base', 'add the page'],
+      stepIndex: 1,
+      refinePass: 2,
+      lastNote: 'the page was not written',
+    })
+    localStorage.setItem(
+      'scprism.session',
+      JSON.stringify({
+        threads: { universal: [], [project.id]: [] },
+        verdicts: [],
+        stats: { tokensToday: 0, costToday: 0, tier1Saves: 0, localSharePct: 0, evalAvg: 0 },
+        activeProjectId: project.id,
+      }),
+    )
+    renderWorkspace()
+    await screen.findByRole('heading', { level: 1, name: 'Once Only' })
+    // One question: one Yes, one No — and nothing else to find first.
+    expect(screen.getAllByRole('button', { name: /^Yes\b/ })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /^No\b/ })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /^Resume/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Details still says where the project stands — not the question again.
+    const details = screen.getByRole('tabpanel')
+    expect(within(details).getByText('awaiting your answer')).toBeInTheDocument()
+    expect(within(details).queryByRole('button', { name: /Yes|No,/ })).not.toBeInTheDocument()
+    // No stops it there — with no driver waiting, as after a restart.
+    fireEvent.click(screen.getByRole('button', { name: /^No\b/ }))
+    expect(getProjects().projects.find((p) => p.id === project.id)?.status).toBe('attention')
+  })
+
   it('with the team taking a message, who gets it is said by the line that names the seats — once', async () => {
     threeAIs()
     renderWorkspace()
