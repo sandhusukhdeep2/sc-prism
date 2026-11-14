@@ -350,6 +350,22 @@ other engine command (blank id: uncancellable, as before).
 Stop is offered only where it is real: the simulator and a send with no AI
 connected launch no engine, so a chat there has no Stop.
 
+## An interview turn is a conversation (2026-11-15)
+
+Found by creating a project in the installed app: each interview question
+took about fifty seconds and ten thousand tokens, and every one was recorded
+as a failed run ("tier-1 failed; no files were produced; tier-2 did not run;
+1 governance block" — five recorded, none passed).
+
+The turn was launched as a plain task. Its own instructions say "Write
+PROJECT.md…", so the contract inferred a WRITE job: a four-step plan
+(understand, locate, implement, self-check), the project's verify command run
+over a question, and the stop ratchet's "task not done". It is one reply. It
+is now launched as `converse` and not judged — the same two facts the chat
+path states about a message — so it plans one reply step, the checks are not
+run over it (a conversation changes no files), and no judge call is spent
+grading a question.
+
 ## A message's id is its own, across restarts (2026-11-15)
 
 Seen in the installed app: an old answer in the Manager's room had two later

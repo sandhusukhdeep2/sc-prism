@@ -4262,7 +4262,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           runTask: (prompt, vault, providers, runId) => {
             // Stop is asked of the card; it cancels THIS engine run.
             engineOfRunRef.current.set(liveId, runId)
-            return runNativeTask(prompt, vault, providers, runId)
+            // AN INTERVIEW TURN IS A CONVERSATION: one reply, 'converse', not
+            // judged. Launched as a plain task it was planned as a four-step
+            // WRITE job (its own instructions say "Write PROJECT.md…"), put
+            // through the project's verify command and recorded as a failed
+            // run — fifty seconds and ten thousand tokens to ask one question.
+            return runNativeTask(prompt, vault, providers, runId, undefined, undefined, 0, 0, 'converse', true)
           },
           cancelRun: cancelEngineRun,
           stopped: () => stopAskedRef.current.has(liveId),

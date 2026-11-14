@@ -237,6 +237,26 @@ describe('H6 — an interview turn reports what really came back', () => {
     h.cancelEngineRun.mockImplementation(async () => {})
   })
 
+  // AN INTERVIEW TURN IS A CONVERSATION (2026-11-15). It was launched as a
+  // plain task, so the engine read "Write PROJECT.md…" in the interview's own
+  // instructions, planned the question as a four-step WRITE job, ran the
+  // project's verify command over it and recorded the turn as a failed run
+  // ("tier-1 failed; no files were produced; 1 governance block") — fifty
+  // seconds and ten thousand tokens to ask one question, five recorded and
+  // none passed. It is one reply: 'converse', and not judged.
+  it('an interview turn is launched as a conversation, and is not judged', async () => {
+    h.runNativeTask.mockResolvedValue(verdict(true))
+    await interviewing()
+    await act(async () => {
+      await captured.app!.send('hello')
+    })
+    expect(h.runNativeTask).toHaveBeenCalledTimes(1)
+    const call = h.runNativeTask.mock.calls[0]
+    // (intent, vault, providers, runId, route, image, tokenBudget, toolTurns, mode, noJudge)
+    expect(call[8]).toBe('converse')
+    expect(call[9]).toBe(true)
+  })
+
   it('a genuinely UNREACHABLE provider still says unreachable — nothing came back', async () => {
     h.runNativeTask.mockResolvedValue(null)
     await interviewing()
