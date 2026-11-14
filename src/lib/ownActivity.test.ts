@@ -15,6 +15,18 @@ const tool = (agent: string, name: string, start = 1): EngineSpan => ({
 })
 
 describe('ownActivity — the agent’s own turns', () => {
+  // What "proven by its work" rests on: turns that really got an answer.
+  it('counts the turns that were answered — not the ones refused, and not one still open', () => {
+    const spans = [
+      call('scout', {}, 'ok', 1),
+      call('scout', { is_real: false, error: 'local refused the request (HTTP 401)' }, 'error', 2),
+      call('scout', {}, 'ok', 3),
+      call('scout', {}, 'running', 4),
+    ]
+    expect(ownActivity(spans, 'scout', true)).toMatchObject({ turns: 4, answered: 2 })
+    expect(ownActivity([call('scout', { is_real: false }, 'ok', 1)], 'scout', false)).toMatchObject({ answered: 0 })
+  })
+
   it('counts only this agent’s work turns and sums their tokens', () => {
     const a = ownActivity([call('scout', {}, 'ok', 1), call('scout', {}, 'ok', 2), call('other'), { name: 'eval', type: 'model_call', status: 'ok', start: 3, attrs: { agent: 'scout', tokens_in: 9, tokens_out: 9 } }], 'scout', false)
     expect(a).toMatchObject({ turns: 2, tokens: 2100, state: 'ok' })

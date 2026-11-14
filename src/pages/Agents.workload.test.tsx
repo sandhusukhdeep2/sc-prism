@@ -105,6 +105,21 @@ describe('Agents — the page says when the workload slider is re-seating the de
     expect(screen.getByRole('note', { name: 'Workload slider' }).textContent).not.toMatch(/whatever its card says/)
   })
 
+  // Seen in the installed app, 2026-11-14: a card whose badge said "local"
+  // offered to "Prove on claude · costs cents". Proving is about the AI the
+  // seat really runs on — so that is what the button names, and what it costs.
+  it('Prove names the AI the seat really runs on', () => {
+    seed('local-all')
+    renderAgents()
+    expect(screen.getByRole('button', { name: 'Prove Planner' })).toHaveTextContent('Prove it')
+  })
+
+  it('…and with the slider off it names the AI set on the card, and that it costs', () => {
+    seed('agents')
+    renderAgents()
+    expect(screen.getByRole('button', { name: 'Prove Planner' })).toHaveTextContent('Prove on claude · costs cents')
+  })
+
   it('with the slider off, a card shows the AI set on it and no explanation is needed', () => {
     seed('agents')
     renderAgents()

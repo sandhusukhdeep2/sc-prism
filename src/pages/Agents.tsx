@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AgentCeremony from '../components/AgentCeremony'
-import { proofButtonLabel, proofChipText, proveAgent } from '../lib/proveAgent'
+import { proofButtonLabel, proofView, proveAgent } from '../lib/proveAgent'
 import './Agents.css'
 import {
   agentActivity,
@@ -59,7 +59,7 @@ import {
   useWakeNow,
 } from '../store/AppStore'
 import { useProjects, type Project } from '../lib/projects'
-import { skillStats, type SkillStat } from '../lib/skillStats'
+import { skillChipTitle, skillStats, type SkillStat } from '../lib/skillStats'
 import { useSkills } from '../lib/skills'
 import type { Verdict } from '../engine/types'
 
@@ -919,7 +919,9 @@ export default function Agents() {
     if (provingId) return
     setProvingId(a.id)
     try {
-      const r = await proveAgent(a, settings.vaultPath, settings)
+      // A built-in seat is proven on the AI it really RUNS on — where the
+      // workload slider seats it — not on the one its card was set to.
+      const r = await proveAgent(a.system ? { ...a, model: runsOnKind(settings, a) } : a, settings.vaultPath, settings)
       const proof = { at: r.at, proven: r.proven, reason: r.reason }
       updateAgent(a.id, { proof })
       // The file is the source of truth: without this the next vault sync
@@ -1174,6 +1176,7 @@ function AgentTile({
   // which says what it counts (2026-11-09: five tiles, one global number).
   const own = ownActivity(spans, a.name, Boolean(runningProjectId))
   const shown = own ?? activity
+  const proof = proofView(a.proof, own)
 
   // P9 (safety): agent delete is permanent, so arm-then-confirm (mirrors
   // SkillCard). One click on "Delete agent" only ARMS it — a second explicit
@@ -1272,46 +1275,41 @@ function AgentTile({
           a nested interactive, and beside the name it squeezed "Researcher"
           into "Research / er" at the default window (installed app, 2026-11-09). */}
       <div className="agent-tile__proofrow">
-        <div className={'agent-tile__proof' + (a.proof ? (a.proof.proven ? ' is-proven' : ' is-unproven') : '')} title={a.proof?.reason || undefined}>
-          {proofChipText(a.proof)}
-        </div>
-        <button
-          type="button"
-          className="agent-tile__prove"
-          disabled={proving}
-          onClick={(e) => {
-            e.stopPropagation()
-            onProve()
-          }}
-          aria-label={`Prove ${a.name}`}
+        <div
+          className={'agent-tile__proof' + (proof.tone === 'proven' ? ' is-proven' : proof.tone === 'unproven' ? ' is-unproven' : '')}
+          title={proof.reason || undefined}
         >
-          {proving ? 'proving…' : proofButtonLabel(a.model)}
-        </button>
+          {proof.text}
+        </div>
+        {/* Prove is offered while there is something left to find out — not
+            to a seat already proven, by a proof or by its own answered turns.
+            It proves the AI the seat really RUNS on. */}
+        {proof.canProve && (
+          <button
+            type="button"
+            className="agent-tile__prove"
+            disabled={proving}
+            onClick={(e) => {
+              e.stopPropagation()
+              onProve()
+            }}
+            aria-label={`Prove ${a.name}`}
+          >
+            {proving ? 'proving…' : proofButtonLabel(a.system ? runsOnKind(settings, a) : a.model)}
+          </button>
+        )}
       </div>
 
       <div className="chip-row">
         {!a.system && <ModelBadge kind={a.model} />}
-        {a.skills.map((s) => {
-          const stat = skillStats.get(s.toLowerCase())
-          return (
-            <span key={s} className="chip-skill">
-              {s}
-              {/* A bare "12·58%" could not say what the 58% was OF, and in a
-                  three-outcome world that is a lie by omission. Fractions name
-                  themselves: "12 uses · 7/10 passed · 2 needed a look". */}
-              {stat && stat.uses > 0 && (
-                <span className="chip-skill__stat">
-                  {' '}
-                  · {stat.uses} uses ·{' '}
-                  {stat.decided === 0 ? 'no decided runs' : `${stat.passes}/${stat.decided} passed`}
-                  {stat.attention > 0 && (
-                    <span className="chip-skill__attention"> · {stat.attention} needed a look</span>
-                  )}
-                </span>
-              )}
-            </span>
-          )
-        })}
+        {/* A skill is NAMED on the card. How it has scored is its hover — it
+            used to be a sentence inside the chip ("code-review · 29 uses ·
+            4/29 passed") on a card that already had four other lines. */}
+        {a.skills.map((s) => (
+          <span key={s} className="chip-skill" title={skillChipTitle(skillStats.get(s.toLowerCase())) || undefined}>
+            {s}
+          </span>
+        ))}
       </div>
 
       {!a.system && (

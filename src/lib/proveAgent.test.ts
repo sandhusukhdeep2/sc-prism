@@ -89,3 +89,47 @@ describe('proofChipText — what a card says', () => {
     expect(proofChipText({ at: 0, proven: false, reason: 'local refused the request (HTTP 401)' })).toBe('unproven — local refused the request (HTTP 401)')
   })
 })
+
+// Seen in the installed app, 2026-11-14: every built-in card said "not yet
+// proven" directly above "74 turns · last answered" — and offered to "Prove on
+// claude · costs cents" a seat that had already answered seventy-four times.
+// Proof is "it answers on its model"; real answered turns ARE that proof.
+const { proofView } = await import('./proveAgent')
+
+describe('proofView — what a card says about proof, and whether it offers Prove', () => {
+  it('nothing proven and no work of its own: not yet proven, and Prove is offered', () => {
+    expect(proofView(undefined, null)).toEqual({ text: 'not yet proven', tone: 'none', canProve: true })
+  })
+
+  it('a passed proof is dated and needs no further action', () => {
+    const v = proofView({ at: Date.UTC(2026, 10, 8), proven: true, reason: '' }, null)
+    expect(v.text).toMatch(/^proven ✓ /)
+    expect(v).toMatchObject({ tone: 'proven', canProve: false })
+  })
+
+  it('a failed proof says why, in the engine’s words, and can be tried again', () => {
+    expect(proofView({ at: 0, proven: false, reason: 'local refused the request (HTTP 401)' }, null)).toEqual({
+      text: 'unproven — local refused the request (HTTP 401)',
+      tone: 'unproven',
+      canProve: true,
+      reason: 'local refused the request (HTTP 401)',
+    })
+  })
+
+  it('a seat whose own turns were answered in real runs is proven by its work', () => {
+    expect(proofView(undefined, { answered: 74 })).toEqual({
+      text: 'proven ✓ in real runs',
+      tone: 'proven',
+      canProve: false,
+    })
+  })
+
+  it('…but turns that got no answer prove nothing', () => {
+    expect(proofView(undefined, { answered: 0 })).toMatchObject({ text: 'not yet proven', canProve: true })
+  })
+
+  it('a proof on record says what it says, whatever the runs since', () => {
+    // A failed proof names a real cause the user should see; work does not hide it.
+    expect(proofView({ at: 0, proven: false, reason: 'no key' }, { answered: 9 }).tone).toBe('unproven')
+  })
+})

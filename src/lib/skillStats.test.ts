@@ -431,3 +431,28 @@ describe('recentFailures — "failures" means failures', () => {
     expect(recentFailures(verdicts, 'code-review').map((f) => f.taskId)).toEqual(['t-1'])
   })
 })
+
+// THE AGENT CARD NAMES A SKILL ONCE (2026-11-14). A chip used to read
+// "code-review · 29 uses · 4/29 passed" — a sentence inside a chip, on a card
+// that already had four other lines. The name is the chip; how the skill has
+// scored is its hover, in the same self-naming fractions.
+import { skillChipTitle } from './skillStats'
+
+describe('skillChipTitle — how a skill has scored, for a chip’s hover', () => {
+  const stat = (over: Partial<Parameters<typeof skillChipTitle>[0] & object>) =>
+    ({ uses: 0, passes: 0, attention: 0, decided: 0, passRate: 0, lastUsedAt: '', underperforming: false, recent: [], ...over }) as never
+
+  it('names its own denominator', () => {
+    expect(skillChipTitle(stat({ uses: 29, passes: 4, decided: 29 }))).toBe('29 uses · 4/29 passed')
+  })
+  it('reports runs that needed a look on their own, outside the rate', () => {
+    expect(skillChipTitle(stat({ uses: 12, passes: 7, decided: 10, attention: 2 }))).toBe('12 uses · 7/10 passed · 2 needed a look')
+  })
+  it('says so when no run was decided', () => {
+    expect(skillChipTitle(stat({ uses: 2, attention: 2 }))).toBe('2 uses · no decided runs · 2 needed a look')
+  })
+  it('says nothing for a skill never used, or with no record', () => {
+    expect(skillChipTitle(stat({}))).toBe('')
+    expect(skillChipTitle(undefined)).toBe('')
+  })
+})

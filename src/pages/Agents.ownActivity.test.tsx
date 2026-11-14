@@ -61,3 +61,49 @@ describe('Agents page — a card speaks for its own turns', () => {
     expect(native.readSpansTail).toHaveBeenCalledWith('/vault', 4000)
   })
 })
+
+// Seen in the installed app, 2026-11-14: every built-in card said "not yet
+// proven" directly above "74 turns · last answered", with a button offering to
+// "Prove on claude · costs cents" a seat the workload slider runs on the
+// local model. A card says each thing once, and never against itself.
+describe('Agents page — a card does not contradict itself', () => {
+  const tileOf = (name: string) =>
+    [...document.querySelectorAll('.agent-tile')].find(
+      (el) => el.querySelector('.agent-tile__name')?.textContent === name,
+    ) as HTMLElement
+
+  async function mount() {
+    await act(async () => {
+      render(
+        <MemoryRouter initialEntries={['/agents']}>
+          <SettingsProvider>
+            <ConnectivityProvider>
+              <OnboardingProvider>
+                <AppProvider>
+                  <Agents />
+                </AppProvider>
+              </OnboardingProvider>
+            </ConnectivityProvider>
+          </SettingsProvider>
+        </MemoryRouter>,
+      )
+    })
+    await waitFor(() => expect(labelFor('Planner')).toContain('1 turn'))
+  }
+
+  it('a seat whose own turn was answered is proven by its work, and offers no Prove', async () => {
+    await mount()
+    const planner = tileOf('Planner')
+    expect(planner.querySelector('.agent-tile__proof')).toHaveTextContent('proven ✓ in real runs')
+    expect(planner.querySelector('.agent-tile__proof')).toHaveClass('is-proven')
+    expect(planner.querySelector('.agent-tile__prove')).toBeNull()
+  })
+
+  it('a seat with no turn of its own is not yet proven, and Prove is offered', async () => {
+    await mount()
+    const retrieval = tileOf('Retrieval')
+    expect(retrieval.querySelector('.agent-tile__proof')).toHaveTextContent('not yet proven')
+    expect(retrieval.querySelector('.agent-tile__prove')).not.toBeNull()
+  })
+
+})

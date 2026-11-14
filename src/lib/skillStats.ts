@@ -159,3 +159,18 @@ export function recentFailures(
   }
   return out
 }
+
+/**
+ * How a skill has scored, for the hover of its chip on an agent's card. The
+ * fractions name themselves ("7/10 passed"), and runs that needed a look are
+ * reported apart from the rate. '' when the skill has never been used.
+ */
+export function skillChipTitle(stat: SkillStat | undefined): string {
+  if (!stat || stat.uses <= 0) return ''
+  const parts = [
+    `${stat.uses} use${stat.uses === 1 ? '' : 's'}`,
+    stat.decided === 0 ? 'no decided runs' : `${stat.passes}/${stat.decided} passed`,
+  ]
+  if (stat.attention > 0) parts.push(`${stat.attention} needed a look`)
+  return parts.join(' · ')
+}

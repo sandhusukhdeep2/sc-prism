@@ -93,6 +93,30 @@ export async function proofLiveLines(vaultPath: string, name: string): Promise<E
 }
 
 /** What a card or header says about an agent's proof. */
+export interface ProofView {
+  text: string
+  tone: 'proven' | 'unproven' | 'none'
+  /** Whether the card offers Prove: there is something left to find out. */
+  canProve: boolean
+  /** The engine's own cause for a failed proof. */
+  reason?: string
+}
+
+/**
+ * What a card says about proof, and whether it offers Prove.
+ *
+ * Proof is "it answers on its model". A proof on record says what it says. With
+ * none on record, a seat whose own turns were ANSWERED in real runs is proven
+ * by that work — the card used to read "not yet proven" directly above "74
+ * turns · last answered", and offer to prove it again for money (2026-11-14).
+ */
+export function proofView(proof: AgentProof | undefined, own: { answered: number } | null): ProofView {
+  if (proof?.proven) return { text: proofChipText(proof), tone: 'proven', canProve: false }
+  if (proof) return { text: proofChipText(proof), tone: 'unproven', canProve: true, ...(proof.reason ? { reason: proof.reason } : {}) }
+  if (own && own.answered > 0) return { text: 'proven ✓ in real runs', tone: 'proven', canProve: false }
+  return { text: 'not yet proven', tone: 'none', canProve: true }
+}
+
 export function proofChipText(proof: AgentProof | undefined): string {
   if (!proof) return 'not yet proven'
   if (proof.proven) return `proven ✓ ${new Date(proof.at).toLocaleDateString([], { day: 'numeric', month: 'short' })}`

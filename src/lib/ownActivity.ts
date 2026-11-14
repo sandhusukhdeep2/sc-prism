@@ -11,6 +11,9 @@ export interface OwnActivity {
   state: OwnState
   label: string
   turns: number
+  /** Turns that really got an answer: closed, a real completion, no error.
+   *  What "proven by its work" rests on. */
+  answered: number
   toolCalls: number
   tokens: number
   allLocal: boolean
@@ -47,9 +50,10 @@ export function ownActivity(spans: readonly EngineSpan[], agent: string, live: b
   const tokens = turns.reduce((n, s) => n + num(s.attrs, 'tokens_in') + num(s.attrs, 'tokens_out'), 0)
   const allLocal = turns.every((s) => s.attrs?.is_local === true)
   const latest = turns.reduce((a, b) => ((b.start ?? 0) >= (a.start ?? 0) ? b : a))
+  const answered = turns.filter((s) => s.status === 'ok' && s.attrs?.is_real !== false).length
 
   if (live && isOpen(latest)) {
-    return { state: 'working', label: 'working…', turns: turns.length, toolCalls, tokens, allLocal }
+    return { state: 'working', label: 'working…', turns: turns.length, answered, toolCalls, tokens, allLocal }
   }
   const noAnswer = latest.attrs?.is_real === false || latest.status === 'error'
   const cause = str(latest.attrs, 'error')
@@ -61,7 +65,7 @@ export function ownActivity(spans: readonly EngineSpan[], agent: string, live: b
     ...(toolCalls > 0 ? [`${toolCalls} tool call${toolCalls === 1 ? '' : 's'}`] : []),
     ...(allLocal ? ['all on your Mac'] : []),
   ]
-  return { state: noAnswer ? 'failed' : 'ok', label: parts.join(' · '), turns: turns.length, toolCalls, tokens, allLocal }
+  return { state: noAnswer ? 'failed' : 'ok', label: parts.join(' · '), turns: turns.length, answered, toolCalls, tokens, allLocal }
 }
 
 /** One of the agent's own work turns, in the span's own figures. */
