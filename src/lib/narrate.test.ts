@@ -9,7 +9,7 @@ function verdict(over: Partial<Verdict>): Verdict {
     taskId: 't', task: 'x',
     route: { target: 'cloud' } as Verdict['route'],
     tier1: {} as Verdict['tier1'],
-    tier2: { evalScore: 0.9 } as Verdict['tier2'],
+    tier2: { evalScore: 0.9, passed: true } as Verdict['tier2'],
     modelRoute: 'm', passed: true,
     ...over,
   } as Verdict
@@ -148,7 +148,7 @@ describe('narrateRun', () => {
       verdict({
         passed: true,
         native: { models_used: ['gemini · x', 'local · y', 'claude · z'] } as unknown as Verdict['native'],
-        tier2: { evalScore: 0.88 } as Verdict['tier2'],
+        tier2: { evalScore: 0.88, passed: true } as Verdict['tier2'],
         route: { target: 'local' } as Verdict['route'],
       }),
     )
@@ -166,7 +166,7 @@ describe('narrateRun', () => {
         passed: true,
         native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
         tier1: { tests: 'skipped', lint: false, build: false, pass: true, skipped: true, skipReason: 'no verify command set' } as Verdict['tier1'],
-        tier2: { evalScore: 0.75 } as Verdict['tier2'],
+        tier2: { evalScore: 0.75, passed: true } as Verdict['tier2'],
       }),
     )
     expect(s).not.toContain('Tier-1 tests')
@@ -179,10 +179,41 @@ describe('narrateRun', () => {
         passed: true,
         native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
         tier1: { tests: '2/2', lint: true, build: true, pass: true } as Verdict['tier1'],
-        tier2: { evalScore: 0.9 } as Verdict['tier2'],
+        tier2: { evalScore: 0.9, passed: true } as Verdict['tier2'],
       }),
     )
     expect(s).toContain('Verified: Tier-1 tests and the Tier-2 review passed (eval 0.90).')
+  })
+
+  // The same rule for the other tier: "the review passed" is only said of a
+  // review that ran and passed. A verdict can be `passed` with no review at
+  // all (the mapper records a review that did not run as `passed: false`,
+  // score 0) — and "it passed (eval 0.00)" over that is an invented assurance.
+  it('never says the review passed when the review did not run', () => {
+    const notRun = { evalScore: 0, passed: false, judge: 'DeepEval judge', trajectory: 'not run' } as Verdict['tier2']
+    const both = narrateRun(
+      verdict({
+        passed: true,
+        native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
+        tier1: { tests: 'skipped', lint: false, build: false, pass: true, skipped: true } as Verdict['tier1'],
+        tier2: notRun,
+      }),
+    )
+    expect(both).toContain('Nothing checked this step: your checks had nothing to run and the Tier-2 review did not run.')
+    expect(both).not.toContain('passed')
+    expect(both).not.toContain('eval')
+
+    const checksOnly = narrateRun(
+      verdict({
+        passed: true,
+        native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
+        tier1: { tests: '2/2', lint: true, build: true, pass: true } as Verdict['tier1'],
+        tier2: notRun,
+      }),
+    )
+    expect(checksOnly).toContain('Your Tier-1 checks passed. The Tier-2 review did not run on this step.')
+    expect(checksOnly).not.toContain('review passed')
+    expect(checksOnly).not.toContain('eval')
   })
 
   // The engine's third outcome, spoken into the project chat. Telling the user

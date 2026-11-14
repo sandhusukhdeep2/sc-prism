@@ -89,16 +89,23 @@ export function narrateRun(v: Verdict): string {
   const govNote =
     blocks > 0 ? ` 🛡 Governance blocked ${blocks} action${blocks === 1 ? '' : 's'} before it ran.` : ''
   if (v.passed) {
+    const head = `Ran your team on this step — ${models}.${localNote}${govNote}`
+    // Each tier is spoken of only as what it DID. A SKIPPED Tier-1 is not a
+    // passed one: there was nothing for the user's own checks to run (no
+    // tests in the folder, no verify command). And "the review passed" is
+    // only said of a review that ran and passed — a review that did not run
+    // is recorded as `passed: false` with a score of 0, and "it passed (eval
+    // 0.00)" over that would be an assurance nobody gave.
+    const checked = !v.tier1?.skipped
+    const reviewed = v.tier2?.passed === true
     const evalNote =
-      typeof v.tier2?.evalScore === 'number' ? ` (eval ${v.tier2.evalScore.toFixed(2)})` : ''
-    // A SKIPPED Tier-1 is not a passed one: there was nothing for the user's
-    // own checks to run (no tests in the folder, no verify command). Saying
-    // "Tier-1 tests … passed" over that is a tick nobody earned — the review
-    // is the only thing vouching for the step, and the line says so.
-    if (v.tier1?.skipped) {
-      return `Ran your team on this step — ${models}.${localNote}${govNote} Your checks had nothing to run here, so this rests on the Tier-2 review alone — it passed${evalNote}.`
+      reviewed && typeof v.tier2?.evalScore === 'number' ? ` (eval ${v.tier2.evalScore.toFixed(2)})` : ''
+    if (checked && reviewed) return `${head} Verified: Tier-1 tests and the Tier-2 review passed${evalNote}.`
+    if (reviewed) {
+      return `${head} Your checks had nothing to run here, so this rests on the Tier-2 review alone — it passed${evalNote}.`
     }
-    return `Ran your team on this step — ${models}.${localNote}${govNote} Verified: Tier-1 tests and the Tier-2 review passed${evalNote}.`
+    if (checked) return `${head} Your Tier-1 checks passed. The Tier-2 review did not run on this step.`
+    return `${head} Nothing checked this step: your checks had nothing to run and the Tier-2 review did not run.`
   }
   // ATTENTION — the engine's third outcome. Saying "it did not pass
   // verification" over a run whose Tier-1 checks genuinely ran and passed is

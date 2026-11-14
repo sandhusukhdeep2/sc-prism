@@ -227,7 +227,9 @@ an AI. What was wrong, and is fixed:
 - **A tick nobody earned.** A step in a folder with no tests ended "Verified:
   Tier-1 tests and the Tier-2 review passed". Tier-1 had been skipped. The
   line now reads "Your checks had nothing to run here, so this rests on the
-  Tier-2 review alone — it passed (eval 0.75)." (`narrateRun`)
+  Tier-2 review alone — it passed (eval 0.75)." The same rule for the other
+  tier: "the review passed" is said only of a review that ran and passed; a
+  step no tier checked says "Nothing checked this step". (`narrateRun`)
 - **An invented business.** Before one question was answered, the draft
   beside the interview read "Solo consultancy — I build data pipelines…" — a
   mock answer left in as the default, and the default is what the Manager is
