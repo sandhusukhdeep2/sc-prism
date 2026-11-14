@@ -71,6 +71,13 @@ export interface LiveRun {
    * draws only its own run (see `runsInRoom`).
    */
   room?: string
+  /**
+   * The room may offer Stop for this run: its runner cancels the engine's own
+   * subprocess and ends the run as "stopped by you" (a team run, a project
+   * build). Unset for runs whose runner has no such path — a Stop that did
+   * nothing would be worse than none.
+   */
+  stoppable?: boolean
 }
 
 export interface FinishedRun {

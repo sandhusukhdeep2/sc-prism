@@ -196,6 +196,34 @@ describe('RunStrip', () => {
     expect(ai).toHaveAttribute('title', `local · ${long}`)
   })
 
+  // STOP (2026-11-14): a team run can take five minutes and a build far
+  // longer, and the room had no way to stop either.
+  it('offers Stop for a run that can really be stopped, and asks the room to stop it', () => {
+    const onStop = vi.fn()
+    render(
+      <RunStrip {...base} runs={[run({ stoppable: true })]} spans={[working('lead', 1)]} live onStop={onStop} />,
+    )
+    const stop = screen.getByRole('button', { name: 'Stop this run' })
+    fireEvent.click(stop)
+    expect(onStop).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' }))
+    // Asked once: it says it is stopping and cannot be pressed again.
+    expect(screen.getByRole('button', { name: 'Stopping this run' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Stopping this run' }))
+    expect(onStop).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers no Stop where it would do nothing: an unstoppable run, or one parked on the user', () => {
+    const onStop = vi.fn()
+    const { rerender } = render(
+      <RunStrip {...base} runs={[run({ kind: 'manager' })]} spans={[]} live onStop={onStop} />,
+    )
+    expect(screen.queryByRole('button', { name: /^Stop/ })).not.toBeInTheDocument()
+    rerender(
+      <RunStrip {...base} runs={[run({ stoppable: true, paused: true })]} spans={[]} live={false} onStop={onStop} />,
+    )
+    expect(screen.queryByRole('button', { name: /^Stop/ })).not.toBeInTheDocument()
+  })
+
   it('opening a seat hands the page that agent', () => {
     const onOpenAgent = vi.fn()
     render(

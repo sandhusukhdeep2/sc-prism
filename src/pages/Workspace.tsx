@@ -193,7 +193,17 @@ const PANE_LABEL: Record<PaneTab, string> = {
 }
 
 export default function Workspace() {
-  const { state, sendIntent, send, sendTeam, sendProjectJob, setActiveProject, compressNow, newSession } = useApp()
+  const {
+    state,
+    sendIntent,
+    send,
+    sendTeam,
+    sendProjectJob,
+    setActiveProject,
+    compressNow,
+    newSession,
+    stopLiveRun,
+  } = useApp()
   const { settings } = useSettings()
   const connectivity = useConnectivity()
   const [draft, setDraft] = useState('')
@@ -1059,6 +1069,7 @@ export default function Workspace() {
             }
             onOpenRoom={(room) => pickRoom(room === MANAGER_ROOM ? '' : room)}
             onOpenAgent={setStageAgent}
+            onStop={(r) => stopLiveRun(r.id)}
             fullViewHref="/live"
           />
           <div className="chat__body" ref={bodyRef}>

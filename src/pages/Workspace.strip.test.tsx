@@ -17,6 +17,7 @@ import type { EngineSpan, TeamResult } from '../lib/nativeEngine'
 
 const h = vi.hoisted(() => ({
   runNativeTeam: vi.fn(),
+  cancelEngineRun: vi.fn(async (_id: string) => {}),
   spans: [] as unknown[],
 }))
 
@@ -30,7 +31,7 @@ vi.mock('../lib/nativeEngine', async (orig) => {
     storeSet: async () => {},
     readSpansTail: async () => h.spans as EngineSpan[],
     runNativeTeam: h.runNativeTeam,
-    cancelEngineRun: async () => {},
+    cancelEngineRun: h.cancelEngineRun,
   }
 })
 
@@ -70,6 +71,8 @@ describe('Work — one strip above the chat, and no Stage', () => {
     localStorage.clear()
     for (const p of getProjects().projects) removeProject(p.id)
     h.runNativeTeam.mockReset()
+    h.cancelEngineRun.mockReset()
+    h.cancelEngineRun.mockImplementation(async () => {})
     h.spans = []
   })
   afterEach(() => localStorage.clear())
@@ -130,6 +133,9 @@ describe('Work — one strip above the chat, and no Stage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Steps' }))
     expect(screen.getByRole('tab', { name: 'Steps' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.queryByRole('tab', { name: 'Stage' })).toBeNull()
+    // It can be stopped from here: the strip's Stop cancels the engine's run.
+    expect(h.cancelEngineRun).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Stop this run' })).toBeInTheDocument()
     // The full-window drawing is one click away.
     expect(screen.getByRole('link', { name: 'Watch this run full window' })).toHaveAttribute('href', '/live')
     // The engine closes the run: every span ends, and the run span with them.
@@ -184,6 +190,26 @@ describe('Work — one strip above the chat, and no Stage', () => {
       captured.app!.endLiveRun(id, 'passed')
       await Promise.resolve()
     })
+  })
+
+  it('Stop on the strip really cancels the engine’s run, and the room says it was stopped', async () => {
+    let killed: (r: TeamResult | null) => void = () => {}
+    h.runNativeTeam.mockImplementation(() => new Promise<TeamResult | null>((res) => (killed = res)))
+    h.cancelEngineRun.mockImplementation(async () => killed(null))
+    renderWorkspace()
+    await settle()
+    await act(async () => {
+      void captured.app!.sendTeam({ task: 'plan the launch', display: '→ team: plan the launch', roster: 'lead:local,researcher:local' })
+      await Promise.resolve()
+    })
+    await settle()
+    const runId = String(h.runNativeTeam.mock.calls[0][6])
+    fireEvent.click(screen.getByRole('button', { name: 'Stop this run' }))
+    await settle(12)
+    expect(h.cancelEngineRun).toHaveBeenCalledWith(runId)
+    expect(document.querySelector('.strip')).toBeNull()
+    expect(screen.getByText(/Stopped — you stopped this team run/)).toBeInTheDocument()
+    expect(screen.queryByText(/Team run failed/)).not.toBeInTheDocument()
   })
 
   it('a run that belongs to another room is not drawn here — the room says where the engine is', async () => {

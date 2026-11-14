@@ -1288,6 +1288,8 @@ export const TEAM_BUSY_TEXT =
 export const TEAM_TIMEOUT_TEXT =
   'We stopped the team run at 5 minutes — that is our own wall, not a provider failure. Try a smaller task.'
 export const TEAM_FAILED_TEXT = 'Team run failed — check the agents list and try again.'
+/** A team run the user stopped: said as a stop, never as a failure. */
+export const TEAM_STOPPED_TEXT = 'Stopped — you stopped this team run.'
 
 /**
  * What a team launch actually did — a tagged union so no caller has to guess.
@@ -1303,6 +1305,8 @@ export type TeamLaunch =
   | { status: 'busy' }
   | { status: 'ok'; result: TeamResult; sitOut: SitOut[]; reassigned: Reassigned[] }
   | { status: 'timeout'; salvage: string }
+  /** The user pressed Stop. `salvage` says what the board had got done. */
+  | { status: 'stopped'; salvage: string }
   | { status: 'failed'; cause: string }
   | { status: 'refused'; reason: string; sitOut: SitOut[]; reassigned: Reassigned[] }
 /**
@@ -2334,6 +2338,7 @@ interface AppContextValue {
     models?: string[]
     id?: string
     room?: string
+    stoppable?: boolean
   }) => string
   endLiveRun: (id: string, outcome: RunOutcome, detail?: string) => void
   /** PARK / UNPARK a registered run that is waiting on a HUMAN, so nothing on
@@ -2341,6 +2346,10 @@ interface AppContextValue {
    *  the pair for the same reason: an out-of-store runner that parks must be
    *  able to say so. */
   pauseLiveRun: (id: string, paused: boolean) => void
+  /** STOP a run the room offers Stop for (`LiveRun.stoppable`): the engine's
+   *  own subprocess is cancelled and the runner ends it as "stopped by you".
+   *  Does nothing for a run that is not stoppable. */
+  stopLiveRun: (id: string) => void
   // The app's ONE engine slot, exposed for the SAME reason: a runner outside
   // this store must take part in the one-engine-at-a-time protocol instead of
   // overlapping the manager/loop drivers. `claimEngine` returns false when
@@ -2465,6 +2474,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef(state)
   stateRef.current = state
 
+  // STOP (2026-11-14). Which live runs the user asked to stop, and — for a run
+  // whose card id is not the engine's run id (a build: one engine run per
+  // step) — the engine run executing for it right now. A runner that offers
+  // Stop reads the first and keeps the second current.
+  const stopAskedRef = useRef(new Set<string>())
+  const engineOfRunRef = useRef(new Map<string, string>())
+
   // Re-entry guard: at most one compaction in flight per thread key, so an
   // auto-trigger effect can't stack a second pass on top of one still running.
   const compactingRef = useRef<Set<string>>(new Set())
@@ -2493,6 +2509,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id?: string
       /** The room it belongs to (a project id); omit for the Manager's. */
       room?: string
+      /** Its runner honours Stop (see `stopLiveRun`). */
+      stoppable?: boolean
     }): string => {
       const id = run.id ?? newRunId()
       dispatch({
@@ -2504,6 +2522,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           startedAt: Date.now(),
           models: run.models ?? [],
           ...(run.room && run.room !== UNIVERSAL ? { room: run.room } : {}),
+          ...(run.stoppable ? { stoppable: true } : {}),
         },
       })
       return id
@@ -2524,6 +2543,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // until the answer NOTHING is executing and nothing may claim otherwise.
   // Symmetric: park true on the way in, false on the way out, in the same
   // block; the `finally` that ends the run clears the whole entry anyway.
+  // STOP a run the room offers Stop for. The request is recorded for the
+  // run's own runner (which ends it as "stopped by you"), and the engine
+  // subprocess executing for it right now is really cancelled. A run that is
+  // not stoppable, or is parked on the user (nothing is executing), is left
+  // alone — a Stop that cancels nothing must not be recorded as one.
+  const stopLiveRun = useMemo(() => {
+    return (id: string): void => {
+      const run = stateRef.current.liveRuns.find((r) => r.id === id)
+      if (!run || !run.stoppable || run.paused) return
+      stopAskedRef.current.add(id)
+      void cancelEngineRun(engineOfRunRef.current.get(id) ?? id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const pauseLiveRun = useMemo(() => {
     return (id: string, paused: boolean): void => {
       dispatch({ type: 'LIVE_RUN_PAUSE', id, paused })
@@ -2639,6 +2673,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         models: roster.split(',').map((a) => a.trim()).filter(Boolean),
         // A board asked from a project's room is that room's run.
         room: opts.projectId || undefined,
+        // The card's id IS the engine's run id here, so Stop can cancel it.
+        stoppable: true,
       })
       let outcome: RunOutcome = 'stopped'
       let detail = 'the team run ended without a recorded outcome'
@@ -2692,6 +2728,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // to be able to say who wasn't at the table and why.
           return { status: 'ok', result: res, sitOut, reassigned }
         }
+        // STOPPED BY THE USER. The child was cancelled, so its call came back
+        // with nothing — which is not a failure and is not said as one. What
+        // the board had got done is on disk and is reported, as for a timeout.
+        if (stopAskedRef.current.has(liveId)) {
+          outcome = 'stopped'
+          detail = 'stopped by you'
+          let salvage = ''
+          try {
+            salvage = teamSalvageLine(await readSpansTail(vault, 400), teamRunId)
+          } catch {
+            /* no spans readable -> no claim made */
+          }
+          return { status: 'stopped', salvage }
+        }
         if (teamOutcome.timedOut) {
           detail = 'stopped at 300s'
           // The wall stays; throwing the work away does not. Everything the
@@ -2722,6 +2772,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw err
       } finally {
         releaseEngine()
+        stopAskedRef.current.delete(liveId)
         // The ONE guaranteed clear — otherwise the card glows with no run.
         endLiveRun(liveId, outcome, detail)
       }
@@ -2780,6 +2831,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notice(
           launch.salvage ? `${TEAM_TIMEOUT_TEXT}\n\n${launch.salvage}` : TEAM_TIMEOUT_TEXT,
         )
+        return
+      }
+      if (launch.status === 'stopped') {
+        notice(launch.salvage ? `${TEAM_STOPPED_TEXT}\n\n${launch.salvage}` : TEAM_STOPPED_TEXT)
         return
       }
       if (launch.status === 'failed') {
@@ -4362,14 +4417,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // request fact. Who actually answered comes from the run's spans.
         models: roster.split(',').map((r) => r.trim()).filter(Boolean),
         room: project.id,
+        // Stop cancels the step in hand and ends the build here (below).
+        stoppable: true,
       })
       let buildEnd: { outcome: RunOutcome; detail: string } = {
         outcome: 'stopped',
         detail: 'the build stopped before it finished',
       }
+      // STOP: true once the user has asked this build to stop. Read before a
+      // step is launched and again when its engine call returns.
+      let stoppedByUser = false
+      const stopAsked = (): boolean => {
+        if (stopAskedRef.current.has(buildLiveId)) stoppedByUser = true
+        return stoppedByUser
+      }
+      // The one way a stopped build ends: back on the user's own branch (an
+      // attached repo), left at the step it was on, needing attention.
+      const endStopped = async (): Promise<void> => {
+        if (existingMode && baseBranch) {
+          await runNativeProjectFinish(projectDir, baseBranch)
+        }
+        const at = Math.min(idx + 1, project.plan.length)
+        updateProject(projectId, {
+          status: 'attention',
+          lastNote: `Stopped by you at step ${at} of ${project.plan.length} — Resume build carries on from this step.`,
+        })
+        notify('attention', `«${project.name}» — stopped by you at step ${at} of ${project.plan.length}`)
+        buildEnd = { outcome: 'stopped', detail: 'stopped by you' }
+      }
       try {
         while (true) {
           if (projectRunId.current !== runId) return
+          // Asked to stop between steps: the next one is not started.
+          if (stopAsked()) {
+            await endStopped()
+            return
+          }
 
           let action: RunAction
           if (pending) {
@@ -4465,6 +4548,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             let stepTimedOut = false
             try {
               const engineRunId = newRunId()
+              // The engine run Stop has to cancel for this card, right now.
+              engineOfRunRef.current.set(buildLiveId, engineRunId)
               const stepOutcome = await raceCancelable(
                 runNativeProject(
                   intent,
@@ -4502,10 +4587,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
               vids = [...vids, verdict.taskId]
               lastStepVerdictId = verdict.taskId
             }
+            // Stopped by the user with nothing back: say that, not "the engine
+            // gave no reply".
+            const stoppedEmpty = stopAsked() && !verdict
             feedback = passed
               ? ''
               : verdict
                 ? verdictFeedback(verdict)
+                : stoppedEmpty
+                  ? ''
                 : stepTimedOut
                   ? weStoppedIt(stepWall)
                   : lastEngineProjectError() ||
@@ -4541,6 +4631,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
               { plan: project.plan, stepIndex: idx, refinePass: rp, lastPassed: passed, extraRefineGranted: extraGranted },
               DEFAULT_MAX_REFINES,
             )
+          }
+
+          // STOPPED BY THE USER: nothing further starts. A build whose last
+          // step had already passed is simply done; anything else ends here,
+          // at the step it was on, needing attention — Resume carries on.
+          if (stopAsked() && !(action.kind === 'finish' && action.status === 'done')) {
+            await endStopped()
+            return
           }
 
           if (action.kind === 'ask-extra-refine' && preAnswered) {
@@ -4652,6 +4750,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           updateProject(projectId, { refinePass: rp })
         }
       } finally {
+        stopAskedRef.current.delete(buildLiveId)
+        engineOfRunRef.current.delete(buildLiveId)
         endLiveRun(buildLiveId, buildEnd.outcome, buildEnd.detail)
       }
     }
@@ -5109,6 +5209,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       beginLiveRun,
       endLiveRun,
       pauseLiveRun,
+      stopLiveRun,
       claimEngine,
       releaseEngine,
       launchTeam,
@@ -5132,6 +5233,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       beginLiveRun,
       endLiveRun,
       pauseLiveRun,
+      stopLiveRun,
       claimEngine,
       releaseEngine,
       launchTeam,

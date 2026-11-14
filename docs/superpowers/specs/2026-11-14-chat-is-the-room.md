@@ -128,11 +128,30 @@ beside "67% local" in the rail, and "3,573,470 tokens today, across 108 runs".
   every run on record.
 - The split under it says what it is a share of: runs.
 
+## Stop
+
+A team run can take five minutes and a build far longer; the room had no way
+to stop either. The strip now carries Stop on a run that can really be
+stopped.
+
+- **What Stop does.** The engine's own subprocess for that run is cancelled.
+  The run ends as "stopped by you" — never as a failure, never as "the engine
+  gave no reply" — and what its board had got done is reported.
+- **A team run** is told in the room as "Stopped — you stopped this team run."
+- **A build** cancels the step in hand, starts no further step, returns an
+  attached repo to the user's own branch, and is left needing attention at the
+  step it was on: "Stopped by you at step 2 of 3 — Resume build carries on
+  from this step."
+- **Only where it works.** A run is offered Stop only when its runner honours
+  it (`LiveRun.stoppable`): team runs and project builds. A run parked on the
+  user has nothing executing and offers none — its answer buttons end it. The
+  heartbeat, a manager's job, a standing job and one AI answering a message
+  have no Stop yet; one that did nothing would be worse than none.
+- A build's card id is not the engine's run id (one engine run per step), so
+  the store keeps which engine run is executing for each card.
+
 ## Not built here
 
-- **Stop.** There is still no way to stop a run from the room. A chat send
-  and a project build register under an id that is not the engine's run id, so
-  a Stop that works for every kind needs that plumbing first. Next slice.
 - The same once-only pass on the other pages (Agents, Automations, Settings,
   Library, Console), and the two "local share" figures on the Manager page
   that read as one fact with two values.

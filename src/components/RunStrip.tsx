@@ -36,6 +36,7 @@ export default function RunStrip({
   roomName,
   onOpenRoom,
   onOpenAgent,
+  onStop,
   fullViewHref,
   engines,
   now: fixedNow,
@@ -58,6 +59,8 @@ export default function RunStrip({
    *  strip is not shown (one AI answering a message). Default: counted from
    *  `runs` and `elsewhere`. */
   engines?: number
+  /** Stop a run (offered only for `run.stoppable` runs that are executing). */
+  onStop?: (run: LiveRun) => void
   /** Where the same run is drawn full window (the Live page). */
   fullViewHref?: string
   /** Injected wall clock (tests). Omitted → a 1 s tick while anything runs. */
@@ -82,6 +85,9 @@ export default function RunStrip({
     return () => ro.disconnect()
   }, [drawn])
   const packet = packetRadii(box.w, box.h, STRIP_H)
+  // The runs Stop has been pressed for — said as "Stopping…" until the run
+  // itself leaves the strip. Asked once.
+  const [stopping, setStopping] = useState<ReadonlySet<string>>(new Set())
   // Every engine executing right now, wherever it belongs.
   const atOnce = engines ?? runs.filter((r) => !r.paused).length + elsewhere.length
 
@@ -120,6 +126,21 @@ export default function RunStrip({
             </span>
             {r.paused && <span className="strip__waiting">waiting on you</span>}
             <span className="strip__elapsed mono">{elapsedLabel(r.startedAt, now)}</span>
+            {onStop && r.stoppable && !r.paused && (
+              <button
+                type="button"
+                className="strip__stop"
+                disabled={stopping.has(r.id)}
+                aria-label={stopping.has(r.id) ? 'Stopping this run' : 'Stop this run'}
+                onClick={() => {
+                  if (stopping.has(r.id)) return
+                  setStopping((prev) => new Set(prev).add(r.id))
+                  onStop(r)
+                }}
+              >
+                {stopping.has(r.id) ? 'Stopping…' : 'Stop'}
+              </button>
+            )}
             {fullViewHref && live && i === 0 && (
               <Link
                 to={fullViewHref}

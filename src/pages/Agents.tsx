@@ -52,6 +52,7 @@ import {
 import {
   TEAM_BUSY_TEXT,
   TEAM_FAILED_TEXT,
+  TEAM_STOPPED_TEXT,
   TEAM_TIMEOUT_TEXT,
   TEAM_TOKEN_BUDGET,
   useApp,
@@ -543,6 +544,9 @@ function TeamLauncher() {
         setError(
           outcome.salvage ? `${TEAM_TIMEOUT_TEXT}\n\n${outcome.salvage}` : TEAM_TIMEOUT_TEXT,
         )
+      // Stopped from the Work room while it ran: said as a stop, not a failure.
+      else if (outcome.status === 'stopped')
+        setError(outcome.salvage ? `${TEAM_STOPPED_TEXT}\n\n${outcome.salvage}` : TEAM_STOPPED_TEXT)
       // Refused: not one seat had a connected provider, so nothing ran. Its own
       // words, never the generic failure line — the fix is in Settings.
       else if (outcome.status === 'refused') {
