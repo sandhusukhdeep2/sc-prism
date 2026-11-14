@@ -10,8 +10,11 @@ permissions:
 
 jobs:
   verify:
-    # Apple Silicon: the only platform SC Prism builds for.
-    runs-on: macos-14
+    # Apple Silicon: the only platform SC Prism builds for. Not a pinned image:
+    # `macos-14` was withdrawn, and every run after that was cancelled before
+    # its first step ("configuration … is not supported") while the badge read
+    # "failing" over a gate that was passing.
+    runs-on: macos-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
