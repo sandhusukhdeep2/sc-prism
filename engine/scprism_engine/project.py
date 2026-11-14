@@ -51,6 +51,9 @@ FILE_BLOCK_INSTRUCTIONS = (
     "===FILE: relative/path.ext===\n"
     "<full file content>\n"
     "===END===\n"
+    "Every path is relative to the project folder itself: a file at its top "
+    "level is `name.ext`. Never put the folder's own name, or the path that "
+    "leads to it, in front.\n"
     "Emit at least one block. Do not use markdown code fences around blocks.\n"
     "Write each file's FULL content, not a diff, a patch or an excerpt.\n"
     "A reply that contains only analysis, findings or intentions and NO file "
@@ -245,6 +248,28 @@ def validate_project_path(
     return True, ""
 
 
+def _within_project(rel: str, root: str) -> str:
+    """``rel`` with a restatement of the project's OWN location taken off.
+
+    A board that read ``<vault>/projects/hello-crew/hello.md`` through the
+    vault tool knows the file as ``projects/hello-crew/hello.md`` and writes
+    its FILE block with that path — which, relative to the project, would
+    create ``<project>/projects/hello-crew/hello.md`` and leave the real file
+    untouched (seen 2026-11-14). When a path's leading folders are exactly the
+    trailing folders of the project's own location, and no such folder exists
+    inside the project, the path means the project itself.
+
+    Longest restatement first; an existing folder of that name inside the
+    project means the path says what it means, and nothing is rewritten.
+    """
+    parts = [p for p in os.path.normpath(rel).split(os.sep) if p not in ("", ".")]
+    tail = [p for p in root.split(os.sep) if p]
+    for k in range(min(len(parts) - 1, len(tail)), 0, -1):
+        if parts[:k] == tail[-k:] and not os.path.exists(os.path.join(root, parts[0])):
+            return os.path.join(*parts[k:])
+    return rel
+
+
 def apply_file_ops(
     ops: Sequence[FileOp],
     project_dir: str,
@@ -273,6 +298,7 @@ def apply_file_ops(
         }
     root = os.path.realpath(project_dir)
     for rel, content in ops:
+        rel = _within_project(rel, root)
         ok, reason = validate_project_path(rel, project_dir, never_touch)
         if not ok:
             rejected.append({"path": rel, "reason": reason})
