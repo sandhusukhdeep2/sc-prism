@@ -8,7 +8,7 @@
 // touching React, the store, or the native bridge — the driver (AppStore.tsx)
 // is the only thing that calls the engine and dispatches side effects.
 
-import { guardAnswerText } from './answerText'
+import { guardAnswerText, stripToolCallBlocks } from './answerText'
 import type { Verdict } from '../engine/types'
 import type { FolderJob, Project } from './projects'
 
@@ -150,6 +150,20 @@ function isRealText(text: string | undefined): text is string {
 const MAX_LOG_CHARS = 2000
 
 /**
+ * What the reviewer said about a step it failed, made safe to quote. The notes
+ * are a model's words — they go into the next attempt's prompt and onto the
+ * Needs-you row — so they pass the same gates as the answer: a stand-in is not
+ * notes, an unexecuted tool request is stripped, and the length is bounded.
+ */
+function reviewerNotes(review: Verdict['tier2'] | undefined): string {
+  if (!review || review.passed) return ''
+  const raw = (review.judgeNotes ?? '').trim()
+  if (!isRealText(raw)) return ''
+  const clean = stripToolCallBlocks(raw).trim()
+  return clean.length > MAX_LOG_CHARS ? clean.slice(0, MAX_LOG_CHARS) : clean
+}
+
+/**
  * The feedback text to hand back to the model on a refine pass, extracted
  * from a FAILED verdict. Tier 1 is deterministic and free — when it failed
  * that is the most actionable signal (no point quoting prose about a check
@@ -181,7 +195,7 @@ export function verdictFeedback(verdict: Verdict): string {
   // retry was handed the doer's own answer back and told to "fix this".
   // (A verdict saved by an older build may carry no review record at all.)
   const review = verdict.tier2 as Verdict['tier2'] | undefined
-  const notes = !review || review.passed ? '' : (review.judgeNotes ?? '').trim()
+  const notes = reviewerNotes(review)
   if (review && notes) {
     const score = typeof review.evalScore === 'number' ? ` (scored ${review.evalScore.toFixed(2)})` : ''
     const head = `The reviewer did not pass this${score}. Its notes: ${notes}`

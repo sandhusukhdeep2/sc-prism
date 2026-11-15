@@ -503,6 +503,11 @@ the project needed attention. The reviewer's notes now lead (with its score),
 followed by what the attempt answered (`verdictFeedback`). A failed check
 still comes first: the reviewer never ran over it.
 
+The notes are a model's words, and they now reach the next prompt and the
+Needs-you row, so they pass the same gates as an answer: a stand-in is not
+notes, an unexecuted tool request is stripped, and the length is capped as a
+check's log is.
+
 ## A team run's wall is sized by its team (2026-11-15)
 
 A team run had a fixed five minutes whatever its size. Seen in the installed

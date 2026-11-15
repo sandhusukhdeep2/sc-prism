@@ -337,6 +337,36 @@ describe('verdictFeedback', () => {
     expect(verdictFeedback(v)).toBe('The reviewer did not pass this (scored 0.10). Its notes: nothing was written')
   })
 
+  // The reviewer's notes are a model's words too — and they now go into the
+  // next prompt and onto the Needs-you row. They pass the same gates as the
+  // answer: no unexecuted tool request, no stand-in, and a bounded length.
+  const failedBy = (judgeNotes: string, response = 'Here is the logo.') =>
+    makeVerdict({
+      passed: false,
+      tier1: { tests: '3/3', lint: true, build: true, pass: true },
+      tier2: { evalScore: 0.3, passed: false, judge: 'DeepEval judge', trajectory: 'trajectory ok', judgeNotes },
+      response,
+    })
+
+  it('a tool request inside the reviewer\'s notes never reaches the retry', () => {
+    const out = verdictFeedback(
+      failedBy('the file is cut off\n```tool_call\n{"tool": "write_file", "arguments": {"path": "x"}}\n```'),
+    )
+    expect(out).not.toContain('```tool_call')
+    expect(out).not.toContain('write_file')
+    expect(out).toContain('Its notes: the file is cut off')
+  })
+
+  it('a stand-in is not quoted as the reviewer\'s notes', () => {
+    expect(verdictFeedback(failedBy('[offline: no provider reachable]'))).toBe('Here is the logo.')
+  })
+
+  it('the reviewer\'s notes are capped, like a check\'s log', () => {
+    const out = verdictFeedback(failedBy('n'.repeat(5000), ''))
+    expect(out.length).toBeLessThan(2100)
+    expect(out.startsWith('The reviewer did not pass this (scored 0.30). Its notes: nnn')).toBe(true)
+  })
+
   it('a failed check still comes first — the reviewer never ran over it', () => {
     const v = makeVerdict({
       passed: false,
