@@ -4635,7 +4635,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const intent =
               rp === 0
                 ? stepIntent(project.goal, project.plan, idx)
-                : refineIntent(project.goal, feedback, rp)
+                : refineIntent(project.goal, project.plan, idx, feedback, rp)
             // Attempt lineage (F1). One logical step = one group; `rp` is how
             // many refines have run, so this attempt is `rp + 1`. Both travel
             // on every attempt INCLUDING the first, or attempt 1 would be

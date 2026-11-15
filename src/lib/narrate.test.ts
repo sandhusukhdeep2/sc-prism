@@ -269,6 +269,36 @@ describe('narrateRun', () => {
     expect(s).not.toContain('🔒')
   })
 
+  // Seen in the installed app, 2026-11-15: a step failed its review and the
+  // room said "I stopped here rather than write unverified work" — with the
+  // file that step wrote sitting in the folder. A failed step's files ARE
+  // written (the review reads them there); only the checkpoint is withheld.
+  it('a failed step that wrote files says they are in the folder, unverified — not that nothing was written', () => {
+    const s = narrateRun(
+      verdict({
+        passed: false,
+        native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
+        route: { target: 'cloud' } as Verdict['route'],
+        project: { files_written: ['docs/requirements.md', 'index.html'] },
+      }),
+    )
+    expect(s).toContain('did not pass verification')
+    expect(s).not.toContain('rather than write unverified work')
+    expect(s).toContain('What it wrote is in the folder, unverified: docs/requirements.md, index.html.')
+  })
+
+  it('a failed step that wrote nothing keeps the original sentence', () => {
+    const s = narrateRun(
+      verdict({
+        passed: false,
+        native: { models_used: ['claude · x'] } as unknown as Verdict['native'],
+        route: { target: 'cloud' } as Verdict['route'],
+        project: { files_written: [] },
+      }),
+    )
+    expect(s).toContain('so I stopped here rather than write unverified work.')
+  })
+
   it('falls back to the route label when the verdict carries no models_used', () => {
     const s = narrateRun(
       verdict({ passed: true, native: undefined, route: { target: 'cloud', routeLabel: 'cloud · fast' } as Verdict['route'], tier2: { evalScore: 0.5 } as Verdict['tier2'] }),

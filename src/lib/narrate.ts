@@ -118,6 +118,14 @@ export function narrateRun(v: Verdict): string {
     const judgeNote = contradiction ? ` ⚠ And ${contradiction}.` : ''
     return `Ran your team on this step — ${models}.${localNote}${govNote} Tier-1 tests ran over the files it wrote and PASSED, but the Tier-2 reviewer dissented${evalNote} — so this needs a look, not a redo. I stopped short of checkpointing it.${judgeNote}`
   }
+  // A failed step's files ARE in the folder — the review reads them there; it
+  // is the checkpoint that is withheld. "I stopped rather than write
+  // unverified work" over a file that was written is not true, so when the
+  // run wrote any, they are named as what they are: there, and unverified.
+  const wrote = v.project?.files_written ?? []
+  if (wrote.length > 0) {
+    return `Ran your team on this step — ${models}.${localNote}${govNote} It did not pass verification. What it wrote is in the folder, unverified: ${wrote.join(', ')}.`
+  }
   return `Ran your team on this step — ${models}.${localNote}${govNote} It did not pass verification, so I stopped here rather than write unverified work.`
 }
 

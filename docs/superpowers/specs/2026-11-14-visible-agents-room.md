@@ -475,6 +475,24 @@ through every gate a start goes through; the room says "The team was changed
 while this build waited — the one more try runs on the team set now." With
 the team left alone nothing changes, and a No is a No.
 
+## A retry names the step it is retrying (2026-11-15)
+
+Seen in the installed app: the second try at "Write PROJECT.md" wrote
+index.html; and a later retry that did write its step's file was failed by
+the reviewer at 0.425 ("task_completion=0.2 … the Input's intent was to
+deliver the complete …"). The words sent for a retry were the project's whole
+goal and what went wrong — the step being retried was not in them. The doer
+guessed which part of the goal to do, and the reviewer marked one step's work
+against the entire project. A retry now opens exactly as the step's first
+attempt did (goal, then "Step n of N: …") and then says what went wrong
+(`refineIntent`).
+
+A failed step's files are in the folder — the review reads them there, and
+only the checkpoint is withheld. The room said "I stopped here rather than
+write unverified work" over a file that had been written. When a failed run
+wrote files, the line now names them: "What it wrote is in the folder,
+unverified: …".
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

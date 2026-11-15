@@ -217,20 +217,46 @@ describe('stepIntent', () => {
   })
 })
 
+// A RETRY NAMES THE STEP IT IS RETRYING (2026-11-15).
+//
+// Seen in the installed app: the second try at "Write PROJECT.md" wrote
+// index.html, and a later retry that DID write its step's file was failed by
+// the reviewer at 0.425 — "task_completion=0.2 (the Input's intent was to …
+// deliver the complete …)". The retry's words were the project's whole goal
+// and what went wrong, and nothing else: the step being retried was not in
+// them. The doer was left to guess which part of the goal to do, and the
+// reviewer marked one step's work against the entire project.
 describe('refineIntent', () => {
-  it('produces the exact copy for a refine pass', () => {
-    expect(refineIntent('Build a portfolio site', 'Tier-1 checks failed (0/3).', 1)).toBe(
+  const plan = ['Write PROJECT.md', 'Write docs/requirements.md', 'Write index.html']
+
+  it('names the step being retried, then what went wrong', () => {
+    expect(refineIntent('Build a portfolio site', plan, 1, 'Tier-1 checks failed (0/3).', 1)).toBe(
       'Project goal: Build a portfolio site\n' +
-        'Refine attempt 1: the previous attempt did not pass verification. ' +
+        'Step 2 of 3: Write docs/requirements.md\n' +
+        'Refine attempt 1: the previous attempt at this step did not pass verification. ' +
         'Fix this and complete the step:\nTier-1 checks failed (0/3).',
     )
   })
 
-  it('produces the exact copy for a later pass number', () => {
-    expect(refineIntent('Ship the CLI', 'The judge flagged a missing test.', 3)).toBe(
+  it('carries the pass number', () => {
+    expect(refineIntent('Ship the CLI', plan, 2, 'The judge flagged a missing test.', 3)).toBe(
       'Project goal: Ship the CLI\n' +
-        'Refine attempt 3: the previous attempt did not pass verification. ' +
+        'Step 3 of 3: Write index.html\n' +
+        'Refine attempt 3: the previous attempt at this step did not pass verification. ' +
         'Fix this and complete the step:\nThe judge flagged a missing test.',
+    )
+  })
+
+  it('opens exactly as the first attempt at that step did', () => {
+    const first = stepIntent('Build a portfolio site', plan, 1)
+    expect(refineIntent('Build a portfolio site', plan, 1, 'x', 1).startsWith(first + '\n')).toBe(true)
+  })
+
+  it('an opened folder has no goal line — the step is still named', () => {
+    expect(refineIntent('', plan, 0, 'the file was not written', 2)).toBe(
+      'Step 1 of 3: Write PROJECT.md\n' +
+        'Refine attempt 2: the previous attempt at this step did not pass verification. ' +
+        'Fix this and complete the step:\nthe file was not written',
     )
   })
 })

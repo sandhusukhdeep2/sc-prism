@@ -108,11 +108,26 @@ export function folderJobNotice(
     : `Added as ${where} — it runs with the rest of the plan when you start the build.`
 }
 
-/** The natural-language intent sent to the engine for a refine retry, carrying forward why the last attempt failed. */
-export function refineIntent(goal: string, feedback: string, pass: number): string {
+/**
+ * The natural-language intent sent to the engine for a refine retry: the step
+ * being retried, then why the last attempt at it failed.
+ *
+ * It opens exactly as that step's first attempt did (`stepIntent`). Until
+ * 2026-11-15 it was the goal and the failure only — the step was not in it.
+ * Seen in the installed app: the retry of "Write PROJECT.md" wrote index.html,
+ * and a retry that did write its step's file was marked against the whole
+ * project by the reviewer and failed.
+ */
+export function refineIntent(
+  goal: string,
+  plan: string[],
+  index: number,
+  feedback: string,
+  pass: number,
+): string {
   return (
-    `Project goal: ${goal}\n` +
-    `Refine attempt ${pass}: the previous attempt did not pass verification. ` +
+    `${stepIntent(goal, plan, index)}\n` +
+    `Refine attempt ${pass}: the previous attempt at this step did not pass verification. ` +
     `Fix this and complete the step:\n${feedback}`
   )
 }
