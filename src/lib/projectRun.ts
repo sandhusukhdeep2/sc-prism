@@ -157,10 +157,11 @@ const MAX_LOG_CHARS = 2000
  * model actually needs to fix the failure — prefer it (truncated so one huge
  * log can't blow the next prompt's budget) over the synthesized "N/M failed"
  * summary; the synthesized line is a fallback when the engine sent no log
- * text (native verdicts always do; older/sim verdicts may not). Otherwise
- * fall back to the real completion text (a Tier 2 / judge rejection, or a
- * blocked write) so the model sees exactly what it said; a verdict with none
- * of the above gets an honest generic message.
+ * text (native verdicts always do; older/sim verdicts may not). Otherwise it
+ * was the reviewer (Tier 2) that failed it: its notes lead, followed by the
+ * real completion text so the model sees exactly what it said. With no notes
+ * the completion text stands alone (a blocked write, an older verdict); a
+ * verdict with none of the above gets an honest generic message.
  */
 export function verdictFeedback(verdict: Verdict): string {
   if (!verdict.tier1.pass) {
@@ -173,7 +174,20 @@ export function verdictFeedback(verdict: Verdict): string {
   // PROJECT ANSWER: this text is shown to the user in the run stage AND fed
   // back to the model as refine feedback. An unexecuted ```tool_call request
   // is neither an answer nor useful feedback — strip it and say so.
-  if (isRealText(verdict.response)) return guardAnswerText(verdict.response)
+  const answer = isRealText(verdict.response) ? guardAnswerText(verdict.response) : ''
+  // THE REVIEWER'S REASONS (2026-11-15). When the checks did not fail, it is
+  // the reviewer who failed the step — and what it said is the only thing
+  // that tells the next attempt what to change. It used to be left out: the
+  // retry was handed the doer's own answer back and told to "fix this".
+  // (A verdict saved by an older build may carry no review record at all.)
+  const review = verdict.tier2 as Verdict['tier2'] | undefined
+  const notes = !review || review.passed ? '' : (review.judgeNotes ?? '').trim()
+  if (review && notes) {
+    const score = typeof review.evalScore === 'number' ? ` (scored ${review.evalScore.toFixed(2)})` : ''
+    const head = `The reviewer did not pass this${score}. Its notes: ${notes}`
+    return answer ? `${head}\n\nWhat the attempt answered:\n${answer}` : head
+  }
+  if (answer) return answer
   return 'The previous attempt did not pass verification.'
 }
 

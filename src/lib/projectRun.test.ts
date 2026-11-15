@@ -302,6 +302,51 @@ describe('verdictFeedback', () => {
     expect(verdictFeedback(v)).toBe('The previous attempt did not pass verification.')
   })
 
+  // THE REVIEWER'S REASONS REACH THE RETRY (2026-11-15). Seen in the
+  // installed app: a step was failed by the reviewer, and the retry was told
+  // "the previous attempt did not pass verification. Fix this:" followed by
+  // the doer's OWN last answer — not one word of what the reviewer objected
+  // to. The Needs-you row showed the same thing: the failed answer, as the
+  // reason the project needed attention.
+  it('leads with what the reviewer said when the reviewer is who failed it', () => {
+    const v = makeVerdict({
+      passed: false,
+      tier1: { tests: 'skipped', lint: true, build: true, pass: true, skipped: true },
+      tier2: {
+        evalScore: 0.43,
+        passed: false,
+        judge: 'DeepEval judge',
+        trajectory: 'trajectory ok',
+        judgeNotes: 'task_completion=0.2 (the logo file is cut off mid-path)',
+      },
+      response: 'Here is the logo.',
+    })
+    expect(verdictFeedback(v)).toBe(
+      'The reviewer did not pass this (scored 0.43). Its notes: task_completion=0.2 (the logo file is cut off mid-path)\n\n' +
+        'What the attempt answered:\nHere is the logo.',
+    )
+  })
+
+  it('gives the reviewer\'s notes alone when there is no real answer to quote', () => {
+    const v = makeVerdict({
+      passed: false,
+      tier1: { tests: '3/3', lint: true, build: true, pass: true },
+      tier2: { evalScore: 0.1, passed: false, judge: 'DeepEval judge', trajectory: 'trajectory ok', judgeNotes: 'nothing was written' },
+      response: '[offline: no provider configured]',
+    })
+    expect(verdictFeedback(v)).toBe('The reviewer did not pass this (scored 0.10). Its notes: nothing was written')
+  })
+
+  it('a failed check still comes first — the reviewer never ran over it', () => {
+    const v = makeVerdict({
+      passed: false,
+      tier1: { tests: '0/3', lint: false, build: false, pass: false, log: 'FAILED test_index' },
+      tier2: { evalScore: 0, passed: false, judge: 'DeepEval judge', trajectory: 'not run', judgeNotes: 'stale notes' },
+      response: 'x',
+    })
+    expect(verdictFeedback(v)).toBe('FAILED test_index')
+  })
+
   // Regression tests for C2: refine feedback lacked the real failure output —
   // the model only ever saw the synthesized "Tier-1 checks failed (0/3)"
   // summary, never the actual command output that would tell it WHAT to fix.

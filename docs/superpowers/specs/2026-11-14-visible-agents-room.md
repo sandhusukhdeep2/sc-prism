@@ -493,6 +493,16 @@ write unverified work" over a file that had been written. When a failed run
 wrote files, the line now names them: "What it wrote is in the folder,
 unverified: …".
 
+## The reviewer's reasons reach the retry (2026-11-15)
+
+When a step's checks did not fail, it is the reviewer that failed it. The
+retry was told "the previous attempt did not pass verification. Fix this:"
+followed by the doer's own last answer — nothing of what the reviewer
+objected to — and the Needs-you row showed that failed answer as the reason
+the project needed attention. The reviewer's notes now lead (with its score),
+followed by what the attempt answered (`verdictFeedback`). A failed check
+still comes first: the reviewer never ran over it.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the
