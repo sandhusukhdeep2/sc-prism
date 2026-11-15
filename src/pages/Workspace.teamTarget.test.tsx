@@ -21,7 +21,8 @@ import Workspace from './Workspace'
 import { SettingsProvider } from '../lib/settings'
 import { ConnectivityProvider } from '../lib/connectivity'
 import { OnboardingProvider } from '../lib/onboarding'
-import { AppProvider, TEAM_BUSY_TEXT, TEAM_TIMEOUT_TEXT, useApp } from '../store/AppStore'
+import { AppProvider, TEAM_BUSY_TEXT, useApp } from '../store/AppStore'
+import { UNATTENDED_CEILING_MS } from '../lib/runBudget'
 import { addProject, getProjects, removeProject, updateProject } from '../lib/projects'
 
 // The composer's target + route pills now live behind a "Change" disclosure:
@@ -188,8 +189,17 @@ describe('Work composer → team: the SHARED governed launch', () => {
       const runId = h.runNativeTeam.mock.calls[0][6]
       expect(captured.app!.state.liveRuns).toHaveLength(1)
 
+      // Five minutes was the old fixed wall, whatever the team's size. It is
+      // not the wall any more (teamWallMs): the run is still going.
       await act(async () => {
         await vi.advanceTimersByTimeAsync(300_001)
+      })
+      expect(h.cancelEngineRun).not.toHaveBeenCalled()
+      expect(captured.app!.state.liveRuns).toHaveLength(1)
+
+      // No wall is longer than the ceiling for unattended work.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(UNATTENDED_CEILING_MS)
       })
 
       // The abandoned child is really killed (a draining engine keeps appending
@@ -201,7 +211,10 @@ describe('Work composer → team: the SHARED governed launch', () => {
       expect(captured.app!.state.finishedRuns[0]).toMatchObject({ kind: 'team', outcome: 'stopped' })
       expect(captured.app!.claimEngine()).toBe(true)
       captured.app!.releaseEngine()
-      expect(screen.getByText(TEAM_TIMEOUT_TEXT)).toBeInTheDocument()
+      // …naming the wall the run was really given.
+      expect(
+        screen.getByText(/^We stopped the team run at \d+ minutes — that is our own wall, not a provider failure\. Try a smaller task\.$/),
+      ).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

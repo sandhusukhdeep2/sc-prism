@@ -118,15 +118,17 @@ describe('TeamLauncher — a timeout really cancels the engine child (H5)', () =
     expect(captured.app!.state.liveRuns).toHaveLength(1)
     expect(captured.app!.state.liveRuns[0].id).toBe(runId)
 
+    // The wall is sized by the team now (teamWallMs) and is never past the
+    // ceiling for unattended work — twenty minutes ends any run.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(300_001)
+      await vi.advanceTimersByTimeAsync(1_200_001)
     })
 
     expect(h.cancelEngineRun).toHaveBeenCalledWith(runId)
     // Honest outcome: stopped (unknown), never dressed up as a fail or a pass.
     expect(captured.app!.state.liveRuns).toHaveLength(0)
     expect(captured.app!.state.finishedRuns[0]).toMatchObject({ kind: 'team', outcome: 'stopped' })
-    expect(screen.getByText(/we stopped the team run at 5 minutes/i)).toBeInTheDocument()
+    expect(screen.getByText(/we stopped the team run at \d+ minutes/i)).toBeInTheDocument()
   })
 
   it('does NOT cancel when the run finishes normally (M5 — no regression)', async () => {

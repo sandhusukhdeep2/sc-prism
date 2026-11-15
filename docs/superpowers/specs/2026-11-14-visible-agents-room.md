@@ -503,6 +503,17 @@ the project needed attention. The reviewer's notes now lead (with its score),
 followed by what the attempt answered (`verdictFeedback`). A failed check
 still comes first: the reviewer never ran over it.
 
+## A team run's wall is sized by its team (2026-11-15)
+
+A team run had a fixed five minutes whatever its size. Seen in the installed
+app: three seats researched a question — the lead's first post took 2m17s on
+a slow provider, the researcher used its twelve tool turns and answered, the
+critic answered — and the run was killed while the lead wrote the synthesis.
+It is the same work as a build step's board, so it gets the same wall
+(`teamWallMs`): one wake's worth for one or two seats, one more for every
+further two, never past the ceiling for unattended work and never below the
+old five minutes. The notice names the wall the run was really given.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

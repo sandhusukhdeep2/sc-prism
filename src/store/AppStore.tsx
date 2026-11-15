@@ -1261,6 +1261,24 @@ export function stepWallMs(budget: TurnBudget, seats: number): number {
 }
 
 /**
+ * THE WALL FOR A TEAM RUN, SIZED BY ITS TEAM (2026-11-15).
+ *
+ * A team run had a fixed five minutes whatever its size. Seen in the installed
+ * app: three seats researched a question — the lead's first post took 2m17s on
+ * a slow provider, the researcher used its twelve tool turns and answered, the
+ * critic answered — and the run was killed while the lead wrote the synthesis.
+ * Everything the board had done was finished, and there was no answer.
+ *
+ * It is the same work as a build step's board, so it gets the same wall: one
+ * wake's worth for one or two seats and one more for every further two, never
+ * past the ceiling for unattended work — and never below the old fixed wall.
+ * The run is on the board with a Stop button the whole time.
+ */
+export function teamWallMs(budget: TurnBudget, seats: number): number {
+  return Math.max(TEAM_TIMEOUT_MS, stepWallMs(budget, seats))
+}
+
+/**
  * Floor for the chat composer's client wall. It was a bare `120_000` at the
  * call site; it is named here because it is now a FLOOR, not the whole answer.
  *
@@ -1316,8 +1334,10 @@ export const TEAM_BUSY_TEXT =
 
 /** Honest copy for the two non-result endings (never dressed up as a failure of
  *  the team's reasoning). */
-export const TEAM_TIMEOUT_TEXT =
-  'We stopped the team run at 5 minutes — that is our own wall, not a provider failure. Try a smaller task.'
+export function teamTimeoutText(wallMs: number): string {
+  const minutes = Math.max(1, Math.round(wallMs / 60_000))
+  return `We stopped the team run at ${minutes} minute${minutes === 1 ? '' : 's'} — that is our own wall, not a provider failure. Try a smaller task.`
+}
 export const TEAM_FAILED_TEXT = 'Team run failed — check the agents list and try again.'
 /** A team run the user stopped: said as a stop, never as a failure. */
 export const TEAM_STOPPED_TEXT = 'Stopped — you stopped this team run.'
@@ -1335,7 +1355,7 @@ export const TEAM_STOPPED_TEXT = 'Stopped — you stopped this team run.'
 export type TeamLaunch =
   | { status: 'busy' }
   | { status: 'ok'; result: TeamResult; sitOut: SitOut[]; reassigned: Reassigned[] }
-  | { status: 'timeout'; salvage: string }
+  | { status: 'timeout'; salvage: string; /** The wall this run was given, ms. */ wallMs: number }
   /** The user pressed Stop. `salvage` says what the board had got done. */
   | { status: 'stopped'; salvage: string }
   | { status: 'failed'; cause: string }
@@ -2770,9 +2790,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
           providers.userCapabilities = caps.userCapabilities
           providers.agentCapabilities = caps.agentCapabilities
         }
+        // The wall, sized by this team on this Mac (teamWallMs).
+        let teamWall = TEAM_TIMEOUT_MS
+        try {
+          teamWall = teamWallMs(
+            turnBudget(
+              latencyFromSpans(
+                await readSpansTail(vault, 200),
+                s.providers.find((p) => p.id === 'local')?.model ?? '',
+              ),
+            ),
+            seatNames.length,
+          )
+        } catch {
+          /* no spans readable -> the fixed floor */
+        }
         const teamOutcome = await raceCancelable(
           runNativeTeam(task, vault, providers, roster, 1, budget, teamRunId, 0, opts.mode ?? ''),
-          TEAM_TIMEOUT_MS,
+          teamWall,
           teamRunId,
         )
         const res = teamOutcome.timedOut ? null : teamOutcome.value
@@ -2798,7 +2833,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return { status: 'stopped', salvage }
         }
         if (teamOutcome.timedOut) {
-          detail = 'stopped at 300s'
+          detail = `stopped at ${Math.round(teamWall / 1000)}s`
           // The wall stays; throwing the work away does not. Everything the
           // board got done is already on disk — read it back and say so, so a
           // stopped run reports its findings instead of vanishing.
@@ -2808,7 +2843,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } catch {
             /* no spans readable -> no claim made */
           }
-          return { status: 'timeout', salvage }
+          return { status: 'timeout', salvage, wallMs: teamWall }
         }
         outcome = 'failed'
         detail = 'the team run returned nothing'
@@ -2883,9 +2918,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return
       }
       if (launch.status === 'timeout') {
-        notice(
-          launch.salvage ? `${TEAM_TIMEOUT_TEXT}\n\n${launch.salvage}` : TEAM_TIMEOUT_TEXT,
-        )
+        const stoppedAt = teamTimeoutText(launch.wallMs)
+        notice(launch.salvage ? `${stoppedAt}\n\n${launch.salvage}` : stoppedAt)
         return
       }
       if (launch.status === 'stopped') {

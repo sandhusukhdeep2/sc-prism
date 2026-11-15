@@ -53,7 +53,7 @@ import {
   TEAM_BUSY_TEXT,
   TEAM_FAILED_TEXT,
   TEAM_STOPPED_TEXT,
-  TEAM_TIMEOUT_TEXT,
+  teamTimeoutText,
   TEAM_TOKEN_BUDGET,
   useApp,
   useWakeNow,
@@ -542,7 +542,9 @@ function TeamLauncher() {
         // The launcher says what the board got done before the wall too — the
         // same salvage line the Work chat shows, from the same spans.
         setError(
-          outcome.salvage ? `${TEAM_TIMEOUT_TEXT}\n\n${outcome.salvage}` : TEAM_TIMEOUT_TEXT,
+          outcome.salvage
+            ? `${teamTimeoutText(outcome.wallMs)}\n\n${outcome.salvage}`
+            : teamTimeoutText(outcome.wallMs),
         )
       // Stopped from the Work room while it ran: said as a stop, not a failure.
       else if (outcome.status === 'stopped')

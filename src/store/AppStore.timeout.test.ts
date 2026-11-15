@@ -14,6 +14,9 @@ import {
   chatWallMs,
   wakeWallMs,
   stepWallMs,
+  teamWallMs,
+  teamTimeoutText,
+  TEAM_TIMEOUT_MS,
 } from './AppStore'
 import { ABS_CEILING_MS, UNATTENDED_CEILING_MS } from '../lib/runBudget'
 import type { Verdict } from '../engine/types'
@@ -362,5 +365,49 @@ describe('stepWallMs — a build step’s wall', () => {
 
   it('no seats at all (a solo doer) is the wake’s wall', () => {
     expect(stepWallMs(quiet, 0)).toBe(wakeWallMs(quiet))
+  })
+})
+
+// THE WALL FOR A TEAM RUN, SIZED BY ITS TEAM (2026-11-15).
+//
+// Seen in the installed app: three seats were asked to research a town's
+// businesses. The lead's first post took 2m17s on a slow provider, the
+// researcher used its twelve tool turns and answered, the critic answered —
+// and the run was killed at five minutes while the lead was writing the
+// synthesis. Sixty thousand tokens of finished work, and no answer. A team
+// run had a fixed five-minute wall whatever its size, the same shape of
+// mistake a build step had.
+describe('teamWallMs — a team run’s wall', () => {
+  const quiet = { ceilingMs: 0, stallMs: 0 } as never
+
+  it('is sized by the team, exactly as a build step is', () => {
+    expect(teamWallMs(quiet, 3)).toBe(stepWallMs(quiet, 3))
+    expect(teamWallMs(quiet, 5)).toBe(stepWallMs(quiet, 5))
+  })
+
+  it('three seats get well past the five minutes that cut the run off', () => {
+    expect(teamWallMs(quiet, 3)).toBeGreaterThanOrEqual(2 * 420_000)
+  })
+
+  it('is never shorter than the old fixed wall', () => {
+    expect(teamWallMs(quiet, 0)).toBeGreaterThanOrEqual(TEAM_TIMEOUT_MS)
+    expect(teamWallMs(quiet, 1)).toBeGreaterThanOrEqual(TEAM_TIMEOUT_MS)
+  })
+
+  it('never past the ceiling for unattended work', () => {
+    expect(teamWallMs(quiet, 40)).toBe(UNATTENDED_CEILING_MS)
+  })
+})
+
+describe('teamTimeoutText — what the room is told', () => {
+  it('names the wall the run was actually given, in minutes', () => {
+    expect(teamTimeoutText(840_000)).toBe(
+      'We stopped the team run at 14 minutes — that is our own wall, not a provider failure. Try a smaller task.',
+    )
+    expect(teamTimeoutText(300_000)).toContain('at 5 minutes')
+  })
+
+  it('one minute is one minute', () => {
+    expect(teamTimeoutText(60_000)).toContain('at 1 minute —')
   })
 })
