@@ -157,8 +157,7 @@ it — live, attributed, and real:
 
 ## Look inside
 
-Captures of the app in ordinary use — not mockups. They were taken on 0.2.0;
-nothing they show changed in 0.2.1. Each
+Captures of the app in ordinary use — not mockups. They were taken on 0.2.0. Each
 frame is the working area of the window; the sidebar is left out because on
 the Work page it lists the author's own projects by name. Nothing inside a
 frame was retouched and no figure was altered: every number is what the app
@@ -320,9 +319,9 @@ returned success whether or not it had blocked.
 
 Each one is now covered by a test that fails without the fix.
 
-Version 0.2.1 has not been put through that probe again, and this page will
+Version 0.2.2 has not been put through that probe again, and this page will
 not pretend it has. What gates it is the suite every commit must pass before
-it lands: 3,497 client tests, 57 in the Rust shell and 1,552 in the engine,
+it lands: 3,565 client tests, 57 in the Rust shell and 1,574 in the engine,
 all green on the tagged source — and the release notes list what was checked
 by hand in the installed app and what was not.
 
@@ -423,17 +422,16 @@ record.
 
 1. Download [`SC.Prism.dmg`](https://github.com/sandhusukhdeep2/sc-prism/releases/latest/download/SC.Prism.dmg) (the [latest release](https://github.com/sandhusukhdeep2/sc-prism/releases/latest) has the notes).
 2. Open it, drag **SC Prism** to Applications, launch.
-3. **First launch only:** this build is signed with a Developer ID (team
-   `BRBG2SV36D`) but not yet notarised by Apple, so macOS will say it can't
-   verify the app. Check what you downloaded before you override that:
+3. **First launch only:** SC Prism is distributed directly — signed with a
+   Developer ID (team `BRBG2SV36D`) and not notarised by Apple — so macOS
+   will say it can't verify the app. Check what you downloaded before you override that:
    `shasum -a 256 SC.Prism.dmg` should print the SHA-256 given in the
    [release notes](https://github.com/sandhusukhdeep2/sc-prism/releases/latest), and
    `codesign -dv "/Applications/SC Prism.app"` should show
    `TeamIdentifier=BRBG2SV36D`. Then open
    **System Settings → Privacy & Security**, scroll to *Security*, and click
    **Open Anyway** next to SC Prism. (Or run
-   `xattr -dr com.apple.quarantine "/Applications/SC Prism.app"`.) A notarised
-   build replaces this one as soon as it's ready.
+   `xattr -dr com.apple.quarantine "/Applications/SC Prism.app"`.)
 4. The setup wizard walks you through providers (your own Claude/Gemini
    accounts or API keys, and/or a local model server), your vault folder, and
    the grants you choose to give.
