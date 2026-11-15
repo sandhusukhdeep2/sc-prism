@@ -459,6 +459,22 @@ empty reply or a stand-in leaves the marker as it was. It is one more model
 call and never a tool, and it is not made when the run's token budget is
 already spent.
 
+## "One more try?" is run by the team as it is set now (2026-11-15)
+
+Seen in the installed app: a build failed twice with its writing seat on a
+local model and parked on "give it one more shot?". The team was changed in
+Details — both seats moved to another AI — and Yes was pressed. The retry ran
+on the old seats.
+
+A build's team is settled once, when the run starts, so an edit made while a
+step runs cannot change the seats under it. A build waiting on its owner is
+running nothing, and changing the team is the most natural answer to the
+question it asks. When the team asked for is different by the time Yes is
+given, the Yes is handed to a new run, which staffs from what is set now
+through every gate a start goes through; the room says "The team was changed
+while this build waited — the one more try runs on the team set now." With
+the team left alone nothing changes, and a No is a No.
+
 ## Not built here
 
 - "Live" stays in the rail (the owner asked for that page on 11-12); the

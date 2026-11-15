@@ -1166,6 +1166,10 @@ export const STOPPED_WAKE_LINE = 'stopped by you — no check was made'
 
 /** A manager job's run line when the user stopped it (the room's Stop). */
 export const STOPPED_JOB_SUMMARY = 'stopped by you — no report was written'
+/** The room's line when a parked build's retry is handed to a new run because
+ *  the team was changed while it waited (see the "one more try?" answer). */
+export const RETRY_ON_NEW_TEAM_LINE =
+  'The team was changed while this build waited — the one more try runs on the team set now.'
 
 /**
  * A BUILD STEP's contract envelope — the hard token cap the step's Verdict
@@ -4861,6 +4865,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // again. (A supersede/throw exits above; the `finally` clears the
             // whole entry, so a parked flag can never leak.)
             pauseLiveRun(buildLiveId, false)
+            // THE TEAM AS IT IS SET NOW (2026-11-15). This run's team was
+            // settled when it started, so that an edit made while a step runs
+            // cannot change the seats under it. But while it waited here it
+            // ran nothing, and changing the team is the most natural answer to
+            // "give it one more shot?" — seen in the installed app: the
+            // writing seat was moved off a local model, Yes was pressed, and
+            // the retry ran on the old seats. So when the team asked for has
+            // changed, the Yes is handed to a NEW run, which staffs from what
+            // is set now through every gate a start goes through. The project
+            // is left 'awaiting', which is how that run knows the question is
+            // already open (and `preAnswered` that it is already answered).
+            if (decision === 'granted') {
+              const current = getProjects().projects.find((p) => p.id === projectId)
+              const askedNow = current
+                ? projectBuildRoster(current, listAgents(), allowAllProviders, (r) =>
+                    seatByWorkload(settingsRef.current, r),
+                  )
+                : askedRoster
+              if (askedNow !== askedRoster) {
+                dispatch({
+                  type: 'ADD_MESSAGE',
+                  thread: projectId,
+                  message: { id: nextId(), kind: 'notice', text: RETRY_ON_NEW_TEAM_LINE },
+                })
+                buildEnd = { outcome: 'stopped', detail: 'handed to a new run, on the team set now' }
+                void runProject(projectId, { preAnswered: true })
+                return
+              }
+            }
             extraGranted = decision === 'granted'
             updateProject(projectId, { status: 'running' })
             pending = nextRunAction(
