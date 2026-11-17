@@ -510,8 +510,9 @@ check's log is.
 
 ### One model's words in another model's prompt (2026-11-17)
 
-A security review of the above found three gaps, all in `reviewerNotes` /
-`verdictFeedback` (after 0.2.2, not in that release):
+A security review of the above found three gaps, and a review of the fix a
+fourth, all in `reviewerNotes` / `verdictFeedback` (after 0.2.2, not in that
+release):
 
 - **The stand-in check ran once, before the strip.** Notes that were a tool
   request followed by `[offline: …]` passed it, lost the request, and were
@@ -523,14 +524,36 @@ A security review of the above found three gaps, all in `reviewerNotes` /
   whatever its label (`stripFencedBlocks` in `lib/answerText.ts`): a request
   does not need the exact `tool_call` label to be read as one. An answer still
   keeps its code fences; this is for quoted notes only.
+- **The notes could fake where they end.** Notes with their own blank line and
+  "What the attempt answered:" read as if the quote had closed and the app
+  were speaking again. They are now quoted on one line — every run of
+  whitespace becomes a space — so the feedback's paragraphs are only ever the
+  app's. The end of the line is a delimiter the notes cannot contain; a random
+  marker would do the same job but would make `verdictFeedback` impure and
+  put noise on the Needs-you row.
 - **The strip was silent.** An answer that loses a tool request is marked
   `[incomplete: …]`; the notes were not. The feedback now says so, before the
   notes: a tool request "was removed and never ran", or "a fenced block was
   removed". Notes that were nothing but a block give that line alone.
 
-The label is wording, not a wall: it lowers the chance a retry obeys the
-reviewer's text, it does not make that impossible. Policy is still enforced by
-hooks (ADR-010), not by this sentence.
+`stripFencedBlocks` promises one thing that can be checked: no run of three or
+more backticks or tildes is left. A single left-to-right pass did not keep
+that promise (found by a second review, same day). Taking a block out can push
+its neighbours together into a new fence (` ``~~~x~~~`tool_call `), so it
+repeats until none is left; and a stray fence ahead of a tool request could
+decide which half was "the block", so each round takes `tool_call` blocks
+first, by their label. Fences are matched anywhere, as the engine's parser
+matches them — a line-by-line reading would miss a mid-line opener the engine
+accepts.
+
+What is not attempted: judging the words themselves. Notes that ask for a tool
+in plain prose, or carry a request's JSON with no fence, are quoted — a filter
+on words like `"tool":` is passed by leaving the fence off, so it would only
+look like protection. The engine fires a tool request only from a
+` ```tool_call ` block in a model's own reply, and that form can no longer
+arrive through the notes. The label is wording, not a wall: it lowers the
+chance a retry obeys the reviewer's text, it does not make that impossible.
+Policy is still enforced by hooks (ADR-010), not by this sentence.
 
 ## A team run's wall is sized by its team (2026-11-15)
 

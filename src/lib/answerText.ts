@@ -101,10 +101,30 @@ const ANY_FENCED_BLOCK = /`{3,}[\s\S]*?(?:`{3,}|$)|~{3,}[\s\S]*?(?:~{3,}|$)/g
  * reading it to take it as one. Same rules otherwise: a fence with no closer
  * owns the rest of the string, the whitespace left behind is tidied, and text
  * with no fence comes back unchanged.
+ *
+ * WHAT IT PROMISES: no run of three or more backticks or tildes is left, so
+ * no fence of any kind is — however the input was arranged. Two things make
+ * that true where one left-to-right pass would not:
+ *
+ *  - It repeats until nothing is left to take. Removing a block can push the
+ *    characters either side of it together into a NEW fence
+ *    (``~~~x~~~`tool_call → ```tool_call).
+ *  - Each round takes the `tool_call` blocks first, found by their LABEL.
+ *    Pairing fences in order lets a stray one ahead decide which half counts
+ *    as the block; a tool request goes whole, body included, regardless.
+ *
+ * Fences are matched ANYWHERE, not only at the start of a line: the engine's
+ * parser fires on a mid-line opener, so a line-by-line reading would miss
+ * one it accepts. Words outside every fence are kept — that is what notes are.
  */
 export function stripFencedBlocks(text: string): string {
   if (!ANY_FENCE.test(text)) return text
-  return text.replace(ANY_FENCED_BLOCK, '').replace(/\n{3,}/g, '\n\n').trim()
+  let out = text
+  // Ends: every round that finds a fence removes at least its three characters.
+  do {
+    out = stripToolCallBlocks(out).replace(ANY_FENCED_BLOCK, '')
+  } while (ANY_FENCE.test(out))
+  return out.replace(/\n{3,}/g, '\n\n').trim()
 }
 
 /**

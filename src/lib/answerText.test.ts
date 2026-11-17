@@ -114,6 +114,21 @@ describe('stripFencedBlocks — every fence, whatever its label', () => {
     expect(stripFencedBlocks('prose first\n```json\n{"tool": "web_')).toBe('prose first')
     expect(stripFencedBlocks('prose first\n~~~\nrm -rf')).toBe('prose first')
   })
+
+  // One pass is not enough: taking a block out can push what was either side
+  // of it together into a new fence.
+  it('a fence pieced together by removing a block does not survive either', () => {
+    const out = stripFencedBlocks('note ``~~~x~~~`tool_call\n{"tool":"a"}\n``~~~y~~~` end')
+    expect(out).not.toMatch(/`{3,}|~{3,}/)
+    expect(out).not.toContain('"tool"')
+    expect(stripFencedBlocks('a ~~```x```~ b ~~```y```~ c')).not.toMatch(/`{3,}|~{3,}/)
+  })
+
+  // Pairing fences left to right lets a stray one decide which half is "the
+  // block". A tool request is found by its label, so it always goes whole.
+  it('a stray fence ahead of a tool request cannot flip which half is kept', () => {
+    expect(stripFencedBlocks('x ``` y ```tool_call\n{"tool":"a"}\n```')).toBe('x')
+  })
 })
 
 // --- Every user-visible path that can surface a raw completion -------------

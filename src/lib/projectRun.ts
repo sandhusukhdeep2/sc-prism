@@ -166,6 +166,12 @@ const NOTES_FENCE_REMOVED = "a fenced block was removed from the reviewer's note
  *    are read by another model, and a request under any label reads as one;
  *  - a strip is never silent: `removed` carries the `[incomplete: …]` line
  *    that says so, as the answer path's marker does;
+ *  - they are ONE LINE: every run of whitespace, line breaks included, becomes
+ *    a space. The label in front of them only helps if they cannot fake where
+ *    they end, and the feedback's own layout is made of line breaks ("What
+ *    the attempt answered:" after a blank line). The end of the line is a
+ *    delimiter the notes cannot contain — no random marker needed, so this
+ *    stays a pure function and the Needs-you row stays readable;
  *  - the length is bounded.
  *
  * `text` is '' when there is nothing to quote; `removed` can still be set
@@ -176,10 +182,11 @@ function reviewerNotes(review: Verdict['tier2'] | undefined): { text: string; re
   if (!review || review.passed) return none
   const raw = (review.judgeNotes ?? '').trim()
   if (!isRealText(raw)) return none
-  const clean = stripFencedBlocks(raw)
-  if (clean && !isRealText(clean)) return none
-  const text = clean.length > MAX_LOG_CHARS ? clean.slice(0, MAX_LOG_CHARS) : clean
-  if (clean === raw) return { text, removed: '' }
+  const stripped = stripFencedBlocks(raw)
+  const line = stripped.replace(/\s+/g, ' ').trim()
+  if (line && !isRealText(line)) return none
+  const text = line.length > MAX_LOG_CHARS ? line.slice(0, MAX_LOG_CHARS) : line
+  if (stripped === raw) return { text, removed: '' }
   const reason = hasToolCallFence(raw) ? NOTES_TOOL_REMOVED : NOTES_FENCE_REMOVED
   return { text, removed: `${INCOMPLETE_PREFIX} ${reason}]` }
 }
@@ -224,6 +231,8 @@ export function verdictFeedback(verdict: Verdict): string {
     // the reviewer, for information — so the attempt reading them does not
     // take them as the next thing to do. What this app has to say about them
     // (something was removed) comes before that label, never inside the quote.
+    // The quote runs to the end of its line and `reviewerNotes` hands back a
+    // single line, so the blank line below is always this function's own.
     const said = [
       `The reviewer did not pass this${score}.`,
       notes.removed,
