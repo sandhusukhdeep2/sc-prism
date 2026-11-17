@@ -319,9 +319,9 @@ returned success whether or not it had blocked.
 
 Each one is now covered by a test that fails without the fix.
 
-Version 0.2.2 has not been put through that probe again, and this page will
+Version 0.2.3 has not been put through that probe again, and this page will
 not pretend it has. What gates it is the suite every commit must pass before
-it lands: 3,565 client tests, 57 in the Rust shell and 1,574 in the engine,
+it lands: 3,577 client tests, 57 in the Rust shell and 1,574 in the engine,
 all green on the tagged source — and the release notes list what was checked
 by hand in the installed app and what was not.
 
