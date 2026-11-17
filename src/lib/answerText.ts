@@ -84,6 +84,29 @@ export function stripToolCallBlocks(text: string): string {
   return out.replace(/\n{3,}/g, '\n\n').trim()
 }
 
+/** Any fence at all: a run of three or more backticks or tildes. */
+const ANY_FENCE = /`{3,}|~{3,}/
+
+/** A whole fenced block — its opener to the next fence of the same kind, or
+ *  to the end of the text when it never closes. */
+const ANY_FENCED_BLOCK = /`{3,}[\s\S]*?(?:`{3,}|$)|~{3,}[\s\S]*?(?:~{3,}|$)/g
+
+/**
+ * Remove every fenced block from `text`, whatever its label.
+ *
+ * For model text that is QUOTED INTO ANOTHER MODEL'S PROMPT (a reviewer's
+ * notes), not for an answer: an answer keeps its code fences, and only the
+ * `tool_call` ones are protocol (`stripToolCallBlocks`). Quoted text keeps
+ * none — a request does not need the exact `tool_call` label for the model
+ * reading it to take it as one. Same rules otherwise: a fence with no closer
+ * owns the rest of the string, the whitespace left behind is tidied, and text
+ * with no fence comes back unchanged.
+ */
+export function stripFencedBlocks(text: string): string {
+  if (!ANY_FENCE.test(text)) return text
+  return text.replace(ANY_FENCED_BLOCK, '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 /**
  * Make `text` safe to show a human as an answer.
  *

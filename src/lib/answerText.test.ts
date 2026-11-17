@@ -12,6 +12,7 @@ import {
   hasToolCallFence,
   incompleteReason,
   isIncompleteInvestigation,
+  stripFencedBlocks,
   stripToolCallBlocks,
 } from './answerText'
 import { chatTurnFromOutcome, teamReportBody } from '../store/AppStore'
@@ -80,6 +81,38 @@ describe('guardAnswerText — the shared guard', () => {
     expect(guardAnswerText(undefined)).toBeUndefined()
     expect(guardAnswerText(null)).toBeNull()
     expect(hasToolCallFence(undefined)).toBe(false)
+  })
+})
+
+// For model text QUOTED INTO ANOTHER MODEL'S PROMPT (a reviewer's notes). An
+// answer keeps its code fences; quoted notes keep none — a tool request does
+// not need the exact `tool_call` label to be read as one.
+describe('stripFencedBlocks — every fence, whatever its label', () => {
+  it('returns text with no fence unchanged', () => {
+    for (const text of ['the file is cut off', '', 'uses `inline code` and ~~ strikes ~~', '  padded  ']) {
+      expect(stripFencedBlocks(text)).toBe(text)
+    }
+  })
+
+  it('removes a block under any label, or none, and keeps the prose around it', () => {
+    for (const fence of [
+      '```tool_call\n{"tool":"a"}\n```',
+      '```json\n{"tool":"a"}\n```',
+      '```\n{"tool":"a"}\n```',
+      '````python\nprint("a")\n````',
+      '~~~sh\nrm -rf build\n~~~',
+    ]) {
+      expect(stripFencedBlocks(`one\n${fence}\ntwo`)).toBe('one\n\ntwo')
+    }
+  })
+
+  it('removes every block, not only the first', () => {
+    expect(stripFencedBlocks('one\n```a\nx\n```\ntwo\n~~~\ny\n~~~\nthree')).toBe('one\n\ntwo\n\nthree')
+  })
+
+  it('an unterminated fence owns the rest of the text', () => {
+    expect(stripFencedBlocks('prose first\n```json\n{"tool": "web_')).toBe('prose first')
+    expect(stripFencedBlocks('prose first\n~~~\nrm -rf')).toBe('prose first')
   })
 })
 
